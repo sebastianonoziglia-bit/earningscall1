@@ -1,15 +1,9 @@
-from __future__ import annotations
-
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 import streamlit as st
 # Set page config - Must be the first Streamlit command
 st.set_page_config(page_title="Overview", page_icon="📊", layout="wide")
 
 from utils.global_fonts import apply_global_fonts
+apply_global_fonts()
 
 
 import pandas as pd
@@ -22,15 +16,14 @@ import textwrap
 import html
 import json
 import re
-import base64
 import requests
-from urllib.parse import quote_plus
 import streamlit.components.v1 as components
+from pathlib import Path
 from data_processor import FinancialDataProcessor
 from subscriber_data_processor import SubscriberDataProcessor
 from utils.state_management import get_data_processor, initialize_session_state
 from utils.animation_helper import update_chart_layout, create_consistent_frame, get_dynamic_tick_values, create_animation_buttons
-from utils.styles import get_page_style, load_overview_specific_styles
+from utils.styles import get_page_style
 from utils.components import load_company_logos, render_ai_assistant
 from utils.header import display_header
 from utils.data_loader import CONTINENT_MAPPINGS, AD_MACRO_CATEGORIES
@@ -42,14 +35,9 @@ from utils.data_granularity import (
     get_quarter_labels_for_year,
     update_global_time_context,
 )
-from utils.workbook_market_data import load_combined_stock_market_data
 
-st.session_state["active_nav_page"] = "overview"
-st.session_state["_active_nav_page"] = "overview"
-display_header()
-apply_global_fonts()
 st.markdown(get_page_style(), unsafe_allow_html=True)
-load_overview_specific_styles()
+display_header()
 
 # Streamlit markdown can treat indented HTML as a code block. Normalize HTML blocks to avoid that.
 def _html_block(html: str) -> str:
@@ -1015,6 +1003,7 @@ COMPANY_TICKERS = {
     "Roku": "ROKU",
 }
 
+
 def company_ticker(company: str) -> str:
     name = str(company or "").strip()
     return COMPANY_TICKERS.get(name, name[:5].upper() if name else "")
@@ -1634,26 +1623,7 @@ def get_available_years(data_processor):
     df_metrics = getattr(data_processor, "df_metrics", None)
     if df_metrics is not None and not df_metrics.empty:
         years = df_metrics["year"].dropna().unique().tolist()
-        normalized = sorted({int(y) for y in years if pd.notna(y)})
-        if normalized:
-            return normalized
-
-    # Fallback: read metrics years directly from workbook when processor index is empty.
-    excel_path = getattr(data_processor, "data_path", "")
-    if excel_path and Path(excel_path).exists():
-        try:
-            workbook_years = pd.read_excel(
-                excel_path,
-                sheet_name="Company_metrics_earnings_values",
-                usecols=["Year"],
-            )
-            if workbook_years is not None and not workbook_years.empty:
-                vals = pd.to_numeric(workbook_years["Year"], errors="coerce").dropna().astype(int).tolist()
-                vals = sorted(set(vals))
-                if vals:
-                    return vals
-        except Exception:
-            pass
+        return sorted([int(y) for y in years])
 
     common_years = list(range(2010, 2025))
     available_years = []
@@ -1842,16 +1812,23 @@ def _load_stocks_crypto_timeseries_df(excel_path: str, source_stamp: int = 0) ->
     path = Path(excel_path)
     if not path.exists():
         return pd.DataFrame()
-    merged = load_combined_stock_market_data(
-        excel_path=str(path),
-        source_stamp=int(source_stamp or 0),
-        include_baseline=True,
-        include_daily=True,
-        include_minute=True,
-    )
-    if merged is None or merged.empty:
+    try:
+        df = pd.read_excel(path, sheet_name="Stocks & Crypto", usecols=["date", "price", "asset"])
+    except Exception:
+        try:
+            df = pd.read_excel(path, sheet_name="Stocks & Crypto")
+        except Exception:
+            return pd.DataFrame()
+    if df is None or df.empty:
         return pd.DataFrame()
-    out = merged[["date", "price", "asset"]].copy()
+    out = df.copy()
+    out.columns = [str(c).strip() for c in out.columns]
+    date_col = _find_column_by_alias(out, ["date", "datetime", "timestamp"])
+    price_col = _find_column_by_alias(out, ["price", "close", "close price", "closing price", "adj close", "adj_close"])
+    asset_col = _find_column_by_alias(out, ["asset", "name", "symbol", "ticker"])
+    if not date_col or not price_col or not asset_col:
+        return pd.DataFrame()
+    out = out.rename(columns={date_col: "date", price_col: "price", asset_col: "asset"})
     out["date"] = pd.to_datetime(out["date"], errors="coerce")
     out["price"] = pd.to_numeric(out["price"], errors="coerce")
     out["asset"] = out["asset"].astype(str).str.strip()
@@ -3504,29 +3481,15 @@ def render_macro_kpi_panel(
     m2_quarterly = _load_m2_quarterly(excel_path, source_stamp)
     groupm_channels = _load_groupm_channels_df(excel_path, source_stamp)
     duopoly_series = _compute_duopoly_share_series(data_processor, excel_path, source_stamp)
-    inflation_df = _load_inflation_yearly_df(excel_path, source_stamp)
-    rates_df = _load_macro_interest_rates_df(excel_path, source_stamp)
-    currency_df = _load_macro_currency_index_df(excel_path, source_stamp)
-    labor_df = _load_macro_labor_market_df(excel_path, source_stamp)
     metrics_df = getattr(data_processor, "df_metrics", None)
 
     if (
         m2_quarterly.empty
         and groupm_channels.empty
         and duopoly_series.empty
-        and rates_df.empty
-        and inflation_df.empty
         and (metrics_df is None or metrics_df.empty)
     ):
         return False
-
-    rate_row = _pick_macro_row_for_period(rates_df, int(selected_year), selected_quarter) if not rates_df.empty else None
-    currency_row = (
-        _pick_macro_row_for_period(currency_df, int(selected_year), selected_quarter)
-        if not currency_df.empty
-        else None
-    )
-    labor_row = _pick_macro_row_for_period(labor_df, int(selected_year), selected_quarter) if not labor_df.empty else None
 
     qnum = _parse_quarter_number(selected_quarter) or 4
     m2_current_value = np.nan
@@ -3562,7 +3525,6 @@ def render_macro_kpi_panel(
 
     internet_share = np.nan
     retail_yoy = np.nan
-    internet_share_delta = np.nan
     if not groupm_current.empty:
         row = groupm_current.iloc[0]
         channels = [
@@ -3586,11 +3548,6 @@ def render_macro_kpi_panel(
             cur_retail = float(row.get("Retail_Media") or 0.0)
             if prev_retail > 0:
                 retail_yoy = ((cur_retail - prev_retail) / prev_retail) * 100.0
-            prev_total = float(sum([float(prev_row.iloc[0].get(c) or 0.0) for c in channels]))
-            if prev_total > 0 and pd.notna(internet_share):
-                prev_internet_value = float(prev_row.iloc[0].get("Search", 0.0) or 0.0) + float(prev_row.iloc[0].get("NonSearch", 0.0) or 0.0)
-                prev_internet_share = (prev_internet_value / prev_total) * 100.0
-                internet_share_delta = internet_share - prev_internet_share
 
     duopoly_value = np.nan
     duopoly_delta = np.nan
@@ -3638,318 +3595,16 @@ def render_macro_kpi_panel(
                     if len(r_scope) > 1:
                         ratio_delta = ratio_value - float(r_scope.iloc[-2]["ratio"])
 
-    inflation_trend = np.nan
-    if inflation_df is not None and not inflation_df.empty:
-        infl_scope = inflation_df[inflation_df["Year"] <= int(selected_year)].sort_values("Year")
-        if infl_scope.empty:
-            infl_scope = inflation_df.sort_values("Year")
-        if len(infl_scope) >= 2:
-            inflation_trend = float(infl_scope.iloc[-1]["Inflation_YoY"]) - float(infl_scope.iloc[-2]["Inflation_YoY"])
-
-    liquidity_score = 0
-    if pd.notna(m2_yoy):
-        if float(m2_yoy) > 3.0:
-            liquidity_score = 1
-        elif float(m2_yoy) < 0.0:
-            liquidity_score = -1
-
-    inflation_score = 0
-    if pd.notna(inflation_trend):
-        if float(inflation_trend) < -0.10:
-            inflation_score = 1
-        elif float(inflation_trend) > 0.10:
-            inflation_score = -1
-
-    digital_score = 0
-    if pd.notna(internet_share_delta):
-        if float(internet_share_delta) > 0.20:
-            digital_score = 1
-        elif float(internet_share_delta) < -0.20:
-            digital_score = -1
-
-    concentration_delta = np.nan
-    concentration_high = False
-    if pd.notna(duopoly_delta):
-        concentration_delta = float(duopoly_delta)
-    elif pd.notna(ratio_delta):
-        concentration_delta = float(ratio_delta)
-    if pd.notna(duopoly_value) and float(duopoly_value) >= 44.0:
-        concentration_high = True
-    if pd.notna(ratio_value) and float(ratio_value) >= 0.60:
-        concentration_high = True
-
-    concentration_score = 0
-    if pd.notna(concentration_delta):
-        if pd.notna(duopoly_delta):
-            if concentration_delta > 1.0:
-                concentration_score = -1
-            elif concentration_delta < -1.0:
-                concentration_score = 1
-        else:
-            if concentration_delta > 0.03:
-                concentration_score = -1
-            elif concentration_delta < -0.03:
-                concentration_score = 1
-
-    regime_score = liquidity_score + inflation_score + digital_score + concentration_score
-    if regime_score >= 2:
-        regime_icon = "🟢"
-        regime_title = "Current Advertising Demand Regime: Expansion"
-        regime_description = (
-            "Liquidity supportive, inflation contained, advertising allocation expanding across digital and video channels."
-        )
-        regime_style = "background:rgba(34,197,94,0.14); border:1px solid rgba(34,197,94,0.36); color:#166534;"
-    elif regime_score <= -2:
-        regime_icon = "🔴"
-        regime_title = "Current Advertising Demand Regime: Tightening"
-        regime_description = (
-            "Liquidity contracting, inflation compressing advertiser margins, performance bias accelerating allocation shifts."
-        )
-        regime_style = "background:rgba(239,68,68,0.14); border:1px solid rgba(239,68,68,0.35); color:#991B1B;"
-    else:
-        regime_icon = "🟡"
-        if concentration_high:
-            regime_title = "Current Advertising Demand Regime: Neutral with Competitive Pressure"
-        else:
-            regime_title = "Current Advertising Demand Regime: Neutral"
-        regime_description = (
-            "Liquidity stabilizing, inflation moderating, platform concentration reinforcing pricing competition."
-        )
-        regime_style = "background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.35); color:#92400E;"
-
-    st.markdown("### Macro Snapshot")
-    st.markdown(
-        _html_block(
-            f"""
-            <div style="border-radius:12px; padding:10px 12px; margin:6px 0 14px 0; {regime_style}">
-              <div style="font-size:0.95rem; font-weight:800; line-height:1.35;">{regime_icon} {regime_title}</div>
-              <div style="font-size:0.88rem; margin-top:4px; line-height:1.45;">{html.escape(regime_description)}</div>
-            </div>
-            """
-        ),
-        unsafe_allow_html=True,
-    )
-    groupm_row = None
-    prev_groupm_row = None
-    if not groupm_current.empty:
-        groupm_row = groupm_current.iloc[0]
-        current_groupm_year = int(groupm_row["Year"])
-        prev_groupm = groupm_channels[groupm_channels["Year"] == current_groupm_year - 1]
-        if not prev_groupm.empty:
-            prev_groupm_row = prev_groupm.iloc[0]
-
-    digital_total = np.nan
-    tv_total = np.nan
-    total_ad_market = np.nan
-    ctv_revenue = np.nan
-    ctv_revenue_yoy = np.nan
-    digital_share = np.nan
-    ad_market_yoy = np.nan
-    tv_digital_label = "TV: 22% | Digital: 78%"
-    groupm_year_label = 2024
-    if groupm_row is not None:
-        groupm_year_label = int(groupm_row.get("Year") or 2024)
-        row_digital = (
-            float(groupm_row.get("Search", 0.0) or 0.0)
-            + float(groupm_row.get("NonSearch", 0.0) or 0.0)
-            + float(groupm_row.get("Retail_Media", 0.0) or 0.0)
-            + float(groupm_row.get("Connected_TV", 0.0) or 0.0)
-            + float(groupm_row.get("Digital_OOH", 0.0) or 0.0)
-        )
-        row_ctv = float(groupm_row.get("Connected_TV", 0.0) or 0.0)
-        row_tv = float(groupm_row.get("Traditional_TV", 0.0) or 0.0)
-        row_total = float(groupm_row.get("Total Advertising", np.nan))
-        if not np.isfinite(row_total) or row_total <= 0:
-            row_total = row_digital + row_tv + float(groupm_row.get("Traditional_OOH", 0.0) or 0.0)
-
-        if row_total > 0:
-            digital_total = row_digital
-            tv_total = row_tv
-            total_ad_market = row_total
-            ctv_revenue = row_ctv
-            digital_share = (row_digital / row_total) * 100.0
-            tv_share = (row_tv / row_total) * 100.0
-            tv_digital_label = f"TV: {tv_share:.0f}% | Digital: {digital_share:.0f}%"
-
-        if prev_groupm_row is not None:
-            prev_total = float(prev_groupm_row.get("Total Advertising", np.nan))
-            prev_ctv = float(prev_groupm_row.get("Connected_TV", 0.0) or 0.0)
-            if not np.isfinite(prev_total) or prev_total <= 0:
-                prev_total = (
-                    float(prev_groupm_row.get("Search", 0.0) or 0.0)
-                    + float(prev_groupm_row.get("NonSearch", 0.0) or 0.0)
-                    + float(prev_groupm_row.get("Retail_Media", 0.0) or 0.0)
-                    + float(prev_groupm_row.get("Connected_TV", 0.0) or 0.0)
-                    + float(prev_groupm_row.get("Digital_OOH", 0.0) or 0.0)
-                    + float(prev_groupm_row.get("Traditional_TV", 0.0) or 0.0)
-                    + float(prev_groupm_row.get("Traditional_OOH", 0.0) or 0.0)
-                )
-            if prev_total > 0 and row_total > 0:
-                ad_market_yoy = ((row_total - prev_total) / prev_total) * 100.0
-            if prev_ctv > 0 and row_ctv > 0:
-                ctv_revenue_yoy = ((row_ctv - prev_ctv) / prev_ctv) * 100.0
-
-    inflation_level = np.nan
-    if inflation_df is not None and not inflation_df.empty:
-        infl_level_scope = inflation_df[inflation_df["Year"] <= int(selected_year)].sort_values("Year")
-        if not infl_level_scope.empty:
-            inflation_level = float(infl_level_scope.iloc[-1]["Inflation_YoY"])
-
-    fed_rate = float(rate_row.get("FedFundsRate")) if rate_row is not None and pd.notna(rate_row.get("FedFundsRate")) else np.nan
-    ten_year_treasury = (
-        float(rate_row.get("TenYearTreasury"))
-        if rate_row is not None and pd.notna(rate_row.get("TenYearTreasury"))
-        else np.nan
-    )
-    eur_usd_value = (
-        float(currency_row.get("EUR_USD"))
-        if currency_row is not None and "EUR_USD" in currency_row.index and pd.notna(currency_row.get("EUR_USD"))
-        else np.nan
-    )
-    if not np.isfinite(eur_usd_value):
-        eur_usd_value = 1.08
-
-    consumer_confidence = (
-        float(labor_row.get("ConsumerConfidence"))
-        if labor_row is not None and "ConsumerConfidence" in labor_row.index and pd.notna(labor_row.get("ConsumerConfidence"))
-        else np.nan
-    )
-
-    macro_kpis_by_indicator = {}
-    try:
-        macro_kpis_df = pd.read_excel(excel_path, sheet_name="Macro_KPIs")
-        macro_kpis_df.columns = [str(col).strip().lower() for col in macro_kpis_df.columns]
-        if {"indicator", "value", "unit"}.issubset(macro_kpis_df.columns):
-            for _, kpi_row in macro_kpis_df.iterrows():
-                indicator_key = str(kpi_row.get("indicator", "")).strip().lower()
-                if not indicator_key:
-                    continue
-                macro_kpis_by_indicator[indicator_key] = {
-                    "value": pd.to_numeric(kpi_row.get("value"), errors="coerce"),
-                    "unit": str(kpi_row.get("unit", "")).strip(),
-                }
-    except Exception:
-        macro_kpis_by_indicator = {}
-
-    def _macro_kpi_text(indicator_name: str):
-        row = macro_kpis_by_indicator.get(str(indicator_name).strip().lower())
-        if not row:
-            return None
-        value = row.get("value")
-        unit = str(row.get("unit", "")).strip().lower()
-        if pd.isna(value):
-            return None
-        value = float(value)
-        if "usd billion" in unit:
-            return f"${value:,.0f}B" if float(value).is_integer() else f"${value:,.1f}B"
-        if unit == "%":
-            return f"{value:.1f}%".replace(".0%", "%")
-        if unit == "% yoy":
-            return f"{value:.1f}% YoY".replace(".0% YoY", "% YoY")
-        if unit == "rate":
-            return f"{value:.2f}".rstrip("0").rstrip(".")
-        if unit == "index":
-            return f"{value:,.0f}" if float(value).is_integer() else f"{value:,.1f}"
-        return f"{value:g} {row.get('unit', '')}".strip()
-
-    def _pill_class(value: float | int | None) -> str:
-        if value is None or pd.isna(value):
-            return ""
-        return "positive" if float(value) >= 0 else "negative"
-
-    def _pill(label: str, value_text: str, cls: str = "") -> str:
-        return (
-            f"<div class='ov-macro-pill {cls}' style='display:flex; flex-direction:column; align-items:flex-start; gap:4px; border-radius:12px;'>"
-            f"<span style='font-size:0.78rem; font-weight:700; line-height:1.2;'>{html.escape(label)}</span>"
-            f"<strong style='font-size:0.95rem; line-height:1.2;'>{html.escape(value_text)}</strong>"
-            "</div>"
-        )
-
-    st.markdown("<div class='ov-macro-label'>MONETARY & MACRO</div>", unsafe_allow_html=True)
-    fed_funds_text = _macro_kpi_text("Fed Funds Rate")
-    cpi_inflation_text = _macro_kpi_text("CPI Inflation")
-    ten_year_sheet_text = _macro_kpi_text("10Y Treasury Yield")
-    monetary_pills = [
-        _pill(
-            "🌊 M2 Money Supply",
+    st.markdown("### Macro KPI Panel")
+    cols = st.columns(4)
+    with cols[0]:
+        st.metric(
+            "M2 Money Supply",
             f"${m2_current_value / 1000.0:,.1f}T" if pd.notna(m2_current_value) else "N/A",
-            _pill_class(m2_yoy),
-        ),
-        _pill(
-            "🏦 Fed Funds Rate",
-            fed_funds_text or (f"{fed_rate:.2f}%" if np.isfinite(fed_rate) else "N/A"),
-            _pill_class(fed_rate),
-        ),
-        _pill(
-            "📈 10Y Treasury Yield",
-            ten_year_sheet_text
-            or (
-                f"{ten_year_treasury:.2f}%"
-                if np.isfinite(ten_year_treasury)
-                else "~4.3% (Mar 2026)"
-            ),
-            _pill_class(ten_year_treasury if np.isfinite(ten_year_treasury) else None),
-        ),
-        _pill(
-            "🧯 CPI Inflation",
-            cpi_inflation_text or (f"{inflation_level:.1f}%" if pd.notna(inflation_level) else "N/A"),
-            _pill_class(inflation_trend),
-        ),
-        _pill(
-            "🧲 Google + Meta Share",
-            f"{duopoly_value:,.1f}%" if pd.notna(duopoly_value) else "N/A",
-            _pill_class(-(duopoly_delta) if pd.notna(duopoly_delta) else None),
-        ),
-        _pill(
-            "⚖️ Big Tech / M2",
-            f"{ratio_value:,.2f}x" if pd.notna(ratio_value) else "N/A",
-            _pill_class(ratio_delta),
-        ),
-    ]
-    st.markdown(
-        "<div class='ov-macro-row' style='display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px;'>"
-        + "".join(monetary_pills)
-        + "</div>",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<div class='ov-macro-label'>ADVERTISING & MEDIA MARKET</div>", unsafe_allow_html=True)
-    tv_market_value = _macro_kpi_text("Global TV Ad Market") or "~$155B (2024)"
-    digital_market_value = _macro_kpi_text("Global Digital Ad Market") or "~$740B (2024)"
-    ctv_value = _macro_kpi_text("CTV Ad Revenue") or "~$30B (2024, +18% YoY)"
-    digital_share_value = _macro_kpi_text("Digital Share of Total Ad") or "~78% (2024)"
-    consumer_confidence_value = _macro_kpi_text("Consumer Confidence Index") or "~98 (Feb 2026)"
-    eurusd_value = _macro_kpi_text("EUR/USD Rate") or "~1.08 (Mar 2026)"
-    ten_year_value = ten_year_sheet_text or "~4.3% (Mar 2026)"
-    advertising_pills = [
-        _pill("📺 Global TV Ad Market", tv_market_value, _pill_class(ad_market_yoy)),
-        _pill("💻 Global Digital Ad Market", digital_market_value, _pill_class(ad_market_yoy)),
-        _pill("📡 CTV Ad Revenue", ctv_value, _pill_class(ctv_revenue_yoy)),
-        _pill("📊 Digital Share of Total Ad", digital_share_value, _pill_class(ad_market_yoy)),
-        _pill("🎯 Consumer Confidence", consumer_confidence_value),
-        _pill("💱 EUR/USD", eurusd_value),
-        _pill("📈 10Y Treasury Yield", ten_year_value),
-    ]
-    st.markdown(
-        "<div class='ov-macro-row' style='display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px;'>"
-        + "".join(advertising_pills)
-        + "</div>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<div style='margin-top:8px; color:#64748B; font-size:0.78rem; font-style:italic;'>"
-        "Source: Macro_KPIs sheet — edit directly in Excel to update values."
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    trend_cols = st.columns(3)
-    with trend_cols[0]:
-        st.caption("M2 Trend")
-        if m2_tail.empty:
-            st.info("Chart data not available — pipeline not yet run.")
-        else:
-            m2_fig = go.Figure(
+            f"{m2_yoy:+.1f}% YoY" if pd.notna(m2_yoy) else "YoY N/A",
+        )
+        if not m2_tail.empty:
+            spark = go.Figure(
                 go.Scatter(
                     x=m2_tail["period"],
                     y=m2_tail["m2_usd_bn"] / 1000.0,
@@ -3960,75 +3615,33 @@ def render_macro_kpi_panel(
                     showlegend=False,
                 )
             )
-            m2_fig.update_layout(
-                height=180,
-                margin=dict(l=8, r=8, t=8, b=8),
+            spark.update_layout(
+                height=120,
+                margin=dict(l=4, r=4, t=6, b=6),
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
                 xaxis=dict(visible=False),
                 yaxis=dict(visible=False),
             )
-            st.plotly_chart(m2_fig, use_container_width=True, config=plotly_config)
-
-    with trend_cols[1]:
-        st.caption("Fed Funds Trend")
-        rate_trend = rates_df[rates_df["Year"] <= int(selected_year)].sort_values(["Year", "QuarterNum"]) if not rates_df.empty else pd.DataFrame()
-        rate_trend = rate_trend.dropna(subset=["FedFundsRate"]) if not rate_trend.empty else rate_trend
-        if rate_trend.empty:
-            st.info("Chart data not available — pipeline not yet run.")
-        else:
-            rate_trend = rate_trend.tail(8).copy()
-            rate_trend["period"] = rate_trend["Year"].astype(str) + " " + rate_trend["Quarter"].astype(str)
-            rate_fig = go.Figure(
-                go.Scatter(
-                    x=rate_trend["period"],
-                    y=rate_trend["FedFundsRate"],
-                    mode="lines+markers",
-                    line=dict(color="#1D4ED8", width=2),
-                    marker=dict(size=4),
-                    hovertemplate="%{x}<br>%{y:.2f}%<extra></extra>",
-                    showlegend=False,
-                )
-            )
-            rate_fig.update_layout(
-                height=180,
-                margin=dict(l=8, r=8, t=8, b=8),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                xaxis=dict(visible=False),
-                yaxis=dict(visible=False),
-            )
-            st.plotly_chart(rate_fig, use_container_width=True, config=plotly_config)
-
-    with trend_cols[2]:
-        st.caption("Inflation Trend")
-        infl_trend = inflation_df[inflation_df["Year"] <= int(selected_year)].sort_values("Year") if inflation_df is not None and not inflation_df.empty else pd.DataFrame()
-        infl_trend = infl_trend.dropna(subset=["Inflation_YoY"]) if not infl_trend.empty else infl_trend
-        if infl_trend.empty:
-            st.info("Chart data not available — pipeline not yet run.")
-        else:
-            infl_trend = infl_trend.tail(8).copy()
-            infl_fig = go.Figure(
-                go.Scatter(
-                    x=infl_trend["Year"],
-                    y=infl_trend["Inflation_YoY"],
-                    mode="lines+markers",
-                    line=dict(color="#F97316", width=2),
-                    marker=dict(size=4),
-                    hovertemplate="%{x}<br>%{y:.2f}%<extra></extra>",
-                    showlegend=False,
-                )
-            )
-            infl_fig.update_layout(
-                height=180,
-                margin=dict(l=8, r=8, t=8, b=8),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                xaxis=dict(visible=False),
-                yaxis=dict(visible=False),
-            )
-            st.plotly_chart(infl_fig, use_container_width=True, config=plotly_config)
-
+            st.plotly_chart(spark, use_container_width=True, config=plotly_config)
+    with cols[1]:
+        st.metric(
+            "Internet Ad Share",
+            f"{internet_share:,.1f}%" if pd.notna(internet_share) else "N/A",
+            f"Retail {retail_yoy:+.1f}% YoY" if pd.notna(retail_yoy) else "Retail YoY N/A",
+        )
+    with cols[2]:
+        st.metric(
+            "Google + Meta Share",
+            f"{duopoly_value:,.1f}%" if pd.notna(duopoly_value) else "N/A",
+            f"{duopoly_delta:+.1f}pp vs prior year" if pd.notna(duopoly_delta) else "Prior year N/A",
+        )
+    with cols[3]:
+        st.metric(
+            "Big Tech / M2 Ratio",
+            f"{ratio_value:,.2f}x" if pd.notna(ratio_value) else "N/A",
+            f"{ratio_delta:+.2f}x vs prior year" if pd.notna(ratio_delta) else "Prior year N/A",
+        )
     return True
 
 
@@ -4087,17 +3700,15 @@ def _render_macro_context_dashboard(
         ("10Y-2Y Spread", _format_compact_metric(rate_row.get("YieldCurveSpread") if rate_row is not None else np.nan, "%", 2)),
         ("Tech P/E", _format_compact_metric(tech_row.get("Tech_Aggregate_PE") if tech_row is not None else np.nan, "x", 1)),
     ]
-    visible_cards = [(label, value) for (label, value) in card_data if str(value).strip().upper() != "N/A"]
-    if not visible_cards:
-        return False
 
-    cols_per_row = 4
-    for start in range(0, len(visible_cards), cols_per_row):
-        row = visible_cards[start: start + cols_per_row]
-        row_cols = st.columns(len(row))
-        for col, (label, value) in zip(row_cols, row):
-            with col:
-                st.metric(label, value)
+    top_cols = st.columns(4)
+    for col, (label, value) in zip(top_cols, card_data[:4]):
+        with col:
+            st.metric(label, value)
+    bottom_cols = st.columns(4)
+    for col, (label, value) in zip(bottom_cols, card_data[4:]):
+        with col:
+            st.metric(label, value)
 
     notes = []
     if rate_row is not None:
@@ -4114,146 +3725,6 @@ def _render_macro_context_dashboard(
     if notes:
         st.caption(" | ".join(notes[:3]))
     return True
-
-
-def _render_overview_hero_banner() -> None:
-    """Top hero with MFE image, logo blur-bar, and quick page links."""
-    hero_image_path = Path("attached_assets/FAQ MFE.png")
-    logos = load_company_logos()
-    logo_order = [
-        "Alphabet",
-        "Meta Platforms",
-        "Amazon",
-        "Apple",
-        "Microsoft",
-        "Netflix",
-        "Disney",
-        "Comcast",
-        "Paramount Global",
-        "Warner Bros. Discovery",
-        "Spotify",
-        "Roku",
-    ]
-    logo_html = ""
-    for company in logo_order:
-        img = logos.get(company)
-        if not img:
-            continue
-        company_q = quote_plus(company)
-        logo_html += (
-            f"<a class='ov-hero-logo-link' href='?nav=earnings&company={company_q}' "
-            f"target='_self' rel='noopener' onclick=\"window.location.assign('?nav=earnings&company={company_q}'); return false;\" "
-            f"aria-label='Open earnings for {html.escape(company)}'>"
-            "<span class='ov-hero-logo-wrap'>"
-            f"<img class='ov-hero-logo' src='data:image/png;base64,{img}' alt='{html.escape(company)} logo'/>"
-            "</span>"
-            "</a>"
-        )
-
-    hero_background = "background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);"
-    if hero_image_path.exists():
-        hero_b64 = base64.b64encode(hero_image_path.read_bytes()).decode()
-        hero_background = f"background-image:url('data:image/png;base64,{hero_b64}');"
-
-    st.markdown(
-        _html_block(
-            f"""
-            <style>
-            .ov-hero {{
-                position: relative;
-                border-radius: 20px;
-                overflow: hidden;
-                min-height: clamp(320px, 42vh, 520px);
-                margin: 0 0 26px 0;
-                {hero_background}
-                background-size: cover;
-                background-position: top center;
-                box-shadow: 0 20px 48px rgba(2, 6, 23, 0.28);
-            }}
-            .ov-hero::before {{
-                content: '';
-                position: absolute;
-                inset: 0;
-                background: linear-gradient(180deg, rgba(2,6,23,0.35) 0%, rgba(2,6,23,0.6) 100%);
-                pointer-events: none;
-            }}
-            .ov-hero-copy {{
-                position: relative;
-                z-index: 2;
-                padding: 28px 30px 98px;
-                color: #F8FAFC;
-            }}
-            .ov-hero-title {{
-                font-size: clamp(1.6rem, 2.8vw, 2.5rem);
-                font-weight: 900;
-                line-height: 1.1;
-                margin: 0 0 10px 0;
-                color: #F8FAFC;
-            }}
-            .ov-hero-sub {{
-                font-size: 0.98rem;
-                line-height: 1.55;
-                max-width: 900px;
-                color: rgba(248,250,252,0.92);
-            }}
-            .ov-hero-logo-bar {{
-                position: absolute;
-                left: 22px;
-                right: 22px;
-                bottom: 16px;
-                z-index: 3;
-                border-radius: 16px;
-                padding: 14px 16px;
-                min-height: 82px;
-                display: flex;
-                gap: 12px;
-                align-items: center;
-                overflow-x: auto;
-                background: rgba(255,255,255,0.14);
-                border: 1px solid rgba(255,255,255,0.30);
-                backdrop-filter: blur(10px);
-            }}
-            .ov-hero-logo-link {{
-                display: inline-flex;
-                text-decoration: none !important;
-                border-radius: 999px;
-                transition: transform 120ms ease, filter 120ms ease;
-            }}
-            .ov-hero-logo-link:hover {{
-                transform: translateY(-1px) scale(1.04);
-                filter: drop-shadow(0 4px 10px rgba(15,23,42,0.32));
-            }}
-            .ov-hero-logo-wrap {{
-                width: 56px;
-                height: 56px;
-                min-width: 56px;
-                border-radius: 50%;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(255,255,255,0.12);
-                border: 1px solid rgba(255,255,255,0.35);
-            }}
-            .ov-hero-logo {{
-                width: 34px;
-                height: 34px;
-                object-fit: contain;
-            }}
-            </style>
-            <div class='ov-hero'>
-                <div class='ov-hero-copy'>
-                    <div class='ov-hero-title'>Overview Intelligence Hub</div>
-                    <div class='ov-hero-sub'>
-                        Macro regime, concentration, and company signal layers in one control surface.
-                        Use the section selector to focus one analysis block at a time.
-                    </div>
-                </div>
-                <div class='ov-hero-logo-bar'>{logo_html}</div>
-            </div>
-            """
-        ),
-        unsafe_allow_html=True,
-    )
 
 
 def _add_rate_regime_bands(fig: go.Figure, rates_df: pd.DataFrame) -> None:
@@ -4856,23 +4327,20 @@ def _render_company_financial_deep_dives(
                         if len(q_scope) >= 4
                         else np.nan
                     )
-                    # Company_Quarterly_segments_valu stores raw USD amounts.
-                    curr_rev_b = curr_rev / 1_000_000_000.0 if pd.notna(curr_rev) else np.nan
-                    ttm_b = ttm / 1_000_000_000.0 if pd.notna(ttm) else np.nan
                     st.metric(
                         f"{company} Revenue",
-                        _format_macro_metric(curr_rev_b, "B"),
+                        _format_macro_metric(curr_rev / 1000.0 if pd.notna(curr_rev) else np.nan, "B"),
                         f"{qoq:+.1f}% QoQ" if pd.notna(qoq) else "QoQ N/A",
                     )
                     st.caption(
-                        f"{yoy:+.1f}% YoY · TTM {_format_macro_metric(ttm_b, 'B')}"
+                        f"{yoy:+.1f}% YoY · TTM {_format_macro_metric(ttm / 1000.0 if pd.notna(ttm) else np.nan, 'B')}"
                     )
                     spark = q_scope.tail(8).copy()
                     spark["Label"] = spark["Year"].astype(str) + "Q" + spark["QuarterNum"].astype(str)
                     spark_fig = go.Figure(
                         go.Scatter(
                             x=spark["Label"],
-                            y=spark["Revenue"] / 1_000_000_000.0,
+                            y=spark["Revenue"] / 1000.0,
                             mode="lines+markers",
                             line=dict(color="#2563EB", width=2),
                             marker=dict(size=4),
@@ -7568,871 +7036,73 @@ def _render_quarterly_intelligence_briefing(
     return
 
 
-def _format_macro_kpi_display(value, unit: str) -> str:
-    if value is None or pd.isna(value):
-        return "N/A"
-    unit_norm = str(unit or "").strip().lower()
-    number = float(value)
-    if "usd billion" in unit_norm or unit_norm in {"b", "bn", "billion"}:
-        return f"${number:,.0f}B" if number.is_integer() else f"${number:,.1f}B"
-    if unit_norm in {"%", "percent", "pct"}:
-        return f"{number:.1f}%".replace(".0%", "%")
-    if "rate" in unit_norm:
-        return f"{number:.2f}%".replace(".00%", "%")
-    return f"{number:,.2f}".rstrip("0").rstrip(".")
-
-
-def _render_overview_sidebar_download_button(
-    data_processor: FinancialDataProcessor,
-    selected_year: int,
-    selected_quarter: str,
-) -> None:
-    payload = _build_overview_export_payload(data_processor, selected_year, selected_quarter)
-    content = json.dumps(payload, ensure_ascii=False, indent=2)
-    filename = f"overview_snapshot_{int(selected_year)}_{str(selected_quarter).lower()}.json".replace(" ", "-")
-    st.sidebar.download_button(
-        "Download Overview",
-        data=content.encode("utf-8"),
-        file_name=filename,
-        mime="application/json",
-        use_container_width=True,
-        key=f"sidebar-overview-download-{int(selected_year)}-{str(selected_quarter).lower()}",
-    )
-
-
-def _render_overview_insights_by_category(
-    data_processor: FinancialDataProcessor,
-    selected_year: int,
-    selected_quarter: str,
-    allowed_categories: list[str],
-    heading: str,
-) -> bool:
-    excel_path = getattr(data_processor, "data_path", "")
-    source_stamp = int(getattr(data_processor, "source_stamp", 0) or 0)
-    if not excel_path:
-        st.info("Insights are unavailable because workbook source is missing.")
-        return False
-
-    insights_df = _load_overview_insights_sheet(excel_path, source_stamp)
-    if insights_df.empty:
-        st.info("No `Overview_Insights` rows were found.")
-        return False
-
-    scoped_df, selected_period = _pick_rows_for_period(insights_df, selected_year, selected_quarter)
-    if scoped_df.empty:
-        st.info("No insight rows match the selected period.")
-        return False
-
-    scoped_df["category_norm"] = scoped_df["category"].astype(str).str.strip().str.lower()
-    allowed = {str(category).strip().lower() for category in allowed_categories}
-    filtered = scoped_df[scoped_df["category_norm"].isin(allowed)].copy()
-    if filtered.empty:
-        st.caption(f"No {heading.lower()} cards for {selected_period}.")
-        return False
-
-    filtered = filtered.sort_values(["sort_order", "insight_id", "title"]).head(8)
-    st.markdown(f"#### {heading}")
-    st.caption(f"Source: Overview_Insights · Period: {selected_period} · {len(filtered)} cards")
-    cols = st.columns(2)
-    for idx, row in enumerate(filtered.itertuples(index=False)):
-        with cols[idx % 2]:
-            title = _clean_overview_text(getattr(row, "title", "")) or "Untitled insight"
-            category = _clean_overview_text(getattr(row, "category", ""))
-            comment = _clean_insight_comment_text(getattr(row, "comment", ""))
-            st.markdown(f"**{title}**")
-            if category:
-                st.caption(category)
-            st.write(comment if comment else "No commentary text provided.")
-    return True
-
-
-def _compute_tracked_duopoly_share(data_processor: FinancialDataProcessor) -> pd.DataFrame:
-    try:
-        if getattr(data_processor, "df_ad_revenue", None) is None or data_processor.df_ad_revenue.empty:
-            data_processor._load_ad_revenue()
-    except Exception:
-        pass
-
-    ad_df = getattr(data_processor, "df_ad_revenue", None)
-    if ad_df is None or ad_df.empty:
-        return pd.DataFrame()
-
-    ad = ad_df.copy()
-    ad.columns = [str(c).strip() for c in ad.columns]
-    year_col = "Year" if "Year" in ad.columns else ("year" if "year" in ad.columns else "")
-    if not year_col:
-        return pd.DataFrame()
-
-    ad["Year"] = pd.to_numeric(ad[year_col], errors="coerce")
-    ad = ad.dropna(subset=["Year"]).copy()
-    if ad.empty:
-        return pd.DataFrame()
-    ad["Year"] = ad["Year"].astype(int)
-
-    def _norm(name: str) -> str:
-        return re.sub(r"[^a-z0-9]+", "_", str(name).strip().lstrip("*").lower()).strip("_")
-
-    normalized = {_norm(col): col for col in ad.columns}
-    google_col = normalized.get("google_ads", "")
-    meta_col = normalized.get("meta_ads", "")
-    if not google_col or not meta_col:
-        return pd.DataFrame()
-
-    numeric_cols: list[str] = []
-    for col in ad.columns:
-        if col == year_col:
-            continue
-        series = pd.to_numeric(ad[col], errors="coerce")
-        if series.notna().sum() > 0:
-            ad[col] = series
-            numeric_cols.append(col)
-    if not numeric_cols:
-        return pd.DataFrame()
-
-    ad["tracked_total"] = ad[numeric_cols].sum(axis=1, skipna=True)
-    ad["duopoly_total"] = ad[google_col].fillna(0) + ad[meta_col].fillna(0)
-    ad = ad[ad["tracked_total"] > 0].copy()
-    if ad.empty:
-        return pd.DataFrame()
-    ad["duopoly_share_pct"] = (ad["duopoly_total"] / ad["tracked_total"]) * 100.0
-    return ad[["Year", "duopoly_share_pct"]].sort_values("Year").reset_index(drop=True)
-
-
-def _render_geo_ad_map(country_df: pd.DataFrame) -> bool:
-    if country_df is None or country_df.empty:
-        st.info("Geographic advertising map data is unavailable.")
-        return False
-
-    map_df = country_df.copy()
-    if not {"Country", "Year", "Ad_vs_GDP_pct"}.issubset(set(map_df.columns)):
-        st.info("Geographic advertising map requires Country, Year, and Ad_vs_GDP_pct columns.")
-        return False
-
-    map_df["Year"] = pd.to_numeric(map_df["Year"], errors="coerce")
-    map_df["Ad_vs_GDP_pct"] = pd.to_numeric(map_df["Ad_vs_GDP_pct"], errors="coerce")
-    map_df = map_df.dropna(subset=["Country", "Year", "Ad_vs_GDP_pct"]).copy()
-    if map_df.empty:
-        st.info("No valid country-level ad/GDP points were found.")
-        return False
-    map_df["Year"] = map_df["Year"].astype(int)
-
-    selected_year = int(st.session_state.get("selected_year", int(map_df["Year"].max())))
-    years = sorted(map_df["Year"].unique().tolist())
-    map_year = selected_year if selected_year in years else max([y for y in years if y <= selected_year], default=max(years))
-    scoped = map_df[map_df["Year"] == int(map_year)].copy()
-    if scoped.empty:
-        st.info("No country-level ad/GDP rows match the selected year.")
-        return False
-
-    fig = px.choropleth(
-        scoped,
-        locations="Country",
-        locationmode="country names",
-        color="Ad_vs_GDP_pct",
-        hover_name="Country",
-        color_continuous_scale="Blues",
-        labels={"Ad_vs_GDP_pct": "Ad vs GDP (%)"},
-        title="Global Ad Spend as % of GDP",
-    )
-    fig.update_layout(
-        margin=dict(l=0, r=0, t=54, b=0),
-        geo=dict(showframe=False, showcoastlines=False, projection_type="natural earth"),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    st.caption(f"Map year: {int(map_year)}")
-    return True
-
-
-def _render_market_structure_section(
-    data_processor: FinancialDataProcessor,
-    selected_year: int,
-    selected_quarter: str,
-    plotly_config: dict,
-) -> None:
-    excel_path = getattr(data_processor, "data_path", "")
-    source_stamp = int(getattr(data_processor, "source_stamp", 0) or 0)
-
-    st.markdown("## Market Structure")
-    st.caption("Where is the money and who controls it")
-
-    st.markdown("### Macro KPI Strip")
-    macro_kpi_map: dict[str, dict] = {}
-    if excel_path:
-        try:
-            macro_kpis_df = pd.read_excel(excel_path, sheet_name="Macro_KPIs")
-            macro_kpis_df.columns = [str(col).strip().lower() for col in macro_kpis_df.columns]
-            if {"indicator", "value", "unit"}.issubset(set(macro_kpis_df.columns)):
-                for row in macro_kpis_df.itertuples(index=False):
-                    key = str(getattr(row, "indicator", "")).strip().lower()
-                    if not key:
-                        continue
-                    macro_kpi_map[key] = {
-                        "value": pd.to_numeric(getattr(row, "value", np.nan), errors="coerce"),
-                        "unit": str(getattr(row, "unit", "")).strip(),
-                    }
-        except Exception:
-            macro_kpi_map = {}
-
-    def _find_macro_value(indicator_aliases: list[str]):
-        for alias in indicator_aliases:
-            alias_norm = str(alias).strip().lower()
-            for key, payload in macro_kpi_map.items():
-                if alias_norm in key:
-                    return payload.get("value"), payload.get("unit", "")
-        return (None, "")
-
-    m2_yearly = _load_m2_yearly_df(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    selected_m2 = np.nan
-    if not m2_yearly.empty:
-        m2_scope = m2_yearly[m2_yearly["Year"] == int(selected_year)]
-        if m2_scope.empty:
-            m2_scope = m2_yearly[m2_yearly["Year"] <= int(selected_year)].sort_values("Year").tail(1)
-        if not m2_scope.empty:
-            selected_m2 = float(m2_scope.iloc[-1]["M2_B"])
-
-    macro_tiles = [
-        ("Global Digital Ad Market", _find_macro_value(["global digital ad market"])),
-        ("Global TV Ad Market", _find_macro_value(["global tv ad market"])),
-        ("CTV Ad Revenue", _find_macro_value(["ctv ad revenue"])),
-        ("Digital Share", _find_macro_value(["digital share of total ad", "digital share"])),
-        ("M2 Supply", (selected_m2 if pd.notna(selected_m2) else _find_macro_value(["m2 money supply"])[0], "USD Billion")),
-        ("Fed Funds Rate", _find_macro_value(["fed funds rate"])),
-    ]
-    cols = st.columns(6)
-    for col, (label, payload) in zip(cols, macro_tiles):
-        value, unit = payload
-        with col:
-            st.metric(label, _format_macro_kpi_display(value, str(unit)))
-
-    st.markdown("### The Duopoly's Grip")
-    duopoly_df = _compute_tracked_duopoly_share(data_processor)
-    if duopoly_df.empty:
-        st.info("Duopoly concentration series could not be computed from Company_advertising_revenue.")
-    else:
-        duopoly_df = duopoly_df[(duopoly_df["Year"] >= 2010) & (duopoly_df["Year"] <= 2024)]
-        fig = go.Figure(
-            go.Scatter(
-                x=duopoly_df["Year"],
-                y=duopoly_df["duopoly_share_pct"],
-                mode="lines+markers",
-                line=dict(color="#1D4ED8", width=3),
-                marker=dict(size=6),
-                name="Alphabet + Meta share",
-                hovertemplate="Year %{x}<br>%{y:.1f}%<extra></extra>",
-            )
-        )
-        fig.update_layout(
-            height=380,
-            margin=_overview_chart_margin(left=36, right=24, top=72, bottom=90),
-            xaxis_title="Year",
-            yaxis_title="Share of tracked ad revenue (%)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            legend=_overview_legend_style(),
-        )
-        fig.update_yaxes(gridcolor="rgba(148,163,184,0.25)")
-        st.plotly_chart(fig, use_container_width=True, config=plotly_config)
-
-    st.markdown("### Where Ad Dollars Flow")
-    groupm_df = _load_groupm_channels_df(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    if groupm_df.empty:
-        st.info("GroupM channel data is unavailable.")
-    else:
-        scoped = groupm_df[(groupm_df["Year"] >= 2010) & (groupm_df["Year"] <= 2024)].copy()
-        if scoped.empty:
-            st.info("GroupM channel data has no rows in 2010–2024.")
-        else:
-            keep_cols = ["Traditional_TV", "Search", "NonSearch", "Retail_Media", "Connected_TV"]
-            long_df = scoped.melt(
-                id_vars=["Year"],
-                value_vars=[col for col in keep_cols if col in scoped.columns],
-                var_name="Channel",
-                value_name="Spend",
-            )
-            long_df["Spend"] = pd.to_numeric(long_df["Spend"], errors="coerce")
-            long_df = long_df.dropna(subset=["Spend"])
-            fig = px.area(
-                long_df,
-                x="Year",
-                y="Spend",
-                color="Channel",
-                title="Where Ad Dollars Flow",
-                labels={"Spend": "USD billions", "Year": ""},
-            )
-            fig.update_layout(
-                height=420,
-                margin=_overview_chart_margin(left=30, right=24, top=74, bottom=92),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                legend=_overview_legend_style(),
-            )
-            fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
-
-    st.markdown("### Liquidity Drives Ad Spend")
-    macro_df = _load_overview_macro_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    m2_df = _load_m2_yearly_df(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    if m2_df.empty or macro_df.empty or "global_ad_market" not in macro_df.columns:
-        st.info("M2 vs global ad spend indexed chart requires both M2_values and Overview_Macro.global_ad_market.")
-    else:
-        ad_df = macro_df.copy()
-        ad_df["year"] = pd.to_numeric(ad_df["year"], errors="coerce")
-        ad_df["global_ad_market"] = pd.to_numeric(ad_df["global_ad_market"], errors="coerce")
-        ad_df = ad_df.dropna(subset=["year", "global_ad_market"]).copy()
-        ad_df["year"] = ad_df["year"].astype(int)
-        ad_annual = ad_df.groupby("year", as_index=False)["global_ad_market"].mean()
-
-        merged = m2_df.merge(ad_annual, left_on="Year", right_on="year", how="inner").sort_values("Year")
-        if merged.empty:
-            st.info("No overlapping years between M2 and Overview_Macro.global_ad_market.")
-        else:
-            base_m2 = merged["M2_B"].iloc[0]
-            base_ad = merged["global_ad_market"].iloc[0]
-            if base_m2 == 0 or base_ad == 0:
-                st.info("Cannot index M2 or ad-spend series because base-year value is zero.")
-            else:
-                merged["m2_index"] = (merged["M2_B"] / base_m2) * 100.0
-                merged["ad_index"] = (merged["global_ad_market"] / base_ad) * 100.0
-                fig = go.Figure()
-                fig.add_trace(
-                    go.Scatter(
-                        x=merged["Year"],
-                        y=merged["m2_index"],
-                        mode="lines+markers",
-                        line=dict(color="#0EA5E9", width=3),
-                        name="M2 (index=100)",
-                        yaxis="y1",
-                    )
-                )
-                fig.add_trace(
-                    go.Scatter(
-                        x=merged["Year"],
-                        y=merged["ad_index"],
-                        mode="lines+markers",
-                        line=dict(color="#F97316", width=3),
-                        name="Global Ad Spend (index=100)",
-                        yaxis="y2",
-                    )
-                )
-                fig.update_layout(
-                    height=420,
-                    margin=_overview_chart_margin(left=30, right=34, top=74, bottom=90),
-                    xaxis_title="Year",
-                    yaxis=dict(title="M2 index (base=100)"),
-                    yaxis2=dict(title="Ad spend index (base=100)", overlaying="y", side="right"),
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    legend=_overview_legend_style(),
-                )
-                fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
-                st.plotly_chart(fig, use_container_width=True, config=plotly_config)
-
-    _render_overview_insights_by_category(
-        data_processor=data_processor,
-        selected_year=selected_year,
-        selected_quarter=selected_quarter,
-        allowed_categories=["Advertising", "Macro"],
-        heading="Market Structure Insights",
-    )
-
-
-def _render_company_intelligence_section(
-    data_processor: FinancialDataProcessor,
-    selected_year: int,
-    selected_quarter: str,
-    plotly_config: dict,
-) -> None:
-    excel_path = getattr(data_processor, "data_path", "")
-    source_stamp = int(getattr(data_processor, "source_stamp", 0) or 0)
-
-    st.markdown("## Company Intelligence")
-    st.caption("How are the 12 companies performing")
-
-    metrics_df = _load_company_metrics_yearly_df(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    if metrics_df.empty:
-        st.info("Company metrics data is unavailable for the Company Intelligence section.")
-        return
-
-    all_companies = sorted(metrics_df["Company"].dropna().astype(str).str.strip().unique().tolist())
-    selected_companies = st.multiselect(
-        "Company Selector",
-        options=all_companies,
-        default=all_companies,
-        key="overview_company_intelligence_selector",
-    )
-    if not selected_companies:
-        st.info("Select at least one company.")
-        return
-
-    scoped = metrics_df[metrics_df["Company"].isin(selected_companies)].copy()
-    if scoped.empty:
-        st.info("No metric rows found for the selected companies.")
-        return
-    scoped = scoped.sort_values(["Company", "Year"])
-    scoped["RevenueB"] = scoped["Revenue"] / 1000.0
-    scoped["OperatingMarginPct"] = np.where(scoped["Revenue"] > 0, (scoped["OperatingIncome"] / scoped["Revenue"]) * 100.0, np.nan)
-    scoped["RDIntensityPct"] = np.where(scoped["Revenue"] > 0, (scoped["RD"] / scoped["Revenue"]) * 100.0, np.nan)
-    scoped["DebtToRevenue"] = np.where(scoped["Revenue"] > 0, scoped["Debt"] / scoped["Revenue"], np.nan)
-
-    st.markdown("### Revenue & Margin Trends")
-    trend_fig = go.Figure()
-    for company in selected_companies:
-        cdf = scoped[scoped["Company"] == company].copy()
-        if cdf.empty:
-            continue
-        trend_fig.add_trace(
-            go.Bar(
-                x=cdf["Year"],
-                y=cdf["RevenueB"],
-                name=f"{company} Revenue",
-                legendgroup=company,
-                opacity=0.45,
-            )
-        )
-        trend_fig.add_trace(
-            go.Scatter(
-                x=cdf["Year"],
-                y=cdf["OperatingMarginPct"],
-                mode="lines+markers",
-                name=f"{company} Op Margin",
-                legendgroup=company,
-                yaxis="y2",
-            )
-        )
-    trend_fig.update_layout(
-        height=430,
-        margin=_overview_chart_margin(left=34, right=42, top=64, bottom=96),
-        xaxis_title="Year",
-        yaxis=dict(title="Revenue ($B)"),
-        yaxis2=dict(title="Operating Margin (%)", overlaying="y", side="right"),
-        barmode="group",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        legend=_overview_legend_style(),
-    )
-    trend_fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
-    st.plotly_chart(trend_fig, use_container_width=True, config=plotly_config)
-
-    st.markdown("### R&D Intensity (2019–2024)")
-    rd_scope = scoped[(scoped["Year"] >= 2019) & (scoped["Year"] <= 2024)].copy()
-    if rd_scope.empty:
-        st.info("No R&D intensity rows in 2019–2024 for selected companies.")
-    else:
-        rd_fig = px.bar(
-            rd_scope,
-            x="Year",
-            y="RDIntensityPct",
-            color="Company",
-            barmode="group",
-            labels={"RDIntensityPct": "R&D / Revenue (%)", "Year": ""},
-        )
-        rd_fig.update_layout(
-            height=380,
-            margin=_overview_chart_margin(left=30, right=22, top=56, bottom=92),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            legend=_overview_legend_style(),
-        )
-        rd_fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
-        st.plotly_chart(rd_fig, use_container_width=True, config=plotly_config)
-
-    st.markdown("### Debt / Revenue (Latest Year)")
-    latest_year = int(scoped["Year"].max())
-    debt_scope = scoped[scoped["Year"] == latest_year].copy()
-    debt_scope = debt_scope.dropna(subset=["DebtToRevenue"]).sort_values("DebtToRevenue", ascending=False)
-    if debt_scope.empty:
-        st.info("Debt/revenue ratios are unavailable for the latest year.")
-    else:
-        debt_fig = px.bar(
-            debt_scope,
-            x="DebtToRevenue",
-            y="Company",
-            orientation="h",
-            color="Company",
-            labels={"DebtToRevenue": "Debt / Revenue", "Company": ""},
-        )
-        debt_fig.update_layout(
-            height=420,
-            margin=_overview_chart_margin(left=36, right=24, top=56, bottom=92),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            yaxis={"categoryorder": "total ascending"},
-            legend=_overview_legend_style(),
-        )
-        debt_fig.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
-        st.plotly_chart(debt_fig, use_container_width=True, config=plotly_config)
-
-    st.markdown("### Efficiency Matrix")
-    employees_df = _load_employee_yearly_df(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    if employees_df.empty:
-        st.info("Efficiency matrix requires Company_Employees data.")
-    else:
-        eff = scoped.merge(employees_df, on=["Company", "Year"], how="inner")
-        if eff.empty:
-            st.info("No overlapping employee rows for selected companies.")
-        else:
-            eff["RevenuePerEmployeeM"] = np.where(eff["Employees"] > 0, eff["Revenue"] / eff["Employees"], np.nan)
-            eff["MarketCapPerEmployeeM"] = np.where(eff["Employees"] > 0, eff["MarketCap"] / eff["Employees"], np.nan)
-            latest_eff_year = int(eff["Year"].max())
-            latest_eff = eff[eff["Year"] == latest_eff_year][["Company", "RevenuePerEmployeeM", "MarketCapPerEmployeeM"]].copy()
-            prev_eff = eff[eff["Year"] == (latest_eff_year - 1)][["Company", "RevenuePerEmployeeM"]].rename(
-                columns={"RevenuePerEmployeeM": "RevenuePerEmployeePrevM"}
-            )
-            matrix = latest_eff.merge(prev_eff, on="Company", how="left")
-            matrix["YoY Change"] = np.where(
-                matrix["RevenuePerEmployeePrevM"].notna() & (matrix["RevenuePerEmployeePrevM"] != 0),
-                ((matrix["RevenuePerEmployeeM"] - matrix["RevenuePerEmployeePrevM"]) / matrix["RevenuePerEmployeePrevM"]) * 100.0,
-                np.nan,
-            )
-            matrix = matrix.sort_values("RevenuePerEmployeeM", ascending=False)
-            matrix = matrix.rename(
-                columns={
-                    "RevenuePerEmployeeM": "Revenue/Employee (M USD)",
-                    "MarketCapPerEmployeeM": "MarketCap/Employee (M USD)",
-                }
-            )
-            st.dataframe(
-                matrix[["Company", "Revenue/Employee (M USD)", "MarketCap/Employee (M USD)", "YoY Change"]].style.format(
-                    {
-                        "Revenue/Employee (M USD)": "{:.2f}",
-                        "MarketCap/Employee (M USD)": "{:.2f}",
-                        "YoY Change": "{:+.1f}%",
-                    }
-                ),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-    st.markdown("### Subscriber Trends")
-    subscriber_df = _load_company_subscribers_quarterly_df(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    streaming_companies = {"Netflix", "Disney", "Paramount Global", "Spotify", "Roku", "Apple", "Amazon"}
-    if subscriber_df.empty:
-        st.info("Subscriber trends are unavailable.")
-    else:
-        sub_scope = subscriber_df[
-            subscriber_df["company"].isin(streaming_companies)
-            & subscriber_df["company"].isin(set(selected_companies))
-        ].copy()
-        if sub_scope.empty:
-            st.info("No streaming subscriber rows for selected companies.")
-        else:
-            sub_scope["PeriodSort"] = sub_scope["year"] * 10 + sub_scope["quarter_num"]
-            sub_scope["Period"] = sub_scope["year"].astype(int).astype(str) + "-Q" + sub_scope["quarter_num"].astype(int).astype(str)
-            sub_scope = sub_scope.sort_values(["company", "PeriodSort"])
-            sub_fig = px.line(
-                sub_scope,
-                x="Period",
-                y="subscribers",
-                color="company",
-                markers=True,
-                labels={"subscribers": "Subscribers (M)", "company": "Company", "Period": ""},
-            )
-            sub_fig.update_layout(
-                height=390,
-                margin=_overview_chart_margin(left=30, right=22, top=56, bottom=96),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                legend=_overview_legend_style(),
-            )
-            sub_fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
-            st.plotly_chart(sub_fig, use_container_width=True, config=plotly_config)
-
-    st.markdown("### $ per Minute Watched")
-    minute_df = _load_company_minute_dollar_df(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    if minute_df.empty:
-        st.info("`Company_minute&dollar_earned` is unavailable.")
-    else:
-        minute_scope = minute_df.dropna(subset=["DollarPerMinute"]).sort_values("DollarPerMinute", ascending=False)
-        minute_fig = px.bar(
-            minute_scope,
-            x="Platform",
-            y="DollarPerMinute",
-            color="Platform",
-            labels={"DollarPerMinute": "$ per Minute Watched", "Platform": ""},
-        )
-        minute_fig.update_layout(
-            height=360,
-            margin=_overview_chart_margin(left=30, right=22, top=56, bottom=96),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            showlegend=False,
-        )
-        minute_fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
-        st.plotly_chart(minute_fig, use_container_width=True, config=plotly_config)
-
-    _render_overview_insights_by_category(
-        data_processor=data_processor,
-        selected_year=selected_year,
-        selected_quarter=selected_quarter,
-        allowed_categories=["Efficiency", "Attention"],
-        heading="Company Intelligence Insights",
-    )
-
-
-def _render_signals_context_section(
-    data_processor: FinancialDataProcessor,
-    selected_year: int,
-    selected_quarter: str,
-    plotly_config: dict,
-) -> None:
-    excel_path = getattr(data_processor, "data_path", "")
-    source_stamp = int(getattr(data_processor, "source_stamp", 0) or 0)
-
-    st.markdown("## Signals & Context")
-    st.caption("What executives are saying and where it's happening")
-
-    st.markdown("### What's Being Talked About This Quarter")
-    topic_df = _load_transcript_topic_metrics()
-    if topic_df.empty:
-        st.info("No transcript topic metrics found.")
-    else:
-        quarter_norm = _normalize_quarter_label(selected_quarter)
-        scoped = topic_df[(topic_df["year"] == int(selected_year)) & (topic_df["quarter"] == quarter_norm)].copy()
-        if scoped.empty:
-            scoped = topic_df[topic_df["year"] == int(selected_year)].copy()
-        if scoped.empty:
-            st.info("No transcript topic rows for the selected period.")
-        else:
-            scoped["mention_count"] = pd.to_numeric(scoped["mention_count"], errors="coerce")
-            scoped["importance_pct"] = pd.to_numeric(scoped["importance_pct"], errors="coerce")
-            scoped["growth_pct"] = pd.to_numeric(scoped["growth_pct"], errors="coerce")
-            scoped = scoped.dropna(subset=["mention_count", "importance_pct", "growth_pct"]).copy()
-            if scoped.empty:
-                st.info("Transcript topic rows are missing numeric metrics.")
-            else:
-                scoped["quadrant"] = np.where(
-                    (scoped["importance_pct"] >= 0) & (scoped["growth_pct"] >= 0),
-                    "High Importance + Growth",
-                    np.where(
-                        (scoped["importance_pct"] >= 0) & (scoped["growth_pct"] < 0),
-                        "High Importance + Decline",
-                        np.where(scoped["growth_pct"] >= 0, "Emerging", "Low Momentum"),
-                    ),
-                )
-                topic_fig = px.scatter(
-                    scoped,
-                    x="importance_pct",
-                    y="growth_pct",
-                    size="mention_count",
-                    color="quadrant",
-                    hover_name="topic",
-                    labels={"importance_pct": "Importance %", "growth_pct": "QoQ Growth %"},
-                    title="What's Being Talked About This Quarter",
-                )
-                topic_fig.update_layout(
-                    height=430,
-                    margin=_overview_chart_margin(left=30, right=22, top=62, bottom=92),
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    legend=_overview_legend_style(),
-                )
-                topic_fig.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
-                topic_fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
-                st.plotly_chart(topic_fig, use_container_width=True, config=plotly_config)
-
-    st.markdown("### CEO/CFO Quote Wall")
-    sheet_df = _load_overview_iconic_quotes_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    csv_df = _load_overview_iconic_quotes_csv()
-    quotes_df = sheet_df if not sheet_df.empty else csv_df
-    if quotes_df.empty:
-        st.info("No quote data available yet.")
-    else:
-        scoped, selected_period = _pick_rows_for_period(quotes_df, selected_year, selected_quarter)
-        if scoped.empty:
-            st.info("No quotes available for the selected period.")
-        else:
-            scoped["role_rank"] = scoped["role_bucket"].map({"CEO": 0, "CFO": 1}).fillna(2)
-            scoped = scoped.sort_values(["company", "role_rank", "score"], ascending=[True, True, False]).copy()
-            scoped = scoped[scoped["role_rank"] <= 1].copy()
-            wall_rows = []
-            for company, group in scoped.groupby("company"):
-                ceo = group[group["role_bucket"] == "CEO"].head(1)
-                cfo = group[group["role_bucket"] == "CFO"].head(1)
-                combined = pd.concat([ceo, cfo], ignore_index=True).head(2)
-                if combined.empty:
-                    continue
-                wall_rows.append((company, combined))
-
-            if not wall_rows:
-                st.info("No CEO/CFO quote pairs found for this period.")
-            else:
-                st.caption(f"Source period: {selected_period} · Top 2 quotes per company (CEO then CFO)")
-                row_cols = st.columns(2)
-                for idx, (company, group) in enumerate(wall_rows):
-                    with row_cols[idx % 2]:
-                        blocks = []
-                        for row in group.itertuples(index=False):
-                            quote = html.escape(str(getattr(row, "quote", "") or "").strip())
-                            speaker = html.escape(str(getattr(row, "speaker", "") or "Unknown").strip())
-                            role = html.escape(str(getattr(row, "role_bucket", "") or "").strip())
-                            blocks.append(
-                                f"<div style='border-left:3px solid #3b82f6; padding:10px 12px; margin-top:8px; border-radius:0 8px 8px 0; background:rgba(255,255,255,0.04);'>"
-                                f"<div style='font-style:italic;'>\"{quote}\"</div>"
-                                f"<div style='margin-top:6px; font-size:0.78rem; color:#64748B;'>— {speaker}, {role}</div>"
-                                "</div>"
-                            )
-                        st.markdown(
-                            _html_block(
-                                f"""
-                                <div style='border:1px solid rgba(148,163,184,0.2); border-radius:12px; padding:12px; margin-bottom:10px;'>
-                                    <div style='font-weight:700;'>{html.escape(str(company))}</div>
-                                    {''.join(blocks)}
-                                </div>
-                                """
-                            ),
-                            unsafe_allow_html=True,
-                        )
-
-    st.markdown("### Global Ad Spend as % of GDP")
-    country_df = _load_country_totals_vs_gdp_df(excel_path, source_stamp) if excel_path else pd.DataFrame()
-    _render_geo_ad_map(country_df)
-
-    st.markdown("### Country Ad Growth (Top 10)")
-    if country_df.empty:
-        st.info("Country growth table is unavailable.")
-    else:
-        available_years = sorted(country_df["Year"].dropna().astype(int).unique().tolist())
-        table_year = int(selected_year) if int(selected_year) in available_years else max([y for y in available_years if y <= int(selected_year)], default=max(available_years))
-        prev_year = table_year - 1
-        curr = country_df[country_df["Year"] == table_year][["Country", "AdSpending_BUSD"]].rename(
-            columns={"AdSpending_BUSD": "AdSpendCurrentBUSD"}
-        )
-        prev = country_df[country_df["Year"] == prev_year][["Country", "AdSpending_BUSD"]].rename(
-            columns={"AdSpending_BUSD": "AdSpendPrevBUSD"}
-        )
-        growth = curr.merge(prev, on="Country", how="inner")
-        if growth.empty:
-            st.info(f"No prior-year country ad rows available for {table_year} vs {prev_year}.")
-        else:
-            growth["YoY Ad Growth %"] = np.where(
-                growth["AdSpendPrevBUSD"] > 0,
-                ((growth["AdSpendCurrentBUSD"] - growth["AdSpendPrevBUSD"]) / growth["AdSpendPrevBUSD"]) * 100.0,
-                np.nan,
-            )
-            growth = growth.dropna(subset=["YoY Ad Growth %"]).sort_values("YoY Ad Growth %", ascending=False).head(10)
-            st.dataframe(
-                growth[["Country", "AdSpendCurrentBUSD", "YoY Ad Growth %"]].rename(
-                    columns={"AdSpendCurrentBUSD": f"Ad Spend {table_year} (B USD)"}
-                ).style.format(
-                    {f"Ad Spend {table_year} (B USD)": "{:.2f}", "YoY Ad Growth %": "{:+.1f}%"}
-                ),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-    _render_overview_insights_by_category(
-        data_processor=data_processor,
-        selected_year=selected_year,
-        selected_quarter=selected_quarter,
-        allowed_categories=["Geography", "Attention"],
-        heading="Signals & Context Insights",
-    )
-
-
 _OVERVIEW_AREA_CONFIG = [
     {
-        "key": "market_structure",
-        "title": "Market Structure",
-        "description": "Where is the money and who controls it",
+        "key": "macro_snapshot",
+        "title": "Macro Snapshot",
+        "description": "Top macro KPIs, liquidity, and regime context.",
     },
     {
-        "key": "company_intelligence",
-        "title": "Company Intelligence",
-        "description": "How are the 12 companies performing",
+        "key": "global_media_map",
+        "title": "Global Media Economy",
+        "description": "Interactive world map and country-level ad structure.",
     },
     {
-        "key": "signals_context",
-        "title": "Signals & Context",
-        "description": "What executives are saying and where it's happening",
+        "key": "insights",
+        "title": "Insights by Category",
+        "description": "Quarterly overview commentary from workbook + auto insights.",
+    },
+    {
+        "key": "macro_regime",
+        "title": "Macro Regime Charts",
+        "description": "Cross-sheet macro bridge and regime diagnostics.",
+    },
+    {
+        "key": "deep_dives",
+        "title": "Company Deep Dives",
+        "description": "P/E, debt, margins, R&D, efficiency and concentration.",
+    },
+    {
+        "key": "device_platform",
+        "title": "Device & Platform",
+        "description": "Smartphone share and device-linked ad migration.",
+    },
+    {
+        "key": "topic_signal",
+        "title": "Topic Signal & Quotes",
+        "description": "Transcript topic map plus iconic CEO/CFO commentary.",
+    },
+    {
+        "key": "export",
+        "title": "Export",
+        "description": "Download current filtered overview payload and HTML snapshot.",
     },
 ]
 
 
 def _render_overview_area_selector() -> str:
-    st.markdown(
-        _html_block(
-            """
-            <style>
-            .ov-nav-card {
-              border: 1px solid rgba(15,23,42,0.10);
-              border-radius: 14px;
-              padding: 16px 14px 14px 14px;
-              background: rgba(255,255,255,0.96);
-              box-shadow: 0 4px 12px rgba(15,23,42,0.07);
-              cursor: pointer;
-              transition: box-shadow 0.15s ease, transform 0.15s ease;
-              text-align: left;
-              margin-bottom: 4px;
-            }
-            .ov-nav-card:hover {
-              box-shadow: 0 8px 24px rgba(37,99,235,0.14);
-              transform: translateY(-2px);
-            }
-            .ov-nav-card.active {
-              border-left: 4px solid #2563EB;
-              background: rgba(239,246,255,0.98);
-            }
-            .ov-nav-icon { font-size: 1.4rem; margin-bottom: 6px; }
-            .ov-nav-label { font-size: 1.0rem; font-weight: 700; color: #0F172A; }
-            .ov-nav-sub { font-size: 0.82rem; color: #64748B; margin-top: 4px; line-height: 1.45; }
-            body.theme-dark .ov-nav-card { background: #1E293B; border-color: rgba(255,255,255,0.08); }
-            body.theme-dark .ov-nav-label { color: #E2E8F0; }
-            body.theme-dark .ov-nav-sub { color: #94A3B8; }
-            body.theme-dark .ov-nav-card.active { background: rgba(37,99,235,0.15); border-left-color: #60A5FA; }
-            .ov-nav-link {
-              text-decoration: none !important;
-              color: inherit !important;
-              display: block;
-            }
-            </style>
-            """
-        ),
-        unsafe_allow_html=True,
-    )
     st.markdown("### Overview Navigator")
-    st.caption("Choose one of the 3 sections below. Only that section is rendered to keep focus and reduce lag.")
+    st.caption("Single-view mode: choose one area at a time (8 sections inside one Overview page).")
 
     valid_keys = {item["key"] for item in _OVERVIEW_AREA_CONFIG}
-    active_key = st.session_state.get("overview_active_area", "market_structure")
+    active_key = st.session_state.get("overview_active_area", "macro_snapshot")
     if active_key not in valid_keys:
-        active_key = "market_structure"
-    query_params = st.query_params if hasattr(st, "query_params") else st.experimental_get_query_params()
-    query_area = query_params.get("ov_area") if query_params else None
-    if isinstance(query_area, list):
-        query_area = query_area[0] if query_area else None
-    query_area = str(query_area or "").strip()
-    if query_area in valid_keys:
-        active_key = query_area
+        active_key = "macro_snapshot"
 
-    icon_map = {
-        "market_structure": "",
-        "company_intelligence": "",
-        "signals_context": "",
-    }
-    per_row = 3
-    for row_start in range(0, len(_OVERVIEW_AREA_CONFIG), per_row):
-        row_items = _OVERVIEW_AREA_CONFIG[row_start: row_start + per_row]
-        row_cols = st.columns(len(row_items))
+    for row_start in (0, 4):
+        row_items = _OVERVIEW_AREA_CONFIG[row_start: row_start + 4]
+        row_cols = st.columns(4)
         for col, item in zip(row_cols, row_items):
             with col:
-                is_active = active_key == item["key"]
-                active_class = "active" if is_active else ""
-                section_id = str(item["key"])
-                section_href = f"?nav=overview&ov_area={quote_plus(section_id)}"
-                st.markdown(
-                    _html_block(
-                        f"""
-                        <a class='ov-nav-link' href='{section_href}' target='_self' rel='noopener'>
-                          <div class='ov-nav-card {active_class}' id='nav-{html.escape(section_id)}'>
-                            <div class='ov-nav-icon'>{icon_map.get(item['key'], '•')}</div>
-                            <div class='ov-nav-label'>{html.escape(item['title'])}</div>
-                            <div class='ov-nav-sub'>{html.escape(item['description'])}</div>
-                          </div>
-                        </a>
-                        """
-                    ),
-                    unsafe_allow_html=True,
-                )
+                if st.button(
+                    item["title"],
+                    key=f"overview_area_btn_{item['key']}",
+                    use_container_width=True,
+                    type="primary" if active_key == item["key"] else "secondary",
+                ):
+                    active_key = item["key"]
+                    st.session_state["overview_active_area"] = active_key
+                st.caption(item["description"])
 
     st.session_state["overview_active_area"] = active_key
     return active_key
@@ -8457,8 +7127,7 @@ plotly_config = {
 begin_snap_section("overview_summary")
 
 # Main app content
-st.title("Advertising Demand & Competitive Context")
-_render_overview_hero_banner()
+st.title("Overview - Financial Market Intelligence")
 
 # Initialize data processor
 data_processor = get_data_processor()
@@ -8467,19 +7136,18 @@ data_processor = get_data_processor()
 companies = get_available_companies(data_processor)
 available_years = get_available_years(data_processor)
 if not available_years:
-    # Avoid showing an empty/future-only selector when data source fails to hydrate.
-    available_years = [max(2010, int(datetime.now().year) - 1)]
+    available_years = [datetime.now().year]
 excel_path = getattr(data_processor, "data_path", "")
 
-# Year + quarter + granularity selectors (sidebar)
-with st.sidebar:
-    st.markdown("### Overview Controls")
+# Year + quarter + granularity selectors
+year_col, quarter_col, gran_col = st.columns([1.0, 1.0, 1.0])
+with year_col:
     selected_year = st.selectbox(
-        "Year",
+        "Select Year",
         available_years,
-        index=len(available_years) - 1,
+        index=len(available_years)-1  # Default to most recent year
     )
-
+with quarter_col:
     quarter_options = get_quarter_labels_for_year(excel_path, int(selected_year))
     if not quarter_options:
         quarter_options = ["Q1", "Q2", "Q3", "Q4"]
@@ -8487,13 +7155,15 @@ with st.sidebar:
     if current_q not in quarter_options:
         current_q = quarter_options[-1]
     selected_quarter = st.selectbox(
-        "Quarter",
+        "Select Quarter",
         quarter_options,
         index=quarter_options.index(current_q),
         key="overview_selected_quarter",
         help="Used by Excel-backed overview comments (quarterly/yearly).",
     )
-
+st.session_state["selected_year"] = int(selected_year)
+st.session_state["selected_quarter"] = str(selected_quarter)
+with gran_col:
     granularity_options = _get_overview_granularity_options(data_processor)
     current_granularity = st.session_state.get("overview_selected_granularity", "Auto")
     if current_granularity not in granularity_options:
@@ -8506,6 +7176,8 @@ with st.sidebar:
         help="Auto uses each chart's native frequency. Annual/Quarterly/Monthly/Daily enables extra period controls when data exists.",
     )
 
+ux_col1, ux_col2 = st.columns([1.0, 2.0])
+with ux_col1:
     chart_export_format = st.selectbox(
         "Chart Export Format",
         ["png", "svg"],
@@ -8513,11 +7185,8 @@ with st.sidebar:
         key="overview_chart_export_format",
         help="Controls Plotly per-chart download format from the modebar.",
     )
-
-st.session_state["selected_year"] = int(selected_year)
-st.session_state["selected_quarter"] = str(selected_quarter)
-
-st.markdown("Use the navigator buttons below to open one overview section at a time.")
+with ux_col2:
+    st.markdown("Use the navigator buttons below to open one overview section at a time.")
 
 selected_overview_area = _render_overview_area_selector()
 
@@ -8529,32 +7198,30 @@ if selected_granularity == "Monthly":
         current_month = st.session_state.get("overview_selected_month", month_labels[-1])
         if current_month not in month_labels:
             current_month = month_labels[-1]
-        with st.sidebar:
-            selected_month = st.selectbox(
-                "Month",
-                month_labels,
-                index=month_labels.index(current_month),
-                key="overview_selected_month",
-                help="Monthly controls are available for datasets that provide monthly time series.",
-            )
+        selected_month = st.selectbox(
+            "Select Month",
+            month_labels,
+            index=month_labels.index(current_month),
+            key="overview_selected_month",
+            help="Monthly controls are available for datasets that provide monthly time series.",
+        )
     else:
-        st.sidebar.caption("No monthly rows available for this selected year.")
+        st.caption("No monthly rows available for this selected year.")
 elif selected_granularity == "Daily":
     day_labels = get_day_labels_for_year(excel_path, int(selected_year))
     if day_labels:
         current_day = st.session_state.get("overview_selected_day", day_labels[-1])
         if current_day not in day_labels:
             current_day = day_labels[-1]
-        with st.sidebar:
-            selected_day = st.selectbox(
-                "Day",
-                day_labels,
-                index=day_labels.index(current_day),
-                key="overview_selected_day",
-                help="Daily controls are available for datasets with daily observations.",
-            )
+        selected_day = st.selectbox(
+            "Select Day",
+            day_labels,
+            index=day_labels.index(current_day),
+            key="overview_selected_day",
+            help="Daily controls are available for datasets with daily observations.",
+        )
     else:
-        st.sidebar.caption("No daily rows available for this selected year.")
+        st.caption("No daily rows available for this selected year.")
 
 st.session_state["overview_time_context"] = update_global_time_context(
     page="Overview",
@@ -8569,8 +7236,9 @@ st.session_state["overview_time_context"] = update_global_time_context(
 
 plotly_config["toImageButtonOptions"]["format"] = chart_export_format
 
-# Sticky summary (period-aware, updates with filters).
-with st.expander("Key Insights Summary", expanded=False):
+# Sticky summary sidebar (period-aware, updates with filters).
+with st.sidebar:
+    st.markdown("### Key Insights Summary")
     st.caption(f"Period: {int(selected_year)} · {selected_quarter}")
     excel_source = getattr(data_processor, "data_path", "")
     source_stamp = int(getattr(data_processor, "source_stamp", 0) or 0)
@@ -8605,35 +7273,6 @@ render_ai_assistant(location="sidebar", current_page="Overview")
 
 st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
-_render_overview_sidebar_download_button(data_processor, int(selected_year), str(selected_quarter))
-
-if selected_overview_area == "market_structure":
-    _render_market_structure_section(
-        data_processor=data_processor,
-        selected_year=int(selected_year),
-        selected_quarter=str(selected_quarter),
-        plotly_config=plotly_config,
-    )
-elif selected_overview_area == "company_intelligence":
-    _render_company_intelligence_section(
-        data_processor=data_processor,
-        selected_year=int(selected_year),
-        selected_quarter=str(selected_quarter),
-        plotly_config=plotly_config,
-    )
-elif selected_overview_area == "signals_context":
-    _render_signals_context_section(
-        data_processor=data_processor,
-        selected_year=int(selected_year),
-        selected_quarter=str(selected_quarter),
-        plotly_config=plotly_config,
-    )
-else:
-    st.info("Select one of the three overview sections from the navigator above.")
-
-end_snap_section()
-st.stop()
-
 if selected_overview_area == "macro_snapshot":
     macro_kpi_rendered = render_macro_kpi_panel(data_processor, selected_year, selected_quarter, plotly_config)
     if not macro_kpi_rendered:
@@ -8647,7 +7286,9 @@ if selected_overview_area == "macro_snapshot":
             "Macro context dashboard is ready and connected. It auto-reads whichever tabs contain "
             "matching rate/labor/currency/valuation fields (no strict sheet naming required)."
         )
-    # Avoid duplicating KPI blocks: macro baseline table remains available under Export.
+
+    if not _render_excel_macro_section(data_processor, selected_year, selected_quarter):
+        st.info("No `Overview_Macro` row found for the selected period.")
     _render_overview_download_section(data_processor, selected_year, selected_quarter)
     end_snap_section()
     st.stop()
@@ -8732,225 +7373,9 @@ if selected_overview_area == "export":
     end_snap_section()
     st.stop()
 
-
-def _is_digital_metric_type(metric_name: str) -> bool:
-    text = str(metric_name or "").strip().lower()
-    if not text:
-        return False
-    digital_tokens = (
-        "digital",
-        "search",
-        "social",
-        "display",
-        "internet",
-        "online",
-        "nonsearch",
-        "retail",
-        "ecommerce",
-        "programmatic",
-        "video",
-        "connected tv",
-        "ctv",
-    )
-    return any(token in text for token in digital_tokens)
-
-
-def _calc_scope_growth_pct(
-    country_df: pd.DataFrame,
-    year: int,
-    allowed_countries: set[str] | None = None,
-) -> float:
-    if country_df is None or country_df.empty:
-        return np.nan
-    scope = country_df[country_df["Year"].isin([int(year) - 1, int(year)])].copy()
-    if allowed_countries:
-        scope = scope[scope["Country"].isin(allowed_countries)].copy()
-    if scope.empty:
-        return np.nan
-    annual = scope.groupby("Year", as_index=False)["Value"].sum(min_count=1)
-    curr = annual.loc[annual["Year"] == int(year), "Value"]
-    prev = annual.loc[annual["Year"] == int(year) - 1, "Value"]
-    if curr.empty or prev.empty:
-        return np.nan
-    curr_val = float(curr.iloc[0])
-    prev_val = float(prev.iloc[0])
-    if prev_val == 0 or pd.isna(prev_val):
-        return np.nan
-    return ((curr_val - prev_val) / prev_val) * 100.0
-
-
-def _calc_digital_share_growth_pp(
-    country_df: pd.DataFrame,
-    year: int,
-    allowed_countries: set[str] | None = None,
-) -> float:
-    if country_df is None or country_df.empty:
-        return np.nan
-    scope = country_df[country_df["Year"].isin([int(year) - 1, int(year)])].copy()
-    if allowed_countries:
-        scope = scope[scope["Country"].isin(allowed_countries)].copy()
-    if scope.empty:
-        return np.nan
-    scope["IsDigital"] = scope["Metric_type"].apply(_is_digital_metric_type)
-    total = scope.groupby("Year", as_index=False)["Value"].sum(min_count=1).rename(columns={"Value": "TotalValue"})
-    digital = (
-        scope[scope["IsDigital"]]
-        .groupby("Year", as_index=False)["Value"]
-        .sum(min_count=1)
-        .rename(columns={"Value": "DigitalValue"})
-    )
-    merged = total.merge(digital, on="Year", how="left")
-    merged["DigitalValue"] = merged["DigitalValue"].fillna(0.0)
-    merged = merged[merged["TotalValue"] > 0].copy()
-    if merged.empty:
-        return np.nan
-    merged["DigitalSharePct"] = (merged["DigitalValue"] / merged["TotalValue"]) * 100.0
-    curr = merged.loc[merged["Year"] == int(year), "DigitalSharePct"]
-    prev = merged.loc[merged["Year"] == int(year) - 1, "DigitalSharePct"]
-    if curr.empty or prev.empty:
-        return np.nan
-    return float(curr.iloc[0]) - float(prev.iloc[0])
-
-
-def _render_region_vs_global_position_badge(
-    country_df: pd.DataFrame,
-    map_year: int,
-    scope_label: str = "Global",
-    allowed_countries: set[str] | None = None,
-) -> None:
-    scope_label = str(scope_label or "Global").strip() or "Global"
-    is_global_scope = scope_label.lower() == "global" or not allowed_countries
-
-    if is_global_scope:
-        st.markdown("#### Global Advertising Position")
-    else:
-        st.markdown(f"#### {html.escape(scope_label)} Advertising Position vs Global")
-    st.markdown(
-        "Classification Types: 🟢 In Line / Resilient · 🟡 Below Global Average · 🔴 Structurally Lagging"
-    )
-
-    apac_countries = set(CONTINENT_MAPPINGS.get("Asia Pacific", []))
-    north_america_countries = set(CONTINENT_MAPPINGS.get("North America", []))
-
-    global_growth = _calc_scope_growth_pct(country_df, int(map_year))
-    scope_growth = (
-        _calc_scope_growth_pct(country_df, int(map_year), allowed_countries)
-        if not is_global_scope
-        else global_growth
-    )
-    us_growth = _calc_scope_growth_pct(country_df, int(map_year), {"United States"})
-    if pd.isna(us_growth):
-        us_growth = _calc_scope_growth_pct(country_df, int(map_year), north_america_countries)
-    apac_growth = _calc_scope_growth_pct(country_df, int(map_year), apac_countries)
-
-    high_growth_candidates = [v for v in [us_growth, apac_growth] if pd.notna(v)]
-    high_growth_reference = max(high_growth_candidates) if high_growth_candidates else np.nan
-
-    if is_global_scope:
-        gd = np.nan
-        hg = global_growth - high_growth_reference if pd.notna(global_growth) and pd.notna(high_growth_reference) else np.nan
-        dad = np.nan
-
-        if pd.notna(hg) and hg <= -5.0:
-            regime_icon = "🔴"
-            regime_label = "Global Structurally Lagging High-Growth Regions"
-            regime_style = "background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); color:#FCA5A5;"
-            base_desc = (
-                f"Global ad growth materially trails high-growth regions by {abs(hg):.1f}pp, "
-                "signaling concentrated momentum in selective markets and elevated allocation pressure."
-            )
-        elif pd.notna(hg) and hg < -2.0:
-            regime_icon = "🟡"
-            regime_label = "Global Growing Below High-Growth Regions"
-            regime_style = "background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.42); color:#FDE68A;"
-            base_desc = (
-                f"Global ad growth trails high-growth regions by {abs(hg):.1f}pp, "
-                "reflecting uneven expansion across geographies."
-            )
-        else:
-            regime_icon = "🟢"
-            regime_label = "Global In Line with High-Growth Regions"
-            regime_style = "background:rgba(34,197,94,0.14); border:1px solid rgba(34,197,94,0.45); color:#86EFAC;"
-            base_desc = (
-                "Global ad growth is broadly aligned with high-growth regions, "
-                "indicating resilient aggregate demand across major markets."
-            )
-    else:
-        gd = scope_growth - global_growth if pd.notna(scope_growth) and pd.notna(global_growth) else np.nan
-        hg = scope_growth - high_growth_reference if pd.notna(scope_growth) and pd.notna(high_growth_reference) else np.nan
-
-        scope_digital_growth = _calc_digital_share_growth_pp(country_df, int(map_year), allowed_countries)
-        global_digital_growth = _calc_digital_share_growth_pp(country_df, int(map_year))
-        dad = (
-            scope_digital_growth - global_digital_growth
-            if pd.notna(scope_digital_growth) and pd.notna(global_digital_growth)
-            else np.nan
-        )
-
-        if pd.notna(gd) and pd.notna(hg) and gd <= -3.0 and hg <= -5.0:
-            regime_icon = "🔴"
-            regime_label = f"{scope_label} Structurally Lagging High-Growth Regions"
-            regime_style = "background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); color:#FCA5A5;"
-            base_desc = (
-                f"{scope_label} materially underperforms global and high-growth regions by over {abs(gd):.1f}pp, "
-                "reflecting structural digital acceleration gaps and rising competitive pressure from global platforms."
-            )
-        elif pd.notna(gd) and pd.notna(hg) and gd >= -0.5 and hg >= -3.0:
-            regime_icon = "🟢"
-            regime_label = f"{scope_label} In Line with Global Advertising Momentum"
-            regime_style = "background:rgba(34,197,94,0.14); border:1px solid rgba(34,197,94,0.45); color:#86EFAC;"
-            base_desc = (
-                f"{scope_label} ad growth is broadly aligned with global trends ({gd:+.1f}pp differential), "
-                "supported by balanced digital expansion and resilient premium inventory dynamics."
-            )
-        else:
-            regime_icon = "🟡"
-            regime_label = f"{scope_label} Growing Below Global Average"
-            regime_style = "background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.42); color:#FDE68A;"
-            gd_abs_text = f"{abs(gd):.1f}" if pd.notna(gd) else "N/A"
-            hg_abs_text = f"{abs(hg):.1f}" if pd.notna(hg) else "N/A"
-            base_desc = (
-                f"{scope_label} ad growth trails global by {gd_abs_text}pp and high-growth regions by {hg_abs_text}pp, "
-                "reflecting slower digital acceleration while maintaining relative premium inventory stability."
-            )
-
-        dad_modifier = ""
-        if pd.notna(dad) and dad <= -1.0:
-            dad_modifier = " Digital acceleration gap versus global markets remains significant."
-        elif pd.notna(dad) and dad >= 0:
-            dad_modifier = " Digital expansion remains broadly aligned with global trends."
-        base_desc = base_desc + dad_modifier
-
-    st.markdown(
-        _html_block(
-            f"""
-            <div style="border-radius:14px; padding:12px 14px; margin:8px 0 10px 0; {regime_style}">
-              <div style="font-size:0.78rem; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; opacity:0.9;">
-                {html.escape(scope_label)} Demand Classification · {int(map_year)}
-              </div>
-              <div style="font-size:1.0rem; font-weight:800; margin-top:5px;">
-                {regime_icon} {regime_label}
-              </div>
-              <div style="font-size:0.92rem; line-height:1.5; margin-top:6px;">
-                {html.escape(base_desc)}
-              </div>
-            </div>
-            """
-        ),
-        unsafe_allow_html=True,
-    )
-
-    metric_cols = st.columns(3)
-    with metric_cols[0]:
-        st.metric("Growth Differential (GD)", f"{gd:+.1f}pp" if pd.notna(gd) else "N/A")
-    with metric_cols[1]:
-        st.metric("High-Growth Gap (HG)", f"{hg:+.1f}pp" if pd.notna(hg) else "N/A")
-    with metric_cols[2]:
-        st.metric("Digital Accel Differential (DAD)", f"{dad:+.1f}pp" if pd.notna(dad) else "N/A")
-
 # SECTION 1 — GLOBAL CONTEXT (WORLD MAP)
 st.markdown("<div id='section-global-media-economy'></div>", unsafe_allow_html=True)
-st.subheader("Global Media Economy")
+st.subheader("The Global Media Economy")
 st.markdown(
     "Global advertising is geographically distributed across regions and markets. "
     "Hover countries to view values.",
@@ -8984,11 +7409,7 @@ if not country_ad_df.empty:
         help="Choose region view or country-level detail.",
     )
 
-    region_options = [
-        str(region)
-        for region in CONTINENT_MAPPINGS.keys()
-        if str(region).strip() and str(region).strip().lower() != "global"
-    ]
+    region_options = ["Europe", "North America", "Asia Pacific", "South America", "Middle East & Africa"]
     region_col, _ = st.columns([0.22, 0.78])
     with region_col:
         region_choice = st.selectbox(
@@ -9015,13 +7436,12 @@ if not country_ad_df.empty:
         prior_years = [y for y in available_ad_years if y <= selected_year]
         map_year_default = max(prior_years) if prior_years else max(available_ad_years)
     if len(available_ad_years) > 1:
-        map_year_index = available_ad_years.index(map_year_default) if map_year_default in available_ad_years else 0
-        map_year_selected = st.selectbox(
+        map_year_selected = st.select_slider(
             "Map Year (country advertising)",
             options=available_ad_years,
-            index=map_year_index,
-            key="overview_map_year_select",
-            help="Select the year to view country-level ad market structure.",
+            value=map_year_default,
+            key="overview_map_year_slider",
+            help="Scrub across years to see country-level ad market evolution.",
         )
     else:
         map_year_selected = map_year_default
@@ -9057,23 +7477,6 @@ if not country_ad_df.empty:
             df_year = df_year[df_year["Country"].isin(set(picked_countries))]
     else:
         picked_countries = []
-
-    scope_countries: set[str] | None = None
-    scope_label = "Global"
-    if view_mode == "By country" and picked_countries:
-        scope_label = "Selected Countries"
-        scope_countries = set(picked_countries)
-    elif region_choice != "Global":
-        scope_label = str(region_choice)
-        mapped = set(CONTINENT_MAPPINGS.get(region_choice, []))
-        scope_countries = mapped if mapped else None
-
-    _render_region_vs_global_position_badge(
-        country_ad_df,
-        int(year_for_map),
-        scope_label=scope_label,
-        allowed_countries=scope_countries,
-    )
 
     macro_base_df = country_ad_df.copy()
     macro_years = [int(year_for_map)]
