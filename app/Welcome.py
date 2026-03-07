@@ -1566,16 +1566,22 @@ _startTicker();
   opacity: 1;
   transform: translateY(0);
 }
+.human-voice-fix {
+  margin-top: -1rem;
+}
 </style>
 """,
     height=0,
 )
 
 
-def _section(label: str, headline: str, body: str):
+def _section(label: str, headline: str, body: str, section_class: str = ""):
+    class_attr = "sv"
+    if section_class:
+        class_attr = f"{class_attr} {section_class}"
     st.markdown(
         f"""
-        <div class="sv" style="padding:56px 0 20px;background:transparent;">
+        <div class="{class_attr}" style="padding:56px 0 20px;background:transparent;">
           <div style="color:#ff5b1f;font-size:0.7rem;letter-spacing:0.28em;
                       text-transform:uppercase;margin-bottom:10px;">{escape(str(label))}</div>
           <div style="color:white;font-size:1.45rem;font-weight:700;
@@ -2050,7 +2056,17 @@ try:
                     height=470,
                     margin=dict(l=0, r=0, t=32, b=0),
                     extra_layout=dict(
-                        geo=dict(showframe=False, showcoastlines=False, projection_type="natural earth"),
+                        paper_bgcolor="#0d1117",
+                        geo_bgcolor="#0d1117",
+                        geo=dict(
+                            bgcolor="#0d1117",
+                            showland=True,
+                            landcolor="#1a2332",
+                            showframe=False,
+                            showcoastlines=True,
+                            coastlinecolor="rgba(255,255,255,0.08)",
+                            projection_type="natural earth",
+                        ),
                     ),
                 )
                 st.plotly_chart(map_fig, use_container_width=True)
@@ -2058,6 +2074,341 @@ except Exception:
     st.info("Global map unavailable.")
 st.caption("Map shows advertising spend by country as a % of GDP. Darker = higher ad market intensity.")
 _separator()
+
+# Beat 1.5 — Structural Shift donut animation
+st.components.v1.html(
+    """
+<div id="wm-structural-shift-root">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+    #wm-structural-shift-root {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: 'DM Sans', sans-serif;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    #wm-structural-shift-root * { box-sizing: border-box; }
+    .wm-ss-shell {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid rgba(139,148,158,0.22);
+      border-radius: 14px;
+      padding: 24px 24px 18px;
+    }
+    .wm-ss-label {
+      color: #ff5b1f;
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .wm-ss-headline {
+      color: #e6edf3;
+      font-family: 'Syne', sans-serif;
+      font-size: 34px;
+      line-height: 1.14;
+      margin: 0 0 10px;
+      font-weight: 800;
+    }
+    .wm-ss-body {
+      color: #8b949e;
+      font-size: 15px;
+      line-height: 1.55;
+      margin: 0 0 16px;
+    }
+    .wm-ss-main {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      min-height: 330px;
+    }
+    .wm-ss-left {
+      width: 60%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .wm-ss-right {
+      width: 40%;
+      padding: 0 6px 0 0;
+    }
+    #wm-ss-canvas {
+      width: 380px;
+      height: 380px;
+      max-width: 100%;
+      display: block;
+      background: #0d1117;
+    }
+    .wm-ss-year {
+      color: #e6edf3;
+      font-family: 'Syne', sans-serif;
+      font-size: 96px;
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+      margin: 0 0 10px;
+    }
+    .wm-ss-year-label {
+      color: #8b949e;
+      font-size: 14px;
+      line-height: 1.45;
+      min-height: 42px;
+      margin-bottom: 14px;
+    }
+    .wm-ss-total {
+      color: #ff5b1f;
+      font-family: 'Syne', sans-serif;
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .wm-ss-total-sub {
+      color: #8b949e;
+      font-size: 12px;
+      margin-top: 6px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .wm-ss-legend {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+      align-items: center;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(139,148,158,0.4) transparent;
+    }
+    .wm-ss-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #8b949e;
+      font-size: 11px;
+      white-space: nowrap;
+      letter-spacing: 0.01em;
+    }
+    .wm-ss-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex: 0 0 8px;
+    }
+    @media (max-width: 900px) {
+      .wm-ss-main { flex-direction: column; align-items: stretch; min-height: auto; }
+      .wm-ss-left, .wm-ss-right { width: 100%; }
+      .wm-ss-right { text-align: center; }
+      .wm-ss-year-label { min-height: 0; }
+      .wm-ss-headline { font-size: 28px; }
+      .wm-ss-year { font-size: 78px; }
+      .wm-ss-total { font-size: 30px; }
+    }
+  </style>
+
+  <div class="wm-ss-shell">
+    <div class="wm-ss-label">THE STRUCTURAL SHIFT</div>
+    <h2 class="wm-ss-headline">Television had the world's attention. Then the internet took it.</h2>
+    <p class="wm-ss-body">Global advertising by medium, 1999–2024. Watch where the money moved.</p>
+    <div class="wm-ss-main">
+      <div class="wm-ss-left">
+        <canvas id="wm-ss-canvas" width="420" height="420" aria-label="Structural Shift donut chart"></canvas>
+      </div>
+      <div class="wm-ss-right">
+        <div id="wm-ss-year" class="wm-ss-year">1999</div>
+        <div id="wm-ss-year-label" class="wm-ss-year-label"></div>
+        <div id="wm-ss-total" class="wm-ss-total">$0B</div>
+        <div class="wm-ss-total-sub">Total Market Size</div>
+      </div>
+    </div>
+    <div id="wm-ss-legend" class="wm-ss-legend"></div>
+  </div>
+
+  <script>
+    (function () {
+      const DATA = {
+        1999: { "Free TV": 87930, "Print": 124794, "Digital Search": 38, "Digital Social": 0, "Digital Video": 0, "Everything Else": 56538 },
+        2004: { "Free TV": 119155, "Print": 132531, "Digital Search": 5804, "Digital Social": 0, "Digital Video": 0, "Everything Else": 72256 },
+        2008: { "Free TV": 148644, "Print": 131143, "Digital Search": 109021, "Digital Social": 311, "Digital Video": 262, "Everything Else": 82968 },
+        2012: { "Free TV": 155985, "Print": 95457, "Digital Search": 229656, "Digital Social": 203254, "Digital Video": 3148, "Everything Else": 93259 },
+        2016: { "Free TV": 170472, "Print": 73705, "Digital Search": 398066, "Digital Social": 372205, "Digital Video": 14965, "Everything Else": 96765 },
+        2019: { "Free TV": 166870, "Print": 58817, "Digital Search": 557982, "Digital Social": 590586, "Digital Video": 34021, "Everything Else": 102847 },
+        2021: { "Free TV": 164349, "Print": 52615, "Digital Search": 735956, "Digital Social": 748852, "Digital Video": 56279, "Everything Else": 109249 },
+        2024: { "Free TV": 166895, "Print": 44082, "Digital Search": 831613, "Digital Social": 818502, "Digital Video": 76895, "Everything Else": 127694 }
+      };
+      const COLORS = {
+        "Free TV": "#3a5a8c",
+        "Print": "#6b7280",
+        "Digital Search": "#ff5b1f",
+        "Digital Social": "#f59e0b",
+        "Digital Video": "#10b981",
+        "Everything Else": "#374151"
+      };
+      const LABELS = {
+        1999: "TV dominates. Internet is a rounding error.",
+        2004: "Search starts to matter.",
+        2008: "Mobile arrives. Print begins its decline.",
+        2012: "Social explodes on mobile.",
+        2016: "Digital overtakes TV for the first time.",
+        2019: "Mobile search surpasses all of TV.",
+        2021: "Pandemic accelerates everything digital.",
+        2024: "Search + Social = 60% of all ad spend."
+      };
+
+      const root = document.getElementById('wm-structural-shift-root');
+      if (!root) return;
+      const canvas = root.querySelector('#wm-ss-canvas');
+      const ctx = canvas.getContext('2d');
+      const yearEl = root.querySelector('#wm-ss-year');
+      const labelEl = root.querySelector('#wm-ss-year-label');
+      const totalEl = root.querySelector('#wm-ss-total');
+      const legendEl = root.querySelector('#wm-ss-legend');
+      const ORDER = Object.keys(COLORS);
+      const YEARS = Object.keys(DATA).map(Number).sort((a, b) => a - b);
+      const STEP_MS = 700;
+      const HOLD_MS = 2000;
+      const OUTER_RADIUS = 160;
+      const INNER_RADIUS = 96;
+
+      legendEl.innerHTML = ORDER.map((name) =>
+        `<span class="wm-ss-legend-item"><span class="wm-ss-dot" style="background:${COLORS[name]}"></span>${name}</span>`
+      ).join('');
+
+      function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = Math.min(380, Math.max(280, canvas.parentElement.clientWidth));
+        const cssH = cssW;
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+      }
+
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+
+      function interpolateValues(a, b, t) {
+        const out = {};
+        ORDER.forEach((k) => {
+          const from = Number(a[k] || 0);
+          const to = Number(b[k] || 0);
+          out[k] = from + (to - from) * t;
+        });
+        return out;
+      }
+
+      function totalOf(obj) {
+        return ORDER.reduce((acc, k) => acc + Number(obj[k] || 0), 0);
+      }
+
+      function formatBillions(totalRaw) {
+        const billions = Math.round(totalRaw / 1000);
+        return billions.toLocaleString('en-US');
+      }
+
+      function drawDonut(values, displayYear) {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        const cx = width / 2;
+        const cy = height / 2;
+        const outer = Math.min(OUTER_RADIUS, Math.min(width, height) * 0.45);
+        const inner = Math.min(INNER_RADIUS, outer * 0.6);
+        ctx.clearRect(0, 0, width, height);
+
+        const total = totalOf(values);
+        let start = -Math.PI / 2;
+        ORDER.forEach((name) => {
+          const value = Number(values[name] || 0);
+          if (value <= 0 || total <= 0) return;
+          const angle = (value / total) * Math.PI * 2;
+          const end = start + angle;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, outer, start, end, false);
+          ctx.arc(cx, cy, inner, end, start, true);
+          ctx.closePath();
+          ctx.fillStyle = COLORS[name];
+          ctx.fill();
+          start = end;
+        });
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, inner - 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#0d1117';
+        ctx.fill();
+
+        yearEl.textContent = String(displayYear);
+        labelEl.textContent = LABELS[displayYear] || '';
+        totalEl.textContent = `$${formatBillions(total)}B`;
+      }
+
+      let fromIndex = 0;
+      let toIndex = 1;
+      let phaseStart = performance.now();
+      let holdStart = 0;
+      let holding = false;
+
+      function tick(now) {
+        if (holding) {
+          const lastYear = YEARS[YEARS.length - 1];
+          drawDonut(DATA[lastYear], lastYear);
+          if (now - holdStart >= HOLD_MS) {
+            holding = false;
+            fromIndex = 0;
+            toIndex = 1;
+            phaseStart = now;
+          }
+          requestAnimationFrame(tick);
+          return;
+        }
+
+        const elapsed = now - phaseStart;
+        let t = elapsed / STEP_MS;
+        if (t >= 1) {
+          fromIndex = toIndex;
+          if (fromIndex >= YEARS.length - 1) {
+            holding = true;
+            holdStart = now;
+            const finalYear = YEARS[YEARS.length - 1];
+            drawDonut(DATA[finalYear], finalYear);
+            requestAnimationFrame(tick);
+            return;
+          }
+          toIndex = fromIndex + 1;
+          phaseStart = now;
+          t = 0;
+        }
+
+        const fromYear = YEARS[fromIndex];
+        const toYear = YEARS[toIndex];
+        const eased = easeInOutCubic(Math.max(0, Math.min(1, t)));
+        const values = interpolateValues(DATA[fromYear], DATA[toYear], eased);
+        const displayYear = eased < 0.5 ? fromYear : toYear;
+        drawDonut(values, displayYear);
+        requestAnimationFrame(tick);
+      }
+
+      resizeCanvas();
+      const firstYear = YEARS[0];
+      drawDonut(DATA[firstYear], firstYear);
+      requestAnimationFrame(tick);
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+      });
+    })();
+  </script>
+</div>
+""",
+    height=540,
+)
 
 # Beat 2 — Concentration bar
 bar_ok = total_tracked_b > 0 and (groupm_b is not None and groupm_b > 0)
@@ -2814,7 +3165,8 @@ _separator()
 _section(
     "The Human Voice",
     "Here\'s what management teams are saying.",
-    "Quotes are pulled from the transcript intelligence layer and filtered to the most relevant executive statements."
+    "Quotes are pulled from the transcript intelligence layer and filtered to the most relevant executive statements.",
+    section_class="human-voice-fix",
 )
 _render_transcript_pulse_strip(effective_year, selected_quarter)
 _separator()
