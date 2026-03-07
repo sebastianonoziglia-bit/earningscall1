@@ -20,13 +20,7 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=2)
 def _resolve_excel_path() -> Optional[str]:
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    candidates = [
-        os.path.join(base_dir, "attached_assets", "Earnings + stocks  copy.xlsx"),
-        os.path.join(base_dir, "..", "Earnings + stocks  copy.xlsx"),
-        os.path.join(base_dir, "Earnings + stocks  copy.xlsx"),
-    ]
-    return resolve_financial_data_xlsx(candidates)
+    return resolve_financial_data_xlsx([])
 
 
 @st.cache_data(ttl=3600 * 24)

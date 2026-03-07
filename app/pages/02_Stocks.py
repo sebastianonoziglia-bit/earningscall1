@@ -24,6 +24,8 @@ import base64
 import os
 from io import BytesIO
 from utils.styles import get_page_style, get_animation_style
+from utils.workbook_market_data import load_combined_stock_market_data
+from utils.workbook_source import get_workbook_source_stamp
 
 # Apply global styles at page load for better performance
 st.markdown(get_page_style(), unsafe_allow_html=True)
@@ -206,51 +208,33 @@ def load_stock_fundamentals(data_path):
     if not data_path or not os.path.exists(data_path):
         return pd.DataFrame()
     try:
-        df = pd.read_excel(
-            data_path,
-            sheet_name="Stocks & Crypto",
-            usecols=["date", "price", "vol.", "market cap.", "outstanding shares", "asset", "tag"],
+        merged = load_combined_stock_market_data(
+            excel_path=data_path,
+            source_stamp=int(get_workbook_source_stamp(data_path) or 0),
+            include_baseline=True,
+            include_daily=True,
+            include_minute=True,
         )
     except Exception:
-        df = pd.read_excel(data_path, sheet_name="Stocks & Crypto")
-    df.columns = [str(c).strip().lower() for c in df.columns]
-    df = df.rename(
-        columns={
-            "vol.": "volume",
-            "vol": "volume",
-            "market cap.": "market_cap",
-            "market cap": "market_cap",
-            "market_cap": "market_cap",
-            "outstanding shares": "outstanding_shares",
-            "shares outstanding": "outstanding_shares",
-            "outstanding_shares": "outstanding_shares",
-        }
-    )
-    if "date" not in df.columns:
-        for alt in ("datetime", "timestamp"):
-            if alt in df.columns:
-                df = df.rename(columns={alt: "date"})
-                break
-    if "price" not in df.columns:
-        for alt in ("close", "close price", "closing price", "adj close", "adj_close"):
-            if alt in df.columns:
-                df = df.rename(columns={alt: "price"})
-                break
-    if "asset" not in df.columns:
-        for alt in ("name", "company", "symbol", "ticker"):
-            if alt in df.columns:
-                df = df.rename(columns={alt: "asset"})
-                break
+        return pd.DataFrame()
+
+    if merged is None or merged.empty:
+        return pd.DataFrame()
+
+    df = merged.copy()
+    if "market_cap" not in df.columns:
+        df["market_cap"] = None
+    if "outstanding_shares" not in df.columns:
+        df["outstanding_shares"] = None
     if "tag" not in df.columns:
         df["tag"] = ""
+    if "volume" not in df.columns:
+        df["volume"] = None
+
     required = {"date", "price", "asset", "tag"}
-    missing = required - set(df.columns)
-    if missing:
+    if not required.issubset(set(df.columns)):
         return pd.DataFrame()
-    for optional in ("volume", "market_cap", "outstanding_shares"):
-        if optional not in df.columns:
-            df[optional] = None
-    df = df[["date", "price", "volume", "market_cap", "outstanding_shares", "asset", "tag"]]
+    df = df[["date", "price", "volume", "market_cap", "outstanding_shares", "asset", "tag"]].copy()
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     for col in ("price", "volume", "market_cap", "outstanding_shares"):
         df[col] = df[col].apply(_parse_numeric)
@@ -956,8 +940,7 @@ with tab1:
         - **Volume**: Trading volume
 
         **Data Sources**:
-        - Historical baseline from local Excel (`Earnings + stocks  copy.xlsx` → `Stocks & Crypto`)
-        - Live append from Google Sheet feed (latest available rows)
+        - Historical + live rows from workbook tabs: `Stocks & Crypto`, `Daily`, `Minute`
         - Latest price cards/hero values use the merged feed automatically
 
         Click on any company card to see detailed performance.

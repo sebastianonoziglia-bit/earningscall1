@@ -130,13 +130,7 @@ class SubscriberDataProcessor:
         }
 
     def _resolve_excel_path(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        candidates = [
-            os.path.join(base_dir, "attached_assets", "Earnings + stocks  copy.xlsx"),
-            os.path.join(base_dir, "..", "Earnings + stocks  copy.xlsx"),
-            os.path.join(base_dir, "Earnings + stocks  copy.xlsx"),
-        ]
-        return resolve_financial_data_xlsx(candidates)
+        return resolve_financial_data_xlsx([])
 
     def _get_source_stamp(self, path):
         if not path:

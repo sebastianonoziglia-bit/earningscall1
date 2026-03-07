@@ -16,13 +16,7 @@ from utils.workbook_source import resolve_financial_data_xlsx, get_workbook_sour
 
 @lru_cache(maxsize=2)
 def _resolve_excel_path() -> Optional[str]:
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    candidates = [
-        os.path.join(base_dir, "attached_assets", "Earnings + stocks  copy.xlsx"),
-        os.path.join(base_dir, "..", "Earnings + stocks  copy.xlsx"),
-        os.path.join(base_dir, "Earnings + stocks  copy.xlsx"),
-    ]
-    return resolve_financial_data_xlsx(candidates)
+    return resolve_financial_data_xlsx([])
 
 
 def _pick_column(columns_lower_map: dict[str, str], *candidates: str) -> Optional[str]:

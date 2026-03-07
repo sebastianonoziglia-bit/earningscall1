@@ -48,14 +48,7 @@ def read_excel_data():
         if current_stamp != 0 and new_stamp == current_stamp:
             return cached["df"]
 
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    excel_path = resolve_financial_data_xlsx(
-        [
-            os.path.join(base_dir, 'attached_assets', 'Earnings + stocks  copy.xlsx'),
-            os.path.join(base_dir, '..', 'Earnings + stocks  copy.xlsx'),
-            os.path.join(base_dir, 'Earnings + stocks  copy.xlsx'),
-        ]
-    )
+    excel_path = resolve_financial_data_xlsx([])
     sheet_name = 'Country_Advertising_Data_FullVi'
 
     try:

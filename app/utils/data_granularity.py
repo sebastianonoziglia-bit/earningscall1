@@ -9,6 +9,9 @@ import streamlit as st
 
 # Known workbook sheets and their native temporal granularity.
 KNOWN_SHEET_GRANULARITY: dict[str, str] = {
+    "Daily": "Daily",
+    "Minute": "Daily",
+    "Holders": "Daily",
     "Stocks & Crypto": "Daily",
     "USD Inflation": "Annual",
     "Nasdaq Composite Est. (FRED)": "Monthly",
@@ -199,27 +202,32 @@ def get_day_labels_for_year(excel_path: str, year: int) -> list[str]:
     if not excel_path:
         return []
     names = set(get_workbook_sheet_names(excel_path))
-    if "Stocks & Crypto" not in names:
+    sheet_candidates = [sheet for sheet in ["Daily", "Minute", "Stocks & Crypto"] if sheet in names]
+    if not sheet_candidates:
         return []
 
-    try:
-        df = pd.read_excel(excel_path, sheet_name="Stocks & Crypto", usecols=["date"])
-    except Exception:
+    date_values: list[str] = []
+    for sheet_name in sheet_candidates:
         try:
-            df = pd.read_excel(excel_path, sheet_name="Stocks & Crypto")
+            df = pd.read_excel(excel_path, sheet_name=sheet_name, usecols=["date"])
         except Exception:
-            return []
-    if df is None or df.empty:
+            try:
+                df = pd.read_excel(excel_path, sheet_name=sheet_name)
+            except Exception:
+                continue
+        if df is None or df.empty:
+            continue
+        date_col = _find_col(df, ["date", "datetime", "timestamp", "time"])
+        if not date_col:
+            continue
+        dt = pd.to_datetime(df[date_col], errors="coerce")
+        scope = dt[dt.dt.year == int(year)].dropna()
+        if scope.empty:
+            continue
+        date_values.extend(scope.dt.strftime("%Y-%m-%d").unique().tolist())
+    if not date_values:
         return []
-
-    date_col = _find_col(df, ["date", "datetime", "timestamp"])
-    if not date_col:
-        return []
-    dt = pd.to_datetime(df[date_col], errors="coerce")
-    scope = dt[dt.dt.year == int(year)].dropna()
-    if scope.empty:
-        return []
-    return sorted(scope.dt.strftime("%Y-%m-%d").unique().tolist())
+    return sorted(set(date_values))
 
 
 def update_global_time_context(
@@ -245,4 +253,3 @@ def update_global_time_context(
     }
     st.session_state["global_time_context"] = context
     return context
-

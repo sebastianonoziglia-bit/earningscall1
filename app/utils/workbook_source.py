@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import glob
 import logging
 import os
 import re
@@ -15,8 +14,16 @@ import pandas as pd
 import requests
 
 
-DEFAULT_GOOGLE_SHEET_ID = "1Pol1w-hDB1JjPUdFRP3BLwRwISqLdJBUvyYum9ekNUY"
+DEFAULT_GOOGLE_SHEET_ID = "10pOfzRRd0Mhbb_jq_fQRCqNr7N_R2KUpBBNsUuo5sxs"
 DEFAULT_GOOGLE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{DEFAULT_GOOGLE_SHEET_ID}/edit"
+DEFAULT_FINANCIAL_DATA_SOURCE = "google"
+EXPECTED_WORKBOOK_MIN_SHEET_COUNT = 43
+REQUIRED_WORKBOOK_SHEETS = {
+    "Company_metrics_earnings_values",
+    "Daily",
+    "Minute",
+    "Holders",
+}
 logger = logging.getLogger(__name__)
 
 
@@ -110,21 +117,21 @@ def _download_google_sheet_xlsx(sheet_id: str, refresh_seconds: int = 60) -> Opt
         return str(cache_file) if _is_valid_xlsx_file(cache_file) else None
 
 
-def _resolve_local_xlsx(local_candidates: Iterable[str] | None = None) -> Optional[str]:
-    env_xlsx = os.getenv("FINANCIAL_DATA_XLSX")
-    if env_xlsx and os.path.exists(env_xlsx):
-        env_path = Path(env_xlsx)
-        if _is_valid_xlsx_file(env_path):
-            return str(env_path.resolve())
+def _has_expected_workbook_tabs(path: str | Path | None) -> bool:
+    if not path:
+        return False
+    p = Path(path)
+    if not p.exists() or not _is_valid_xlsx_file(p):
+        return False
+    try:
+        xls = pd.ExcelFile(p)
+        names = {str(name).strip() for name in xls.sheet_names}
+    except Exception:
+        return False
 
-    for path in list(local_candidates or []):
-        if not path:
-            continue
-        candidate = Path(path)
-        if candidate.exists() and _is_valid_xlsx_file(candidate):
-            return str(candidate.resolve())
-
-    return None
+    if len(names) < int(EXPECTED_WORKBOOK_MIN_SHEET_COUNT):
+        return False
+    return REQUIRED_WORKBOOK_SHEETS.issubset(names)
 
 
 def _has_core_financial_coverage(path: str | Path | None) -> bool:
@@ -171,89 +178,15 @@ def _has_core_financial_coverage(path: str | Path | None) -> bool:
 
 
 def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -> Optional[str]:
-    """Resolve the primary workbook path.
+    """Resolve the primary workbook path from Google Sheets export only."""
+    del local_candidates  # Call signature kept for compatibility with existing callers.
 
-    Priority:
-    1) Local file when `FINANCIAL_DATA_SOURCE` is `local`/`file`/`xlsx` (default).
-    2) Google Sheet export when explicitly requested (`FINANCIAL_DATA_SOURCE=google`).
-    3) Safe local fallback if Google export is unavailable.
-    """
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    extra_fallbacks = [
-        os.path.join(base_dir, "attached_assets", "Earnings + stocks  copy.xlsx"),  # double space variant
-        os.path.join(base_dir, "..", "attached_assets", "Earnings + stocks copy.xlsx"),
-        os.path.join(base_dir, "..", "..", "attached_assets", "Earnings + stocks copy.xlsx"),
-    ]
-
-    search_candidates: list[str] = []
-    seen_candidates: set[str] = set()
-    for raw in list(local_candidates or []) + extra_fallbacks:
-        if not raw:
-            continue
-        candidate = str(raw)
-        if candidate in seen_candidates:
-            continue
-        seen_candidates.add(candidate)
-        exists = os.path.exists(candidate)
-        logger.info("WORKBOOK_RESOLVE try: %s exists=%s", candidate, exists)
-        search_candidates.append(candidate)
-
-    def _resolve_local_with_glob(candidates: Iterable[str]) -> Optional[str]:
-        resolved_local = _resolve_local_xlsx(candidates)
-        if resolved_local:
-            logger.info("WORKBOOK_RESOLVE selected local: %s exists=%s", resolved_local, os.path.exists(resolved_local))
-            return resolved_local
-
-        fallback = sorted(glob.glob(os.path.join(base_dir, "attached_assets", "*.xlsx")))
-        for candidate in fallback:
-            logger.info("WORKBOOK_RESOLVE glob: %s exists=%s", candidate, os.path.exists(candidate))
-        if fallback:
-            return os.path.abspath(fallback[0])
-
-        fallback2 = sorted(glob.glob(os.path.join(base_dir, "..", "attached_assets", "*.xlsx")))
-        for candidate in fallback2:
-            logger.info("WORKBOOK_RESOLVE glob: %s exists=%s", candidate, os.path.exists(candidate))
-        if fallback2:
-            return os.path.abspath(fallback2[0])
-        return None
-
-    source_pref = str(os.getenv("FINANCIAL_DATA_SOURCE", "local")).strip().lower()
-    if source_pref in {"local", "file", "xlsx"}:
-        return _resolve_local_with_glob(search_candidates)
-
+    source_pref = str(os.getenv("FINANCIAL_DATA_SOURCE", DEFAULT_FINANCIAL_DATA_SOURCE)).strip().lower()
     if source_pref not in {"google", "gsheet", "sheet"}:
-        # Auto mode: prefer local, then try Google, then local again.
-        local = _resolve_local_with_glob(search_candidates)
-        if local:
-            return local
-
-        sheet_ref = (
-            os.getenv("FINANCIAL_DATA_GSHEET_URL")
-            or os.getenv("FINANCIAL_DATA_GSHEET_ID")
-            or DEFAULT_GOOGLE_SHEET_URL
+        logger.info(
+            "FINANCIAL_DATA_SOURCE=%s is unsupported for workbook resolution; forcing Google export",
+            source_pref or "(empty)",
         )
-        sheet_id = extract_google_sheet_id(sheet_ref)
-        if sheet_id:
-            try:
-                refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "60"))
-            except Exception:
-                refresh_seconds = 60
-                logger.warning(
-                    "WORKBOOK_RESOLVE invalid FINANCIAL_DATA_GSHEET_REFRESH_SECONDS; using default=%s",
-                    refresh_seconds,
-                )
-            try:
-                downloaded = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
-            except Exception as exc:
-                logger.warning(
-                    "WORKBOOK_RESOLVE Google export download failed for sheet_id=%s: %s",
-                    sheet_id,
-                    exc,
-                )
-                downloaded = None
-            if downloaded and os.path.exists(downloaded) and _has_core_financial_coverage(downloaded):
-                return os.path.abspath(downloaded)
-        return _resolve_local_with_glob(search_candidates)
 
     sheet_ref = (
         os.getenv("FINANCIAL_DATA_GSHEET_URL")
@@ -261,29 +194,42 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
         or DEFAULT_GOOGLE_SHEET_URL
     )
     sheet_id = extract_google_sheet_id(sheet_ref)
-    if sheet_id:
-        try:
-            refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "60"))
-        except Exception:
-            refresh_seconds = 60
-            logger.warning(
-                "WORKBOOK_RESOLVE invalid FINANCIAL_DATA_GSHEET_REFRESH_SECONDS; using default=%s",
-                refresh_seconds,
-            )
-        try:
-            downloaded = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
-        except Exception as exc:
-            logger.warning(
-                "WORKBOOK_RESOLVE Google export download failed for sheet_id=%s: %s",
-                sheet_id,
-                exc,
-            )
-            downloaded = None
-        if downloaded and os.path.exists(downloaded) and _has_core_financial_coverage(downloaded):
-            return os.path.abspath(downloaded)
+    if not sheet_id:
+        logger.warning("WORKBOOK_RESOLVE could not parse Google Sheet ID from %s", sheet_ref)
+        return None
 
-    # Critical fallback for private/unavailable sheets: keep app functional from local workbook.
-    return _resolve_local_with_glob(search_candidates)
+    try:
+        refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "60"))
+    except Exception:
+        refresh_seconds = 60
+        logger.warning(
+            "WORKBOOK_RESOLVE invalid FINANCIAL_DATA_GSHEET_REFRESH_SECONDS; using default=%s",
+            refresh_seconds,
+        )
+
+    try:
+        downloaded = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
+    except Exception as exc:
+        logger.warning(
+            "WORKBOOK_RESOLVE Google export download failed for sheet_id=%s: %s",
+            sheet_id,
+            exc,
+        )
+        downloaded = None
+
+    if not downloaded or not os.path.exists(downloaded):
+        logger.warning("WORKBOOK_RESOLVE Google export unavailable for sheet_id=%s", sheet_id)
+        return None
+    if not _has_expected_workbook_tabs(downloaded):
+        logger.warning(
+            "WORKBOOK_RESOLVE Google export missing required workbook topology (>= %s tabs + required sheets).",
+            EXPECTED_WORKBOOK_MIN_SHEET_COUNT,
+        )
+        return None
+    if not _has_core_financial_coverage(downloaded):
+        logger.warning("WORKBOOK_RESOLVE Google export failed core financial coverage validation.")
+        return None
+    return os.path.abspath(downloaded)
 
 
 def get_workbook_source_stamp(path: str | None) -> int:

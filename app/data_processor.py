@@ -17,6 +17,7 @@ import numpy as np
 from utils.helpers import format_ad_revenue
 from handle_segments import get_wbd_segments, get_paramount_segments
 from utils.workbook_source import resolve_financial_data_xlsx, get_workbook_source_stamp
+from utils.workbook_market_data import load_combined_stock_market_data, load_holders_sheet
 
 @lru_cache(maxsize=8)
 def _read_excel_sheet(path, source_stamp, sheet_name, usecols):
@@ -40,6 +41,9 @@ class FinancialDataProcessor:
         self.df_revenue_by_region = None
         self.df_subscribers = None
         self.df_nasdaq_market_cap = None
+        self.df_daily_prices = None
+        self.df_minute_prices = None
+        self.df_holders = None
         self.data_path = None
         self.metrics_index = None
         self.employees_index = None
@@ -63,6 +67,9 @@ class FinancialDataProcessor:
             self.df_ad_revenue = pd.DataFrame(columns=['year'])
             self.df_revenue_by_region = pd.DataFrame(columns=['company', 'year', 'segment_name', 'revenue_millions'])
             self.df_subscribers = pd.DataFrame(columns=['service', 'year', 'subscribers'])
+            self.df_daily_prices = pd.DataFrame()
+            self.df_minute_prices = pd.DataFrame()
+            self.df_holders = pd.DataFrame()
             return
 
         self.data_path = excel_path
@@ -100,6 +107,9 @@ class FinancialDataProcessor:
         self.df_revenue_by_region = None
         self.df_subscribers = None
         self.df_nasdaq_market_cap = None
+        self.df_daily_prices = None
+        self.df_minute_prices = None
+        self.df_holders = None
 
         self.process_data()
         return
@@ -143,14 +153,72 @@ class FinancialDataProcessor:
         return out
 
     def _resolve_excel_path(self):
-        """Locate the primary Excel data file."""
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        candidates = [
-            os.path.join(base_dir, 'attached_assets', 'Earnings + stocks  copy.xlsx'),
-            os.path.join(base_dir, '..', 'Earnings + stocks  copy.xlsx'),
-            os.path.join(base_dir, 'Earnings + stocks  copy.xlsx'),
-        ]
-        return resolve_financial_data_xlsx(candidates)
+        """Locate the primary workbook from Google Sheets export."""
+        return resolve_financial_data_xlsx([])
+
+    def _load_daily_minute_prices(self):
+        if self.df_daily_prices is not None and self.df_minute_prices is not None:
+            return
+        if not self.data_path:
+            self.df_daily_prices = pd.DataFrame()
+            self.df_minute_prices = pd.DataFrame()
+            return
+        try:
+            merged = load_combined_stock_market_data(
+                excel_path=self.data_path,
+                source_stamp=int(self.source_stamp or 0),
+                include_baseline=False,
+                include_daily=True,
+                include_minute=True,
+            )
+        except Exception:
+            self.df_daily_prices = pd.DataFrame()
+            self.df_minute_prices = pd.DataFrame()
+            return
+        if merged is None or merged.empty:
+            self.df_daily_prices = pd.DataFrame()
+            self.df_minute_prices = pd.DataFrame()
+            return
+        work = merged.copy()
+        if "source_sheet" not in work.columns:
+            work["source_sheet"] = ""
+        else:
+            work["source_sheet"] = work["source_sheet"].astype(str).str.strip()
+        self.df_daily_prices = work[work["source_sheet"] == "Daily"].copy()
+        self.df_minute_prices = work[work["source_sheet"] == "Minute"].copy()
+
+    def get_daily_prices(self):
+        self._load_daily_minute_prices()
+        return self.df_daily_prices.copy() if self.df_daily_prices is not None else pd.DataFrame()
+
+    def get_minute_prices(self):
+        self._load_daily_minute_prices()
+        return self.df_minute_prices.copy() if self.df_minute_prices is not None else pd.DataFrame()
+
+    def _load_holders(self):
+        if self.df_holders is not None and not self.df_holders.empty:
+            return
+        if not self.data_path:
+            self.df_holders = pd.DataFrame()
+            return
+        try:
+            self.df_holders = load_holders_sheet(
+                excel_path=self.data_path,
+                source_stamp=int(self.source_stamp or 0),
+            )
+        except Exception:
+            self.df_holders = pd.DataFrame()
+
+    def get_holders(self, company: str = "", ticker: str = ""):
+        self._load_holders()
+        if self.df_holders is None or self.df_holders.empty:
+            return pd.DataFrame()
+        out = self.df_holders.copy()
+        if company:
+            out = out[out["company"].astype(str).str.lower().str.strip() == str(company).lower().strip()]
+        if ticker:
+            out = out[out["ticker"].astype(str).str.upper().str.strip() == str(ticker).upper().strip()]
+        return out.reset_index(drop=True)
 
     def is_source_updated(self):
         if not self.data_path:

@@ -185,8 +185,9 @@ def render_ai_assistant(location="sidebar", width=None, height=None, current_pag
             st.session_state.get("selected_quarter", st.session_state.get("earnings_selected_quarter", "Q4"))
         ).strip()
 
-        repo_root = Path(__file__).resolve().parents[2]
-        db_path = repo_root / "earningscall_intelligence.db"
+        db_path = Path(__file__).resolve().parent.parent.parent / "earningscall_intelligence.db"
+        if not db_path.exists():
+            db_path = Path(__file__).resolve().parent.parent / "earningscall_intelligence.db"
 
         container.markdown("---")
         with container.expander("🤖 Earningscall Intelligence Assistant", expanded=False):

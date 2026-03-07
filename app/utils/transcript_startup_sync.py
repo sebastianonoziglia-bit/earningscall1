@@ -9,6 +9,7 @@ import re
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from openpyxl import load_workbook
+from utils.workbook_source import resolve_financial_data_xlsx
 
 
 TRANSCRIPT_FILE_RE = re.compile(r"^Q([1-4])\.txt$", re.IGNORECASE)
@@ -51,16 +52,11 @@ def _key(company: str, year: int, quarter: str) -> str:
 
 
 def _resolve_local_workbook_path() -> Optional[Path]:
-    base_dir = Path(__file__).resolve().parents[1]
-    candidates = [
-        base_dir / "attached_assets" / "Earnings + stocks  copy.xlsx",
-        base_dir.parent / "Earnings + stocks  copy.xlsx",
-        base_dir / "Earnings + stocks  copy.xlsx",
-    ]
-    for path in candidates:
-        if path.exists():
-            return path.resolve()
-    return None
+    resolved = resolve_financial_data_xlsx([])
+    if not resolved:
+        return None
+    path = Path(resolved)
+    return path.resolve() if path.exists() else None
 
 
 def _collect_transcript_files(transcript_root: Path) -> List[Tuple[str, int, str, Path]]:
@@ -170,7 +166,11 @@ def _sync_local_transcripts_to_workbook_impl() -> SyncResult:
 
 
 def sync_local_transcripts_to_workbook(timeout_seconds: int = 10) -> SyncResult:
-    """Best-effort sync that never raises and times out quickly at startup."""
+    """Best-effort startup sync that never raises to callers.
+
+    Runs with a hard wait timeout so app startup can continue even when
+    workbook/network dependencies are unavailable.
+    """
     timeout_seconds = max(int(timeout_seconds or 10), 1)
     executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="startup_transcript_sync")
     future = executor.submit(_sync_local_transcripts_to_workbook_impl)
