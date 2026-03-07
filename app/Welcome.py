@@ -1924,7 +1924,11 @@ total_tracked_b = total_tracked_musd / 1e3 if total_tracked_musd else 0.0
 big_tech_names = ["Alphabet", "Meta Platforms", "Amazon", "Apple", "Microsoft"]
 big_tech_b = sum(float(ad_lookup.get(c, {}).get("ad_revenue_musd", 0.0)) for c in big_tech_names) / 1e3
 other_b = max(total_tracked_b - big_tech_b, 0.0)
-global_ad_denom = groupm_b if groupm_b else total_tracked_b
+global_ad_denom_raw = groupm_b if groupm_b else total_tracked_b
+global_ad_denom = global_ad_denom_raw
+# Safety guard for mixed units ($M vs $B): keep denominator in billions.
+if global_ad_denom and global_ad_denom > 5_000 and total_tracked_b < 5_000:
+    global_ad_denom = global_ad_denom / 1_000.0
 untracked_b = max((global_ad_denom or 0) - total_tracked_b, 0.0)
 market_feed_df = _load_market_feed()
 
