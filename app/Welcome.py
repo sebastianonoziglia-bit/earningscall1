@@ -1435,6 +1435,15 @@ div[data-testid="block-container"] {
     font-weight: 500 !important;
     transition: background 0.2s ease !important;
 }
+.stButton > button,
+.stButton > button *,
+.stButton > button p,
+.stButton > button span,
+.stButton > button div {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    opacity: 1 !important;
+}
 .stButton > button:hover {
     background: rgba(255,255,255,0.14) !important;
 }
@@ -1698,6 +1707,10 @@ def _load_market_feed() -> pd.DataFrame:
     daily_df = _normalize_market_feed(daily_raw)
     combined = pd.concat([minute_df, daily_df], ignore_index=True)
     if combined.empty:
+        # Legacy workbook fallback: local copies may only include "Stocks & Crypto".
+        stocks_raw = _read_excel_sheet_cached(excel_path, "Stocks & Crypto", source_stamp)
+        combined = _normalize_market_feed(stocks_raw)
+    if combined.empty:
         return pd.DataFrame()
     combined = combined.sort_values("date")
     dedup_keys = ["date"]
@@ -1760,36 +1773,46 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
 
 
 def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
+    company_ticker_fallback = {
+        "Alphabet": ["GOOGL", "GOOG"],
+        "Meta Platforms": ["META"],
+        "Amazon": ["AMZN"],
+        "Apple": ["AAPL"],
+        "Microsoft": ["MSFT"],
+        "Netflix": ["NFLX"],
+        "Disney": ["DIS"],
+        "Comcast": ["CMCSA"],
+        "Spotify": ["SPOT"],
+        "Roku": ["ROKU"],
+        "Warner Bros. Discovery": ["WBD"],
+        "Paramount Global": ["PARA"],
+    }
     if feed_df is None or feed_df.empty:
         st.info("Market ticker unavailable.")
         return
-    company_ticker_fallback = {
-        "Alphabet": "GOOGL",
-        "Meta Platforms": "META",
-        "Amazon": "AMZN",
-        "Apple": "AAPL",
-        "Microsoft": "MSFT",
-        "Netflix": "NFLX",
-        "Disney": "DIS",
-        "Comcast": "CMCSA",
-        "Spotify": "SPOT",
-        "Roku": "ROKU",
-        "Warner Bros. Discovery": "WBD",
-        "Paramount Global": "PARA",
-    }
+
     items = []
-    for company, ticker in company_ticker_fallback.items():
-        subset = feed_df[feed_df["tag"].astype(str).str.upper() == ticker]
+    feed = feed_df.copy()
+    feed["asset_norm"] = feed["asset"].astype(str).str.lower()
+    feed["tag_norm"] = feed["tag"].astype(str).str.upper()
+    for company, ticker_aliases in company_ticker_fallback.items():
+        company_variants = _company_variants(company)
+        pattern = "|".join(re.escape(v.lower()) for v in company_variants if v)
+        subset = pd.DataFrame()
+        if pattern:
+            subset = feed[feed["asset_norm"].str.contains(pattern, na=False, regex=True)]
         if subset.empty:
-            subset = feed_df[feed_df["asset"].astype(str).str.lower().str.contains(company.lower(), na=False)]
+            subset = feed[feed["tag_norm"].isin(ticker_aliases)]
         if subset.empty:
             continue
+
         last = subset.sort_values("date").iloc[-1]
         price = float(last.get("price", np.nan))
         if pd.isna(price):
             continue
         change = pd.to_numeric(pd.Series([last.get("change", np.nan)]), errors="coerce").iloc[0]
         change_txt = f"{change:+.2f}%" if pd.notna(change) else "n/a"
+        ticker_display = ticker_aliases[0]
         logo_b64 = _resolve_logo(company, logos)
         logo_html = (
             f"<img class='wm-mini-logo' src='data:image/png;base64,{logo_b64}' alt='{escape(company)} logo' />"
@@ -1801,7 +1824,7 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
             f"<div style='display:inline-flex;align-items:center;gap:8px;width:100%;'>{logo_html}"
             f"<span style='color:#ffffff;font-weight:700;font-size:0.8rem;'>{escape(company)}</span>"
             f"<span style='margin-left:auto;color:#ffffff;font-family:monospace;font-size:0.92rem;font-weight:700;'>${price:,.2f}</span></div>"
-            f"<div style='color:rgba(255,255,255,0.64);font-size:0.72rem;'>{escape(change_txt)} · {escape(ticker)}</div>"
+            f"<div style='color:rgba(255,255,255,0.64);font-size:0.72rem;'>{escape(change_txt)} · {escape(ticker_display)}</div>"
             "</div>"
         )
     if not items:
@@ -1849,15 +1872,27 @@ if not groupm_df.empty and groupm_year_col and not groupm_total_col:
 groupm_b = None
 groupm_yoy = None
 effective_year_groupm = effective_year
+
+
+def _normalize_groupm_to_billions(value: Any) -> Optional[float]:
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(numeric):
+        return None
+    val = float(numeric)
+    # GroupM sheets can be stored in $M; convert to $B for display/ratios.
+    return val / 1_000.0 if abs(val) > 5_000 else val
+
+
 if not groupm_df.empty and groupm_year_col and groupm_total_col:
     g_row = _yr(groupm_df, effective_year, groupm_year_col)
     if not g_row.empty:
         effective_year_groupm = int(pd.to_numeric(g_row[groupm_year_col], errors="coerce").iloc[0])
-        groupm_b = float(pd.to_numeric(g_row[groupm_total_col], errors="coerce").iloc[0])
+        groupm_b = _normalize_groupm_to_billions(g_row[groupm_total_col].iloc[0])
     g_prev = _yr(groupm_df, effective_year_groupm - 1, groupm_year_col)
     if not g_prev.empty and groupm_b is not None:
-        groupm_prev_b = float(pd.to_numeric(g_prev[groupm_total_col], errors="coerce").iloc[0])
-        groupm_yoy = _yoy(groupm_b, groupm_prev_b)
+        groupm_prev_b = _normalize_groupm_to_billions(g_prev[groupm_total_col].iloc[0])
+        if groupm_prev_b is not None:
+            groupm_yoy = _yoy(groupm_b, groupm_prev_b)
 
 rev_b = None
 rev_yoy = None
@@ -2057,7 +2092,7 @@ try:
                     margin=dict(l=0, r=0, t=32, b=0),
                     extra_layout=dict(
                         paper_bgcolor="#0d1117",
-                        geo_bgcolor="#0d1117",
+                        plot_bgcolor="#0d1117",
                         geo=dict(
                             bgcolor="#0d1117",
                             showland=True,
@@ -2065,9 +2100,17 @@ try:
                             showframe=False,
                             showcoastlines=True,
                             coastlinecolor="rgba(255,255,255,0.08)",
+                            showocean=True,
+                            oceancolor="#0d1117",
                             projection_type="natural earth",
                         ),
                     ),
+                )
+                # Force ocean/water styling explicitly for map traces.
+                map_fig.update_geos(
+                    showocean=True,
+                    oceancolor="#0d1117",
+                    bgcolor="#0d1117",
                 )
                 st.plotly_chart(map_fig, use_container_width=True)
 except Exception:
@@ -2078,336 +2121,143 @@ _separator()
 # Beat 1.5 — Structural Shift donut animation
 st.components.v1.html(
     """
-<div id="wm-structural-shift-root">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-    #wm-structural-shift-root {
-      background: #0d1117;
-      color: #e6edf3;
-      font-family: 'DM Sans', sans-serif;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-    }
-    #wm-structural-shift-root * { box-sizing: border-box; }
-    .wm-ss-shell {
-      width: 100%;
-      background: #0d1117;
-      border: 1px solid rgba(139,148,158,0.22);
-      border-radius: 14px;
-      padding: 24px 24px 18px;
-    }
-    .wm-ss-label {
-      color: #ff5b1f;
-      font-family: 'Syne', sans-serif;
-      font-size: 11px;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-      font-weight: 700;
-    }
-    .wm-ss-headline {
-      color: #e6edf3;
-      font-family: 'Syne', sans-serif;
-      font-size: 34px;
-      line-height: 1.14;
-      margin: 0 0 10px;
-      font-weight: 800;
-    }
-    .wm-ss-body {
-      color: #8b949e;
-      font-size: 15px;
-      line-height: 1.55;
-      margin: 0 0 16px;
-    }
-    .wm-ss-main {
-      display: flex;
-      gap: 16px;
-      align-items: center;
-      min-height: 330px;
-    }
-    .wm-ss-left {
-      width: 60%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .wm-ss-right {
-      width: 40%;
-      padding: 0 6px 0 0;
-    }
-    #wm-ss-canvas {
-      width: 380px;
-      height: 380px;
-      max-width: 100%;
-      display: block;
-      background: #0d1117;
-    }
-    .wm-ss-year {
-      color: #e6edf3;
-      font-family: 'Syne', sans-serif;
-      font-size: 96px;
-      line-height: 0.95;
-      letter-spacing: -0.03em;
-      font-weight: 800;
-      margin: 0 0 10px;
-    }
-    .wm-ss-year-label {
-      color: #8b949e;
-      font-size: 14px;
-      line-height: 1.45;
-      min-height: 42px;
-      margin-bottom: 14px;
-    }
-    .wm-ss-total {
-      color: #ff5b1f;
-      font-family: 'Syne', sans-serif;
-      font-size: 34px;
-      font-weight: 800;
-      line-height: 1;
-    }
-    .wm-ss-total-sub {
-      color: #8b949e;
-      font-size: 12px;
-      margin-top: 6px;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-    }
-    .wm-ss-legend {
-      margin-top: 12px;
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 12px;
-      align-items: center;
-      overflow-x: auto;
-      padding-bottom: 2px;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(139,148,158,0.4) transparent;
-    }
-    .wm-ss-legend-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: #8b949e;
-      font-size: 11px;
-      white-space: nowrap;
-      letter-spacing: 0.01em;
-    }
-    .wm-ss-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-      flex: 0 0 8px;
-    }
-    @media (max-width: 900px) {
-      .wm-ss-main { flex-direction: column; align-items: stretch; min-height: auto; }
-      .wm-ss-left, .wm-ss-right { width: 100%; }
-      .wm-ss-right { text-align: center; }
-      .wm-ss-year-label { min-height: 0; }
-      .wm-ss-headline { font-size: 28px; }
-      .wm-ss-year { font-size: 78px; }
-      .wm-ss-total { font-size: 30px; }
-    }
-  </style>
-
-  <div class="wm-ss-shell">
-    <div class="wm-ss-label">THE STRUCTURAL SHIFT</div>
-    <h2 class="wm-ss-headline">Television had the world's attention. Then the internet took it.</h2>
-    <p class="wm-ss-body">Global advertising by medium, 1999–2024. Watch where the money moved.</p>
-    <div class="wm-ss-main">
-      <div class="wm-ss-left">
-        <canvas id="wm-ss-canvas" width="420" height="420" aria-label="Structural Shift donut chart"></canvas>
-      </div>
-      <div class="wm-ss-right">
-        <div id="wm-ss-year" class="wm-ss-year">1999</div>
-        <div id="wm-ss-year-label" class="wm-ss-year-label"></div>
-        <div id="wm-ss-total" class="wm-ss-total">$0B</div>
-        <div class="wm-ss-total-sub">Total Market Size</div>
-      </div>
-    </div>
-    <div id="wm-ss-legend" class="wm-ss-legend"></div>
+<div id="wm-ss-root">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+#wm-ss-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
+#wm-ss-root *{box-sizing:border-box;}
+.wm-ss-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
+.wm-ss-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;line-height:1.14;margin:0 0 8px;font-weight:800;}
+.wm-ss-body{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 20px;}
+.wm-ss-main{display:flex;gap:24px;align-items:center;min-height:280px;}
+.wm-ss-left{width:55%;display:flex;justify-content:center;align-items:center;}
+.wm-ss-right{width:45%;padding:0 8px;}
+.wm-ss-year{font-family:'Syne',sans-serif;font-size:72px;font-weight:800;color:#e6edf3;line-height:1;}
+.wm-ss-yearlabel{color:#8b949e;font-size:13px;margin-top:8px;line-height:1.4;}
+.wm-ss-total{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-top:12px;}
+.wm-ss-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
+.wm-ss-leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
+.wm-ss-leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+</style>
+<div class="wm-ss-label">THE STRUCTURAL SHIFT</div>
+<div class="wm-ss-headline">Television had the world's attention.<br>Then the internet took it.</div>
+<div class="wm-ss-body">Global advertising by medium, 1999–2024. Watch where the money moved.</div>
+<div class="wm-ss-main">
+  <div class="wm-ss-left"><canvas id="wm-ss-canvas" width="280" height="280"></canvas></div>
+  <div class="wm-ss-right">
+    <div class="wm-ss-year" id="wm-ss-yr">1999</div>
+    <div class="wm-ss-yearlabel" id="wm-ss-lbl">TV dominates. Internet is a rounding error.</div>
+    <div class="wm-ss-total" id="wm-ss-tot"></div>
   </div>
-
-  <script>
-    (function () {
-      const DATA = {
-        1999: { "Free TV": 87930, "Print": 124794, "Digital Search": 38, "Digital Social": 0, "Digital Video": 0, "Everything Else": 56538 },
-        2004: { "Free TV": 119155, "Print": 132531, "Digital Search": 5804, "Digital Social": 0, "Digital Video": 0, "Everything Else": 72256 },
-        2008: { "Free TV": 148644, "Print": 131143, "Digital Search": 109021, "Digital Social": 311, "Digital Video": 262, "Everything Else": 82968 },
-        2012: { "Free TV": 155985, "Print": 95457, "Digital Search": 229656, "Digital Social": 203254, "Digital Video": 3148, "Everything Else": 93259 },
-        2016: { "Free TV": 170472, "Print": 73705, "Digital Search": 398066, "Digital Social": 372205, "Digital Video": 14965, "Everything Else": 96765 },
-        2019: { "Free TV": 166870, "Print": 58817, "Digital Search": 557982, "Digital Social": 590586, "Digital Video": 34021, "Everything Else": 102847 },
-        2021: { "Free TV": 164349, "Print": 52615, "Digital Search": 735956, "Digital Social": 748852, "Digital Video": 56279, "Everything Else": 109249 },
-        2024: { "Free TV": 166895, "Print": 44082, "Digital Search": 831613, "Digital Social": 818502, "Digital Video": 76895, "Everything Else": 127694 }
-      };
-      const COLORS = {
-        "Free TV": "#3a5a8c",
-        "Print": "#6b7280",
-        "Digital Search": "#ff5b1f",
-        "Digital Social": "#f59e0b",
-        "Digital Video": "#10b981",
-        "Everything Else": "#374151"
-      };
-      const LABELS = {
-        1999: "TV dominates. Internet is a rounding error.",
-        2004: "Search starts to matter.",
-        2008: "Mobile arrives. Print begins its decline.",
-        2012: "Social explodes on mobile.",
-        2016: "Digital overtakes TV for the first time.",
-        2019: "Mobile search surpasses all of TV.",
-        2021: "Pandemic accelerates everything digital.",
-        2024: "Search + Social = 60% of all ad spend."
-      };
-
-      const root = document.getElementById('wm-structural-shift-root');
-      if (!root) return;
-      const canvas = root.querySelector('#wm-ss-canvas');
-      const ctx = canvas.getContext('2d');
-      const yearEl = root.querySelector('#wm-ss-year');
-      const labelEl = root.querySelector('#wm-ss-year-label');
-      const totalEl = root.querySelector('#wm-ss-total');
-      const legendEl = root.querySelector('#wm-ss-legend');
-      const ORDER = Object.keys(COLORS);
-      const YEARS = Object.keys(DATA).map(Number).sort((a, b) => a - b);
-      const STEP_MS = 700;
-      const HOLD_MS = 2000;
-      const OUTER_RADIUS = 160;
-      const INNER_RADIUS = 96;
-
-      legendEl.innerHTML = ORDER.map((name) =>
-        `<span class="wm-ss-legend-item"><span class="wm-ss-dot" style="background:${COLORS[name]}"></span>${name}</span>`
-      ).join('');
-
-      function resizeCanvas() {
-        const dpr = window.devicePixelRatio || 1;
-        const cssW = Math.min(380, Math.max(280, canvas.parentElement.clientWidth));
-        const cssH = cssW;
-        canvas.style.width = `${cssW}px`;
-        canvas.style.height = `${cssH}px`;
-        canvas.width = Math.floor(cssW * dpr);
-        canvas.height = Math.floor(cssH * dpr);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
-      }
-
-      function easeInOutCubic(t) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      }
-
-      function interpolateValues(a, b, t) {
-        const out = {};
-        ORDER.forEach((k) => {
-          const from = Number(a[k] || 0);
-          const to = Number(b[k] || 0);
-          out[k] = from + (to - from) * t;
-        });
-        return out;
-      }
-
-      function totalOf(obj) {
-        return ORDER.reduce((acc, k) => acc + Number(obj[k] || 0), 0);
-      }
-
-      function formatBillions(totalRaw) {
-        const billions = Math.round(totalRaw / 1000);
-        return billions.toLocaleString('en-US');
-      }
-
-      function drawDonut(values, displayYear) {
-        const width = canvas.clientWidth;
-        const height = canvas.clientHeight;
-        const cx = width / 2;
-        const cy = height / 2;
-        const outer = Math.min(OUTER_RADIUS, Math.min(width, height) * 0.45);
-        const inner = Math.min(INNER_RADIUS, outer * 0.6);
-        ctx.clearRect(0, 0, width, height);
-
-        const total = totalOf(values);
-        let start = -Math.PI / 2;
-        ORDER.forEach((name) => {
-          const value = Number(values[name] || 0);
-          if (value <= 0 || total <= 0) return;
-          const angle = (value / total) * Math.PI * 2;
-          const end = start + angle;
-          ctx.beginPath();
-          ctx.moveTo(cx, cy);
-          ctx.arc(cx, cy, outer, start, end, false);
-          ctx.arc(cx, cy, inner, end, start, true);
-          ctx.closePath();
-          ctx.fillStyle = COLORS[name];
-          ctx.fill();
-          start = end;
-        });
-
-        ctx.beginPath();
-        ctx.arc(cx, cy, inner - 0.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#0d1117';
-        ctx.fill();
-
-        yearEl.textContent = String(displayYear);
-        labelEl.textContent = LABELS[displayYear] || '';
-        totalEl.textContent = `$${formatBillions(total)}B`;
-      }
-
-      let fromIndex = 0;
-      let toIndex = 1;
-      let phaseStart = performance.now();
-      let holdStart = 0;
-      let holding = false;
-
-      function tick(now) {
-        if (holding) {
-          const lastYear = YEARS[YEARS.length - 1];
-          drawDonut(DATA[lastYear], lastYear);
-          if (now - holdStart >= HOLD_MS) {
-            holding = false;
-            fromIndex = 0;
-            toIndex = 1;
-            phaseStart = now;
-          }
-          requestAnimationFrame(tick);
-          return;
-        }
-
-        const elapsed = now - phaseStart;
-        let t = elapsed / STEP_MS;
-        if (t >= 1) {
-          fromIndex = toIndex;
-          if (fromIndex >= YEARS.length - 1) {
-            holding = true;
-            holdStart = now;
-            const finalYear = YEARS[YEARS.length - 1];
-            drawDonut(DATA[finalYear], finalYear);
-            requestAnimationFrame(tick);
-            return;
-          }
-          toIndex = fromIndex + 1;
-          phaseStart = now;
-          t = 0;
-        }
-
-        const fromYear = YEARS[fromIndex];
-        const toYear = YEARS[toIndex];
-        const eased = easeInOutCubic(Math.max(0, Math.min(1, t)));
-        const values = interpolateValues(DATA[fromYear], DATA[toYear], eased);
-        const displayYear = eased < 0.5 ? fromYear : toYear;
-        drawDonut(values, displayYear);
-        requestAnimationFrame(tick);
-      }
-
-      resizeCanvas();
-      const firstYear = YEARS[0];
-      drawDonut(DATA[firstYear], firstYear);
-      requestAnimationFrame(tick);
-      window.addEventListener('resize', () => {
-        resizeCanvas();
-      });
-    })();
-  </script>
+</div>
+<div class="wm-ss-legend">
+  <div class="wm-ss-leg-item"><div class="wm-ss-leg-dot" style="background:#3a5a8c"></div>Free TV</div>
+  <div class="wm-ss-leg-item"><div class="wm-ss-leg-dot" style="background:#6b7280"></div>Print</div>
+  <div class="wm-ss-leg-item"><div class="wm-ss-leg-dot" style="background:#ff5b1f"></div>Digital Search</div>
+  <div class="wm-ss-leg-item"><div class="wm-ss-leg-dot" style="background:#f59e0b"></div>Digital Social</div>
+  <div class="wm-ss-leg-item"><div class="wm-ss-leg-dot" style="background:#10b981"></div>Digital Video</div>
+  <div class="wm-ss-leg-item"><div class="wm-ss-leg-dot" style="background:#374151"></div>Everything Else</div>
+</div>
+<script>
+const KEYS=["Free TV","Print","Digital Search","Digital Social","Digital Video","Everything Else"];
+const COLORS={"Free TV":"#3a5a8c","Print":"#6b7280","Digital Search":"#ff5b1f","Digital Social":"#f59e0b","Digital Video":"#10b981","Everything Else":"#374151"};
+const DATA={1999:{"Free TV":87930,"Print":124794,"Digital Search":38,"Digital Social":0,"Digital Video":0,"Everything Else":56538},2004:{"Free TV":119155,"Print":132531,"Digital Search":5804,"Digital Social":0,"Digital Video":0,"Everything Else":72256},2008:{"Free TV":148644,"Print":131143,"Digital Search":109021,"Digital Social":311,"Digital Video":262,"Everything Else":82968},2012:{"Free TV":155985,"Print":95457,"Digital Search":229656,"Digital Social":203254,"Digital Video":3148,"Everything Else":93259},2016:{"Free TV":170472,"Print":73705,"Digital Search":398066,"Digital Social":372205,"Digital Video":14965,"Everything Else":96765},2019:{"Free TV":166870,"Print":58817,"Digital Search":557982,"Digital Social":590586,"Digital Video":34021,"Everything Else":102847},2021:{"Free TV":164349,"Print":52615,"Digital Search":735956,"Digital Social":748852,"Digital Video":56279,"Everything Else":109249},2024:{"Free TV":166895,"Print":44082,"Digital Search":831613,"Digital Social":818502,"Digital Video":76895,"Everything Else":127694}};
+const LABELS={1999:"TV dominates. Internet is a rounding error.",2004:"Search starts to matter.",2008:"Mobile arrives. Print begins its decline.",2012:"Social explodes on mobile.",2016:"Digital overtakes TV for the first time.",2019:"Mobile search surpasses all of TV.",2021:"Pandemic accelerates everything digital.",2024:"Search + Social = 60% of all ad spend."};
+const YEARS=Object.keys(DATA).map(Number);
+const canvas=document.getElementById('wm-ss-canvas');
+const ctx=canvas.getContext('2d');
+let currentFrame=0,animating=false,currentAngles=null,targetAngles=null,rafId=null,stepIdx=0,pauseTimer=null;
+function getAngles(yr){const d=DATA[yr];const total=KEYS.reduce((s,k)=>s+d[k],0);let a=-Math.PI/2;return KEYS.map(k=>{const slice=(d[k]/total)*Math.PI*2;const start=a;a+=slice;return{start,end:a,color:COLORS[k]};});}
+function lerp(a,b,t){return a+(b-a)*t;}
+function drawDonut(angles){ctx.clearRect(0,0,280,280);const cx=140,cy=140,r=120,ir=72;angles.forEach(s=>{ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,s.start,s.end);ctx.closePath();ctx.fillStyle=s.color;ctx.fill();});ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='#0d1117';ctx.fill();}
+function animateTo(from,to,onDone){let t=0;function step(){t=Math.min(t+0.04,1);const interp=from.map((s,i)=>({start:lerp(s.start,to[i].start,t),end:lerp(s.end,to[i].end,t),color:to[i].color}));drawDonut(interp);if(t<1){rafId=requestAnimationFrame(step);}else{onDone();}}rafId=requestAnimationFrame(step);}
+function formatB(yr){const total=KEYS.reduce((s,k)=>s+DATA[yr][k],0);return'$'+(total/1000).toFixed(0)+'B total';}
+function runStep(){if(stepIdx>=YEARS.length){stepIdx=0;}const yr=YEARS[stepIdx];const to=getAngles(yr);document.getElementById('wm-ss-yr').textContent=yr;document.getElementById('wm-ss-lbl').textContent=LABELS[yr];document.getElementById('wm-ss-tot').textContent=formatB(yr);const pause=yr===2024?2000:700;animateTo(currentAngles||to,to,()=>{currentAngles=to;stepIdx++;pauseTimer=setTimeout(runStep,pause);});};
+currentAngles=getAngles(1999);drawDonut(currentAngles);stepIdx=1;pauseTimer=setTimeout(runStep,800);
+</script>
 </div>
 """,
     height=540,
+)
+_separator()
+
+st.components.v1.html(
+    """
+<div id="wm-attn-root">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+#wm-attn-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:0 24px;}
+#wm-attn-root *{box-sizing:border-box;}
+.wa-scene{padding:48px 0 32px;}
+.wa-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
+.wa-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.14;margin:0 0 8px;}
+.wa-body{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 32px;}
+.wa-split{display:flex;gap:0;width:100%;min-height:360px;align-items:center;}
+.wa-col{flex:1;display:flex;flex-direction:column;gap:20px;padding:0 32px;}
+.wa-col-hdr{color:#ff5b1f;font-size:10px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;margin-bottom:4px;}
+.wa-divider{width:1px;background:linear-gradient(to bottom,transparent,rgba(255,255,255,0.1),transparent);align-self:stretch;flex-shrink:0;}
+.wa-row{display:flex;align-items:center;gap:14px;opacity:0;transform:translateX(-40px);transition:opacity .6s ease,transform .6s cubic-bezier(.34,1.2,.64,1);}
+.wa-row.fr{flex-direction:row-reverse;transform:translateX(40px);}
+.wa-row.vis{opacity:1;transform:translateX(0);}
+.wa-dot{border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;}
+.wa-name{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;color:#e6edf3;}
+.wa-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#ff5b1f;line-height:1;}
+.wa-desc{font-size:12px;color:#8b949e;}
+.wa-txt-r{text-align:right;}
+.wa-sep{width:40px;height:2px;background:#ff5b1f;margin:8px 0 32px;}
+.wa-bfield{position:relative;width:100%;height:460px;}
+.wb{position:absolute;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px;opacity:0;transform:scale(.4);transition:opacity .7s cubic-bezier(.34,1.56,.64,1),transform .7s cubic-bezier(.34,1.56,.64,1);}
+.wb.vis{opacity:1;transform:scale(1);}
+.wb:hover{transform:scale(1.06);z-index:10;}
+.wb-lbl{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-bottom:3px;}
+.wb-val{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff;line-height:1.1;}
+.wb-sub{font-size:10px;color:rgba(255,255,255,.45);margin-top:2px;}
+</style>
+<div class="wa-scene" id="wa-s1">
+  <div class="wa-label">THE SCALE OF ATTENTION</div>
+  <div class="wa-headline">Humanity gives these companies its most precious resource.</div>
+  <div class="wa-body">Every day. Every minute. Here's where billions of hours go — and who gets paid for them.</div>
+  <div class="wa-split">
+    <div class="wa-col">
+      <div class="wa-col-hdr">Minutes per user · per day</div>
+      <div class="wa-row" data-delay="100"><div class="wa-dot" style="width:68px;height:68px;background:rgba(255,0,0,.15);border:2px solid rgba(255,80,80,.4);font-size:18px;">▶</div><div><div class="wa-name">YouTube</div><div class="wa-val">24 min</div><div class="wa-desc">2.5B users · 1B hrs/day total</div></div></div>
+      <div class="wa-row" data-delay="250"><div class="wa-dot" style="width:54px;height:54px;background:rgba(30,215,96,.12);border:2px solid rgba(30,215,96,.35);font-size:15px;">♫</div><div><div class="wa-name">Spotify</div><div class="wa-val">30 min</div><div class="wa-desc">675M users · audio-first</div></div></div>
+      <div class="wa-row" data-delay="400"><div class="wa-dot" style="width:62px;height:62px;background:rgba(229,9,20,.15);border:2px solid rgba(229,9,20,.4);font-size:17px;">N</div><div><div class="wa-name">Netflix</div><div class="wa-val">120 min</div><div class="wa-desc">301M subscribers · premium lean-back</div></div></div>
+      <div class="wa-row" data-delay="550"><div class="wa-dot" style="width:46px;height:46px;background:rgba(100,180,255,.1);border:2px solid rgba(100,180,255,.3);font-size:13px;">R</div><div><div class="wa-name">Roku</div><div class="wa-val">98 min</div><div class="wa-desc">89M accounts · CTV gateway</div></div></div>
+    </div>
+    <div class="wa-divider"></div>
+    <div class="wa-col" style="align-items:flex-end;">
+      <div class="wa-col-hdr" style="text-align:right;">$ earned per minute watched</div>
+      <div class="wa-row fr" data-delay="150"><div class="wa-dot" style="width:76px;height:76px;background:rgba(255,91,31,.2);border:2px solid rgba(255,91,31,.5);font-size:11px;color:#ff5b1f;">$0.0029</div><div class="wa-txt-r"><div class="wa-name">Netflix</div><div class="wa-val" style="color:#ff5b1f;">Highest yield</div><div class="wa-desc">$39.9B rev ÷ total minutes</div></div></div>
+      <div class="wa-row fr" data-delay="300"><div class="wa-dot" style="width:62px;height:62px;background:rgba(30,215,96,.12);border:2px solid rgba(30,215,96,.3);font-size:10px;color:#1ed760;">$0.0021</div><div class="wa-txt-r"><div class="wa-name">Spotify</div><div class="wa-val" style="color:#1ed760;">+music premium</div><div class="wa-desc">$15.7B revenue</div></div></div>
+      <div class="wa-row fr" data-delay="450"><div class="wa-dot" style="width:54px;height:54px;background:rgba(255,0,0,.1);border:2px solid rgba(255,80,80,.3);font-size:10px;color:#ff5050;">$0.0016</div><div class="wa-txt-r"><div class="wa-name">YouTube</div><div class="wa-val" style="color:#ff5050;">Least per minute</div><div class="wa-desc">$35.5B ads ÷ 1B hrs/day</div></div></div>
+    </div>
+  </div>
+</div>
+<div class="wa-sep"></div>
+<div class="wa-scene" id="wa-s2">
+  <div class="wa-label">THE AD DUOPOLY</div>
+  <div class="wa-headline">Two companies. Most of the money.</div>
+  <div class="wa-body">Of the $740B digital ad market in 2024, Alphabet and Meta together captured over half.</div>
+  <div class="wa-bfield" id="wa-bf">
+    <div class="wb" id="wb-alpha" data-delay="0" style="width:220px;height:220px;background:radial-gradient(circle at 35% 35%,rgba(66,133,244,.3),rgba(66,133,244,.1));border:2px solid rgba(66,133,244,.4);color:#4285f4;left:4%;top:8%;"><div class="wb-lbl">Alphabet</div><div class="wb-val">$237B</div><div class="wb-sub">32% of digital ads</div></div>
+    <div class="wb" id="wb-meta" data-delay="200" style="width:190px;height:190px;background:radial-gradient(circle at 35% 35%,rgba(24,119,242,.25),rgba(24,119,242,.08));border:2px solid rgba(24,119,242,.35);color:#1877f2;left:27%;top:48%;"><div class="wb-lbl">Meta</div><div class="wb-val">$164B</div><div class="wb-sub">22% of digital ads</div></div>
+    <div class="wb" data-delay="400" style="width:108px;height:108px;background:rgba(255,153,0,.12);border:1.5px solid rgba(255,153,0,.4);color:#ff9900;left:52%;top:4%;"><div class="wb-lbl">Amazon</div><div class="wb-val">$56B</div><div class="wb-sub">7.5%</div></div>
+    <div class="wb" data-delay="550" style="width:78px;height:78px;background:rgba(0,188,212,.1);border:1.5px solid rgba(0,188,212,.3);color:#00bcd4;left:65%;top:36%;"><div class="wb-lbl" style="font-size:9px;">Microsoft</div><div class="wb-val" style="font-size:13px;">$18B</div><div class="wb-sub">2.4%</div></div>
+    <div class="wb" data-delay="650" style="width:56px;height:56px;background:rgba(30,215,96,.1);border:1.5px solid rgba(30,215,96,.3);color:#1ed760;left:74%;top:7%;"><div class="wb-lbl" style="font-size:8px;">Spotify</div><div class="wb-val" style="font-size:11px;">$2.1B</div></div>
+    <div class="wb" data-delay="700" style="width:50px;height:50px;background:rgba(100,181,246,.1);border:1.5px solid rgba(100,181,246,.25);color:#64b5f6;left:81%;top:54%;"><div class="wb-lbl" style="font-size:8px;">Disney</div><div class="wb-val" style="font-size:10px;">$3.4B</div></div>
+    <div class="wb" data-delay="750" style="width:44px;height:44px;background:rgba(156,39,176,.1);border:1.5px solid rgba(156,39,176,.25);color:#ce93d8;left:71%;top:71%;"><div class="wb-lbl" style="font-size:8px;">Comcast</div><div class="wb-val" style="font-size:10px;">$6.8B</div></div>
+    <div class="wb" data-delay="800" style="width:40px;height:40px;background:rgba(229,9,20,.1);border:1.5px solid rgba(229,9,20,.25);color:#e50914;left:59%;top:75%;"><div class="wb-lbl" style="font-size:7px;">Netflix</div><div class="wb-val" style="font-size:9px;">$2.4B</div></div>
+    <div class="wb" data-delay="900" style="width:125px;height:125px;background:rgba(255,255,255,.03);border:1.5px dashed rgba(255,255,255,.15);color:rgba(255,255,255,.4);left:41%;top:54%;"><div class="wb-lbl" style="font-size:9px;">Rest of market</div><div class="wb-val" style="font-size:15px;color:rgba(255,255,255,.45);">$262B</div><div class="wb-sub">35%</div></div>
+  </div>
+</div>
+<script>
+const _io=new IntersectionObserver(entries=>{entries.forEach(e=>{if(!e.isIntersecting)return;const el=e.target;if(el.classList.contains('wa-row')||el.classList.contains('wb')){const d=parseInt(el.dataset.delay||0);setTimeout(()=>el.classList.add('vis'),d);}  _io.unobserve(el);});},{threshold:0.1});
+document.querySelectorAll('.wa-row,.wb').forEach(el=>_io.observe(el));
+</script>
+</div>
+""",
+    height=1100,
 )
 
 # Beat 2 — Concentration bar
@@ -3062,101 +2912,139 @@ _section(
     "This meter starts at zero when the component loads and accumulates in real-time from annualized run-rate assumptions."
 )
 try:
-    min_df = _read_excel_sheet_cached(excel_path, "Company_minute&dollar_earned", source_stamp) if excel_path else pd.DataFrame()
-    if min_df.empty:
+    company_ticker_map = {
+        "Alphabet": "GOOGL",
+        "Meta Platforms": "META",
+        "Amazon": "AMZN",
+        "Apple": "AAPL",
+        "Microsoft": "MSFT",
+        "Netflix": "NFLX",
+        "Disney": "DIS",
+        "Comcast": "CMCSA",
+        "Spotify": "SPOT",
+        "Roku": "ROKU",
+        "Warner Bros. Discovery": "WBD",
+        "Paramount Global": "PARA",
+    }
+
+    ticker_data: list[tuple[str, str, float]] = []
+    total_rps = 0.0
+    seconds_per_year = 365 * 24 * 3600
+
+    metrics_scope = pd.DataFrame()
+    if not metrics.empty and {"company", "year", "revenue"}.issubset(metrics.columns):
+        metrics_scope = metrics[metrics["year"] == effective_year].copy()
+        if metrics_scope.empty:
+            latest_year = int(metrics["year"].max())
+            metrics_scope = metrics[metrics["year"] == latest_year].copy()
+        if not metrics_scope.empty:
+            metrics_scope["company"] = metrics_scope["company"].apply(_normalize_company_name)
+            metrics_scope["revenue"] = pd.to_numeric(metrics_scope["revenue"], errors="coerce")
+            metrics_scope = metrics_scope.dropna(subset=["company", "revenue"])
+            metrics_scope = metrics_scope[metrics_scope["revenue"] > 0].copy()
+            revenue_scale = 1_000_000 if metrics_scope["revenue"].median() > 1000 else 1_000_000_000
+            metrics_scope = metrics_scope.sort_values("revenue", ascending=False)
+
+            seen_companies: set[str] = set()
+            for row in metrics_scope.itertuples(index=False):
+                company = _normalize_company_name(getattr(row, "company", ""))
+                if not company or company in seen_companies:
+                    continue
+                seen_companies.add(company)
+                annual_revenue_usd = float(getattr(row, "revenue", 0.0) or 0.0) * revenue_scale
+                if annual_revenue_usd <= 0:
+                    continue
+                rps = annual_revenue_usd / seconds_per_year
+                total_rps += rps
+                ticker_data.append((company, company_ticker_map.get(company, ""), rps))
+
+    # Fallback for legacy datasets where company revenue sheet is unavailable.
+    if not ticker_data:
+        minute_df = _read_excel_sheet_cached(excel_path, "Company_minute&dollar_earned", source_stamp) if excel_path else pd.DataFrame()
+        if not minute_df.empty:
+            minute_df.columns = [str(c).strip() for c in minute_df.columns]
+            platform_col = _find_col(minute_df, ["platform"]) or _find_col(minute_df, ["company"])
+            revenue_col = _find_col(minute_df, ["revenue"])
+            if platform_col and revenue_col:
+                minute_df[revenue_col] = pd.to_numeric(minute_df[revenue_col], errors="coerce")
+                minute_df = minute_df.dropna(subset=[platform_col, revenue_col])
+                for _, row in minute_df.iterrows():
+                    platform = _normalize_company_name(row.get(platform_col, ""))
+                    annual_revenue_usd = float(row.get(revenue_col, 0.0) or 0.0) * 1_000_000_000
+                    if not platform or annual_revenue_usd <= 0:
+                        continue
+                    rps = annual_revenue_usd / seconds_per_year
+                    total_rps += rps
+                    ticker_data.append((platform, company_ticker_map.get(platform, ""), rps))
+
+    if not ticker_data:
         st.info("Revenue ticker unavailable.")
     else:
-        min_df.columns = [str(c).strip() for c in min_df.columns]
-        yr_col_m = _find_col(min_df, ["year"])
-        min_row = _yr(min_df, effective_year, yr_col_m) if yr_col_m else min_df.copy()
-        if min_row.empty:
-            min_row = min_df.copy()
-        ticker_companies = ["Alphabet", "Meta", "Amazon", "Apple", "Microsoft"]
-        ticker_data = []
-        total_rps = 0.0
-        platform_col = _find_col(min_row, ["platform"]) or _find_col(min_row, ["company"])
-        revenue_col = _find_col(min_row, ["revenue"])
-        if platform_col and revenue_col:
-            min_row[revenue_col] = pd.to_numeric(min_row[revenue_col], errors="coerce")
-            for company in ticker_companies:
-                rows = min_row[min_row[platform_col].astype(str).str.lower().str.contains(company.lower(), na=False)]
-                if rows.empty:
-                    continue
-                rev_b = float(rows[revenue_col].iloc[0] or 0.0)
-                if rev_b <= 0:
-                    continue
-                rps = (rev_b * 1e9) / (365 * 24 * 3600)
-                total_rps += rps
-                ticker_data.append((company, rps))
-        else:
-            row = min_row.iloc[-1]
-            for company in ticker_companies:
-                matches = [c for c in min_row.columns if company.lower() in c.lower() and c != yr_col_m]
-                if not matches:
-                    continue
-                rpm = pd.to_numeric(pd.Series([row[matches[0]]]), errors="coerce").iloc[0]
-                if pd.isna(rpm):
-                    continue
-                rps = float(rpm) / 60.0
-                total_rps += rps
-                ticker_data.append((company, rps))
-
-        if not ticker_data:
-            st.info("Revenue ticker unavailable.")
-        else:
-            rows_html = ""
-            for company, rps in ticker_data:
-                rows_html += f"""
-                <div style=\"display:flex;justify-content:space-between;
-                            align-items:center;padding:14px 0;
-                            border-bottom:1px solid rgba(255,255,255,0.07);\">
-                  <span style=\"color:white;font-weight:600;font-size:1rem;\">{escape(company)}</span>
-                  <span id=\"tick_{escape(company).replace(' ','_')}\"
-                        data-rps=\"{rps:.6f}\"
-                        style=\"color:#ff5b1f;font-family:monospace;
-                               font-size:1.5rem;font-weight:800;\">$0</span>
-                </div>
-                """
-            rows_html += f"""
-            <div style=\"display:flex;justify-content:space-between;
-                        align-items:center;padding:16px 0 0;\">
-              <span style=\"color:rgba(255,255,255,0.4);font-size:0.9rem;\">
-                Combined
-              </span>
-              <span id=\"tick_combined\"
-                    data-rps=\"{total_rps:.6f}\"
-                    style=\"color:white;font-family:monospace;
-                           font-size:1.5rem;font-weight:800;\">$0</span>
-            </div>
-            """
-            st.components.v1.html(
-                f"""
-                <div style=\"background:#0d1117;padding:24px 20px;border-radius:12px;font-family:sans-serif;\">
-                  {rows_html}
-                  <div style=\"color:rgba(255,255,255,0.3);font-size:0.72rem;margin-top:16px;\">
-                    Based on {effective_year} annual revenue ÷ seconds per year.
-                    Updates every 120ms since you opened this page.
-                  </div>
-                </div>
-                <script>
-                  (function() {{
-                    var t0 = Date.now();
-                    var els = document.querySelectorAll('[data-rps]');
-                    setInterval(function() {{
-                      var elapsed = (Date.now() - t0) / 1000;
-                      els.forEach(function(el) {{
-                        var rps = parseFloat(el.getAttribute('data-rps'));
-                        el.textContent = '$' + (rps * elapsed).toLocaleString('en-US', {{
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0
-                        }});
-                      }});
-                    }}, 120);
-                  }})();
-                </script>
-                """,
-                height=340,
+        rows_html = ""
+        for company, ticker, rps in ticker_data:
+            logo_b64 = _resolve_logo(company, logos)
+            logo_html = (
+                f"<img src='data:image/png;base64,{logo_b64}' alt='{escape(company)} logo' "
+                "style='width:30px;height:30px;object-fit:contain;border-radius:50%;"
+                "background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.26);padding:3px;' />"
+                if logo_b64
+                else "<span style='width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;"
+                "border-radius:50%;background:rgba(148,163,184,0.16);color:#ffffff;'>•</span>"
             )
+            ticker_label = f" · {ticker}" if ticker else ""
+            rows_html += (
+                "<div style='display:flex;justify-content:space-between;align-items:center;padding:12px 0;"
+                "border-bottom:1px solid rgba(255,255,255,0.07);'>"
+                "<div style='display:inline-flex;align-items:center;gap:8px;'>"
+                f"{logo_html}<span style='color:#ffffff;font-weight:600;font-size:0.92rem;'>{escape(company)}</span>"
+                f"<span style='color:rgba(255,255,255,0.55);font-size:0.75rem;'>{escape(ticker_label)}</span>"
+                "</div>"
+                f"<span data-rps='{rps:.6f}' style='color:#ff5b1f;font-family:monospace;font-size:1.2rem;font-weight:800;'>$0</span>"
+                "</div>"
+            )
+
+        rows_html += (
+            "<div style='display:flex;justify-content:space-between;align-items:center;padding:14px 0 0;'>"
+            "<span style='color:rgba(255,255,255,0.45);font-size:0.88rem;'>Combined</span>"
+            f"<span data-rps='{total_rps:.6f}' style='color:white;font-family:monospace;font-size:1.3rem;font-weight:800;'>$0</span>"
+            "</div>"
+        )
+
+        component_height = int(min(860, max(240, 118 + len(ticker_data) * 50)))
+        st.components.v1.html(
+            f"""
+            <style>
+              html, body {{
+                margin: 0;
+                padding: 0;
+                background: #0d1117;
+              }}
+            </style>
+            <div style="background:#0d1117;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
+              {rows_html}
+              <div style="color:rgba(255,255,255,0.3);font-size:0.72rem;margin-top:14px;">
+                Based on {effective_year} annual revenue ÷ seconds per year. Updates every 120ms since you opened this page.
+              </div>
+            </div>
+            <script>
+              (function() {{
+                var t0 = Date.now();
+                var els = document.querySelectorAll('[data-rps]');
+                setInterval(function() {{
+                  var elapsed = (Date.now() - t0) / 1000;
+                  els.forEach(function(el) {{
+                    var rps = parseFloat(el.getAttribute('data-rps'));
+                    el.textContent = '$' + (rps * elapsed).toLocaleString('en-US', {{
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    }});
+                  }});
+                }}, 120);
+              }})();
+            </script>
+            """,
+            height=component_height,
+        )
 except Exception as exc:
     st.info(f"Revenue ticker unavailable: {exc}")
 _separator()
