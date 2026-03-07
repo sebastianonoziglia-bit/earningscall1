@@ -22,7 +22,6 @@ from utils.auth import check_password
 from utils.state_management import get_data_processor
 from utils.styles import get_page_style
 from utils.header import display_header
-from utils.theme import get_theme_mode
 from utils.data_availability import get_available_quarters
 from utils.components import render_ai_assistant
 from utils.workbook_market_data import (
@@ -4497,10 +4496,8 @@ def main():
         if heatmap_df is None or heatmap_df.empty:
             st.info("Heatmap data is not available for the current selection.")
             return
-        theme_mode = get_theme_mode()
-        dark_mode = theme_mode == "dark"
-        heatmap_bg = "#0B1220" if dark_mode else "#FFFFFF"
-        heatmap_text = "#E2E8F0" if dark_mode else "#111827"
+        heatmap_bg = "#FFFFFF"
+        heatmap_text = "#111827"
         # Ensure numeric values.
         numeric_df = heatmap_df.apply(pd.to_numeric, errors="coerce")
         heatmap_df = numeric_df
