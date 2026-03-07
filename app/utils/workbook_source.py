@@ -234,8 +234,23 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
         )
         sheet_id = extract_google_sheet_id(sheet_ref)
         if sheet_id:
-            refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "60"))
-            downloaded = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
+            try:
+                refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "60"))
+            except Exception:
+                refresh_seconds = 60
+                logger.warning(
+                    "WORKBOOK_RESOLVE invalid FINANCIAL_DATA_GSHEET_REFRESH_SECONDS; using default=%s",
+                    refresh_seconds,
+                )
+            try:
+                downloaded = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
+            except Exception as exc:
+                logger.warning(
+                    "WORKBOOK_RESOLVE Google export download failed for sheet_id=%s: %s",
+                    sheet_id,
+                    exc,
+                )
+                downloaded = None
             if downloaded and os.path.exists(downloaded) and _has_core_financial_coverage(downloaded):
                 return os.path.abspath(downloaded)
         return _resolve_local_with_glob(search_candidates)
@@ -247,8 +262,23 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
     )
     sheet_id = extract_google_sheet_id(sheet_ref)
     if sheet_id:
-        refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "60"))
-        downloaded = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
+        try:
+            refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "60"))
+        except Exception:
+            refresh_seconds = 60
+            logger.warning(
+                "WORKBOOK_RESOLVE invalid FINANCIAL_DATA_GSHEET_REFRESH_SECONDS; using default=%s",
+                refresh_seconds,
+            )
+        try:
+            downloaded = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
+        except Exception as exc:
+            logger.warning(
+                "WORKBOOK_RESOLVE Google export download failed for sheet_id=%s: %s",
+                sheet_id,
+                exc,
+            )
+            downloaded = None
         if downloaded and os.path.exists(downloaded) and _has_core_financial_coverage(downloaded):
             return os.path.abspath(downloaded)
 

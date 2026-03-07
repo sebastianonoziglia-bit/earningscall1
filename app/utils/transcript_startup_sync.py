@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import os
+import logging
 from pathlib import Path
 import re
 from typing import Dict, Iterable, List, Optional, Set, Tuple
@@ -12,6 +13,7 @@ from openpyxl import load_workbook
 
 TRANSCRIPT_FILE_RE = re.compile(r"^Q([1-4])\.txt$", re.IGNORECASE)
 MAX_XLSX_CELL_CHARS = 32767
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -118,7 +120,7 @@ def _sheet_key_set(ws) -> Tuple[Set[str], int]:
     return keys, existing_rows
 
 
-def sync_local_transcripts_to_workbook() -> SyncResult:
+def _sync_local_transcripts_to_workbook_impl() -> SyncResult:
     result = SyncResult()
     workbook_path = _resolve_local_workbook_path()
     if workbook_path is None:
@@ -166,3 +168,27 @@ def sync_local_transcripts_to_workbook() -> SyncResult:
     result.truncated_rows = truncated
     return result
 
+
+def sync_local_transcripts_to_workbook(timeout_seconds: int = 10) -> SyncResult:
+    """Best-effort sync that never raises and times out quickly at startup."""
+    timeout_seconds = max(int(timeout_seconds or 10), 1)
+    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="startup_transcript_sync")
+    future = executor.submit(_sync_local_transcripts_to_workbook_impl)
+    try:
+        return future.result(timeout=timeout_seconds)
+    except FutureTimeoutError:
+        logger.warning(
+            "Startup transcript sync timed out after %ss; continuing without transcript sync.",
+            timeout_seconds,
+        )
+        future.cancel()
+        return SyncResult(error=f"Timed out after {timeout_seconds}s")
+    except Exception as exc:
+        logger.warning(
+            "Startup transcript sync failed; continuing without transcript sync: %s",
+            exc,
+            exc_info=True,
+        )
+        return SyncResult(error=str(exc))
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
