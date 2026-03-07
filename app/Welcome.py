@@ -130,8 +130,16 @@ _resolved = resolve_financial_data_xlsx([])
 logger.info(f"STARTUP: Excel resolved to → {_resolved}")
 if "pipeline_refreshed" not in st.session_state:
     st.session_state["pipeline_refreshed"] = False
+AUTO_PIPELINE_REFRESH_ENV = "AUTO_REFRESH_INTELLIGENCE_PIPELINE_ON_STARTUP"
 if not st.session_state.get("pipeline_refreshed", False):
-    st.session_state["pipeline_refresh_result"] = ensure_intelligence_pipeline_is_fresh()
+    auto_refresh_enabled = str(os.getenv(AUTO_PIPELINE_REFRESH_ENV, "")).strip().lower() in {"1", "true", "yes", "on"}
+    if auto_refresh_enabled:
+        st.session_state["pipeline_refresh_result"] = ensure_intelligence_pipeline_is_fresh()
+    else:
+        st.session_state["pipeline_refresh_result"] = {
+            "ran": False,
+            "reason": f"startup intelligence refresh disabled (set {AUTO_PIPELINE_REFRESH_ENV}=1 to enable)",
+        }
     st.session_state["pipeline_refreshed"] = True
 
 from utils.global_fonts import apply_global_fonts
