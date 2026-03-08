@@ -126,6 +126,7 @@ div[data-testid="block-container"] {
 """,
     unsafe_allow_html=True,
 )
+st.markdown('<style>iframe{border:none!important;}</style>', unsafe_allow_html=True)
 _resolved = resolve_financial_data_xlsx([])
 logger.info(f"STARTUP: Excel resolved to → {_resolved}")
 if "pipeline_refreshed" not in st.session_state:
@@ -1574,6 +1575,7 @@ function _startTicker() {
 _startTicker();
 </script>
 <style>
+html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 .sv {
   opacity: 0;
   transform: translateY(18px);
@@ -2135,6 +2137,7 @@ st.components.v1.html(
     """
 <div id="wm-ss-root">
 <style>
+html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
 #wm-ss-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
 #wm-ss-root *{box-sizing:border-box;}
@@ -2197,6 +2200,7 @@ st.components.v1.html(
     """
 <div id="wm-attn-root">
 <style>
+html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
 #wm-attn-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:0 24px;}
 #wm-attn-root *{box-sizing:border-box;}
@@ -2269,64 +2273,138 @@ document.querySelectorAll('.wa-row,.wb').forEach(el=>_io.observe(el));
 </script>
 </div>
 """,
-    height=1100,
+    height=1400,
 )
 
-# Beat 2 — Concentration bar
-bar_ok = total_tracked_b > 0 and (groupm_b is not None and groupm_b > 0)
 big_pct = (big_tech_b / global_ad_denom * 100) if global_ad_denom else 0.0
 tracked_pct = (total_tracked_b / global_ad_denom * 100) if global_ad_denom else 0.0
-bar_body = (
-    f"Just 5 Big Tech companies captured <strong style='color:white;'>${big_tech_b:.0f}B</strong> — "
-    f"<strong style='color:#ff5b1f;'>{big_pct:.1f}%</strong> of all global ad spend. "
-    f"Our full tracked universe of 14 companies held {tracked_pct:.1f}%."
-    if bar_ok
-    else "Ad concentration data unavailable."
+other_pct = max(0.0, tracked_pct - big_pct)
+rest_pct = max(0.0, 100.0 - tracked_pct)
+
+_separator()
+st.components.v1.html(
+    f"""
+<div id="wm-conc-root">
+<style>
+html,body{{margin:0;padding:0;background:#0d1117;border:none;outline:none;}}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+#wm-conc-root{{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}}
+#wm-conc-root *{{box-sizing:border-box;}}
+.wc-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}}
+.wc-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 8px;color:#e6edf3;line-height:1.14;}}
+.wc-body{{color:#8b949e;font-size:14px;line-height:1.6;margin:0 0 20px;max-width:900px;}}
+.wc-stack{{display:flex;align-items:stretch;width:100%;height:74px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.12);background:#111827;}}
+.wc-seg{{display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#ffffff;white-space:nowrap;padding:0 8px;}}
+.wc-big{{background:#ff5b1f;}}
+.wc-oth{{background:#2563eb;}}
+.wc-rest{{background:#1f2937;}}
+.wc-metrics{{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;}}
+.wc-chip{{border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);border-radius:10px;padding:8px 10px;color:#cbd5e1;font-size:12px;}}
+</style>
+<div class="wc-label">THE CONCENTRATION</div>
+<div class="wc-headline">Most of it went to very few hands.</div>
+<div class="wc-body">Just 5 Big Tech companies captured <strong style="color:#fff;">${big_tech_b:.0f}B</strong> — <strong style="color:#ff5b1f;">{big_pct:.1f}%</strong> of all global ad spend. Our full tracked universe held {tracked_pct:.1f}%.</div>
+<div class="wc-stack">
+  <div class="wc-seg wc-big" style="width:{max(0.0, min(100.0, big_pct)):.2f}%;">Big Tech {big_pct:.1f}%</div>
+  <div class="wc-seg wc-oth" style="width:{max(0.0, min(100.0, other_pct)):.2f}%;">Other Tracked {other_pct:.1f}%</div>
+  <div class="wc-seg wc-rest" style="width:{max(0.0, min(100.0, rest_pct)):.2f}%;">Rest {rest_pct:.1f}%</div>
+</div>
+<div class="wc-metrics">
+  <div class="wc-chip">Big Tech: ${big_tech_b:.0f}B</div>
+  <div class="wc-chip">Tracked Total: ${total_tracked_b:.0f}B</div>
+  <div class="wc-chip">Global Total: ${global_ad_denom:.0f}B</div>
+  <div class="wc-chip">Untracked: ${untracked_b:.0f}B</div>
+</div>
+</div>
+""",
+    height=420,
 )
-_section("The Concentration", "Most of it went to very few hands.", bar_body)
-if not bar_ok:
-    st.info("Ad revenue data not available.")
-else:
-    import plotly.graph_objects as go
-    denom = global_ad_denom if global_ad_denom else total_tracked_b
-    bar_fig = go.Figure()
-    for name, val, color in [
-        ("Big Tech (Alphabet, Meta, Amazon, Apple, Microsoft)", big_tech_b, "#ff5b1f"),
-        ("Other Tracked Companies", other_b, "#3b82f6"),
-        ("Rest of World (untracked)", untracked_b, "#1f2937"),
-    ]:
-        pct = (val / denom * 100) if denom else 0
-        bar_fig.add_trace(
-            go.Bar(
-                x=[val],
-                y=[""],
-                name=name,
-                orientation="h",
-                marker=dict(color=color),
-                customdata=[[pct]],
-                text=f"${val:.0f}B  {pct:.1f}%" if pct > 7 else "",
-                textposition="inside",
-                hovertemplate=f"{name}: $%{{x:.0f}}B — %{{customdata[0]:.1f}}% of global<extra></extra>",
-            )
-        )
-    _apply_dark_chart_layout(
-        bar_fig,
-        height=170,
-        margin=dict(l=0, r=0, t=32, b=100),
-        extra_layout=dict(
-            barmode="stack",
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
-            showlegend=True,
-            legend=dict(orientation="h", yanchor="top", y=-0.3, font=dict(color="rgba(255,255,255,0.6)", size=11)),
-        ),
-    )
-    st.plotly_chart(bar_fig, use_container_width=True)
-    st.caption(
-        f"Of the ${denom:.0f}B spent globally on advertising in {effective_year_groupm}, just 5 Big Tech companies captured ${big_tech_b:.0f}B ({big_pct:.1f}%). "
-        f"Our full tracked universe held ${total_tracked_b:.0f}B ({tracked_pct:.1f}% of global). "
-        f"The remaining ${untracked_b:.0f}B went to thousands of other publishers worldwide."
-    )
+
+_separator()
+st.components.v1.html(
+    """
+<div id="wm-rev-root">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
+#wm-rev-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
+#wm-rev-root *{box-sizing:border-box;}
+.wr-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
+.wr-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}
+.wr-sub{color:#8b949e;font-size:14px;margin:0 0 36px;}
+.wr-grid{display:flex;gap:10px;align-items:flex-end;justify-content:flex-start;flex-wrap:wrap;}
+.wr-col{display:flex;flex-direction:column;align-items:center;width:88px;}
+.wr-bars{display:flex;gap:3px;align-items:flex-end;height:260px;margin-bottom:8px;}
+.wr-bar{width:38px;border-radius:4px 4px 0 0;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);position:relative;}
+.wr-bar-ad{background:#ff5b1f;}
+.wr-bar-other{background:#1e3a5f;}
+.wr-val{position:absolute;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:#e6edf3;width:100%;text-align:center;white-space:nowrap;}
+.wr-val-inside{bottom:4px;}
+.wr-val-outside{top:-18px;color:#8b949e;}
+.wr-name{font-size:10px;font-weight:700;color:#e6edf3;text-align:center;margin-bottom:4px;font-family:'Syne',sans-serif;}
+.wr-total{font-size:9px;color:#8b949e;text-align:center;}
+.wr-legend{display:flex;gap:20px;margin-top:20px;}
+.wr-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
+.wr-leg-dot{width:10px;height:10px;border-radius:2px;}
+</style>
+<div class="wr-label">REVENUE ANATOMY</div>
+<div class="wr-headline">Not all revenue is advertising.</div>
+<div class="wr-sub">Total 2024 revenue per company. Orange = ad revenue. Blue = everything else.</div>
+<div class="wr-grid" id="wr-grid">
+</div>
+<div class="wr-legend">
+  <div class="wr-leg"><div class="wr-leg-dot" style="background:#ff5b1f;"></div>Ad Revenue</div>
+  <div class="wr-leg"><div class="wr-leg-dot" style="background:#1e3a5f;"></div>Other Revenue</div>
+</div>
+<script>
+const companies=[
+  {name:"Alphabet",total:350,ad:237,ticker:"GOOG"},
+  {name:"Amazon",total:638,ad:56,ticker:"AMZN"},
+  {name:"Apple",total:391,ad:18,ticker:"AAPL"},
+  {name:"Microsoft",total:245,ad:18,ticker:"MSFT"},
+  {name:"Meta",total:165,ad:164,ticker:"META"},
+  {name:"Netflix",total:39,ad:2.4,ticker:"NFLX"},
+  {name:"Disney",total:91,ad:3.4,ticker:"DIS"},
+  {name:"Comcast",total:123,ad:6.8,ticker:"CMCSA"},
+  {name:"Spotify",total:15.7,ad:2.1,ticker:"SPOT"},
+  {name:"Roku",total:4.1,ad:3.8,ticker:"ROKU"},
+];
+const maxTotal=Math.max(...companies.map(c=>c.total));
+const maxH=240;
+const grid=document.getElementById('wr-grid');
+companies.forEach(c=>{
+  const adH=Math.round((c.ad/maxTotal)*maxH);
+  const otherH=Math.round(((c.total-c.ad)/maxTotal)*maxH);
+  const adPct=Math.round((c.ad/c.total)*100);
+  const col=document.createElement('div');
+  col.className='wr-col';
+  col.innerHTML=`
+    <div class="wr-name">${c.name}</div>
+    <div class="wr-bars">
+      <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}">
+        ${adH>28?`<span class="wr-val wr-val-inside">$${c.ad>=10?Math.round(c.ad)+'B':c.ad+'B'}</span>`:`<span class="wr-val wr-val-outside">$${c.ad>=10?Math.round(c.ad)+'B':c.ad+'B'}</span>`}
+      </div>
+      <div class="wr-bar wr-bar-other" style="height:0px" data-h="${otherH}">
+        ${otherH>28?`<span class="wr-val wr-val-inside">$${Math.round(c.total-c.ad)}B</span>`:`<span class="wr-val wr-val-outside">$${Math.round(c.total-c.ad)}B</span>`}
+      </div>
+    </div>
+    <div class="wr-total">$${c.total>=10?Math.round(c.total)+'B':c.total+'B'} total</div>
+  `;
+  grid.appendChild(col);
+});
+const io=new IntersectionObserver(entries=>{
+  if(!entries[0].isIntersecting)return;
+  document.querySelectorAll('.wr-bar').forEach(b=>{
+    setTimeout(()=>{b.style.height=b.dataset.h+'px';},100);
+  });
+  io.unobserve(entries[0].target);
+},{threshold:0.2});
+io.observe(grid);
+</script>
+</div>
+""",
+    height=620,
+)
 _separator()
 
 # Beat 3 — Treemap
@@ -3030,6 +3108,8 @@ try:
                 margin: 0;
                 padding: 0;
                 background: #0d1117;
+                border: none;
+                outline: none;
               }}
             </style>
             <div style="background:#0d1117;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
