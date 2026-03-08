@@ -1456,8 +1456,14 @@ div[data-testid="block-container"] {
 .stButton > button:hover {
     background: rgba(255,255,255,0.14) !important;
 }
-.stPlotlyChart > div {
-    background: transparent !important;
+.stPlotlyChart,
+.stPlotlyChart > div,
+.stPlotlyChart iframe,
+div[data-testid="stPlotlyChart"],
+div[data-testid="stPlotlyChart"] > div {
+    background: #0d1117 !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 .wm-wrap {
     max-width: 1500px;
@@ -1980,25 +1986,25 @@ kpi1_val = f"${groupm_b:.0f}B" if groupm_b else "—"
 kpi1_yoy = ""
 if groupm_yoy is not None:
     if groupm_yoy >= 0:
-        kpi1_yoy = f"<span style='color:#22c55e;font-size:0.85rem;'>▲ {groupm_yoy:.1f}%</span>"
+        kpi1_yoy = f"<span style='color:#22c55e !important;font-size:0.85rem !important;'>▲ {groupm_yoy:.1f}%</span>"
     else:
-        kpi1_yoy = f"<span style='color:#ef4444;font-size:0.85rem;'>▼ {abs(groupm_yoy):.1f}%</span>"
+        kpi1_yoy = f"<span style='color:#ef4444 !important;font-size:0.85rem !important;'>▼ {abs(groupm_yoy):.1f}%</span>"
 
 kpi2_val = f"${rev_b/1e3:.1f}T" if rev_b and rev_b >= 1000 else (f"${rev_b:.0f}B" if rev_b else "—")
 kpi2_yoy = ""
 if rev_yoy is not None:
     if rev_yoy >= 0:
-        kpi2_yoy = f"<span style='color:#22c55e;font-size:0.85rem;'>▲ {rev_yoy:.1f}%</span>"
+        kpi2_yoy = f"<span style='color:#22c55e !important;font-size:0.85rem !important;'>▲ {rev_yoy:.1f}%</span>"
     else:
-        kpi2_yoy = f"<span style='color:#ef4444;font-size:0.85rem;'>▼ {abs(rev_yoy):.1f}%</span>"
+        kpi2_yoy = f"<span style='color:#ef4444 !important;font-size:0.85rem !important;'>▼ {abs(rev_yoy):.1f}%</span>"
 
 kpi3_val = f"${mcap_b/1e3:.1f}T" if mcap_b and mcap_b >= 1000 else (f"${mcap_b:.0f}B" if mcap_b else "—")
 kpi3_yoy = ""
 if mcap_yoy is not None:
     if mcap_yoy >= 0:
-        kpi3_yoy = f"<span style='color:#22c55e;font-size:0.85rem;'>▲ {mcap_yoy:.1f}%</span>"
+        kpi3_yoy = f"<span style='color:#22c55e !important;font-size:0.85rem !important;'>▲ {mcap_yoy:.1f}%</span>"
     else:
-        kpi3_yoy = f"<span style='color:#ef4444;font-size:0.85rem;'>▼ {abs(mcap_yoy):.1f}%</span>"
+        kpi3_yoy = f"<span style='color:#ef4444 !important;font-size:0.85rem !important;'>▼ {abs(mcap_yoy):.1f}%</span>"
 
 st.markdown(
     f"""
@@ -2054,9 +2060,9 @@ st.markdown(
                       margin-top:6px;">{effective_year} · 14 companies</div>
         </div>
       </div>
-      <div style="color:rgba(255,255,255,0.6);font-size:1.05rem;
+      <div style="color:rgba(255,255,255,0.6) !important;font-size:1.05rem;
                   line-height:1.85;max-width:680px;">
-        {narrative_html}
+        <span style="color:rgba(255,255,255,0.6) !important;">{narrative_html}</span>
       </div>
       <div style="color:rgba(255,255,255,0.2);font-size:0.85rem;
                   margin-top:48px;letter-spacing:0.1em;">
@@ -2117,6 +2123,8 @@ try:
                             showocean=True,
                             oceancolor="#0d1117",
                             projection_type="natural earth",
+                            center=dict(lat=35, lon=-10),
+                            projection_scale=1.2,
                         ),
                     ),
                 )
