@@ -2334,10 +2334,12 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 .wr-sub{color:#8b949e;font-size:14px;margin:0 0 36px;}
 .wr-grid{display:flex;gap:10px;align-items:flex-end;justify-content:flex-start;flex-wrap:wrap;}
 .wr-col{display:flex;flex-direction:column;align-items:center;width:88px;}
-.wr-bars{display:flex;gap:3px;align-items:flex-end;height:260px;margin-bottom:8px;}
-.wr-bar{width:38px;border-radius:4px 4px 0 0;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);position:relative;}
+.wr-bars{display:flex;flex-direction:column;align-items:stretch;width:52px;margin-bottom:8px;}
+.wr-bar{width:52px;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);position:relative;min-height:0;}
 .wr-bar-ad{background:#ff5b1f;}
 .wr-bar-other{background:#1e3a5f;}
+.wr-bar-other{border-radius:4px 4px 0 0;}
+.wr-bar-ad{border-radius:0 0 4px 4px;}
 .wr-val{position:absolute;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:#e6edf3;width:100%;text-align:center;white-space:nowrap;}
 .wr-val-inside{bottom:4px;}
 .wr-val-outside{top:-18px;color:#8b949e;}
@@ -2381,14 +2383,14 @@ companies.forEach(c=>{
   col.innerHTML=`
     <div class="wr-name">${c.name}</div>
     <div class="wr-bars">
-      <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}">
-        ${adH>28?`<span class="wr-val wr-val-inside">$${c.ad>=10?Math.round(c.ad)+'B':c.ad+'B'}</span>`:`<span class="wr-val wr-val-outside">$${c.ad>=10?Math.round(c.ad)+'B':c.ad+'B'}</span>`}
-      </div>
       <div class="wr-bar wr-bar-other" style="height:0px" data-h="${otherH}">
-        ${otherH>28?`<span class="wr-val wr-val-inside">$${Math.round(c.total-c.ad)}B</span>`:`<span class="wr-val wr-val-outside">$${Math.round(c.total-c.ad)}B</span>`}
+        ${otherH>22?`<span class="wr-val wr-val-inside">$${Math.round(c.total-c.ad)}B</span>`:`<span class="wr-val wr-val-outside">$${Math.round(c.total-c.ad)}B</span>`}
+      </div>
+      <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}">
+        ${adH>22?`<span class="wr-val wr-val-inside">$${c.ad>=10?Math.round(c.ad)+'B':c.ad+'B'}</span>`:`<span class="wr-val wr-val-outside">$${c.ad>=10?Math.round(c.ad)+'B':c.ad+'B'}</span>`}
       </div>
     </div>
-    <div class="wr-total">$${c.total>=10?Math.round(c.total)+'B':c.total+'B'} total</div>
+    <div class="wr-total">$${c.total>=10?Math.round(c.total)+'B':c.total+'B'}</div>
   `;
   grid.appendChild(col);
 });
