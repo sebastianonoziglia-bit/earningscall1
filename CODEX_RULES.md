@@ -34,3 +34,16 @@
 ## STOP CONDITIONS
 9. If a push is rejected, STOP and report the exact error. Never force-push without explicit instruction.
 10. If a rebase hits more than 3 conflict files, STOP and report. Do not continue resolving automatically.
+
+## DEV MANUAL FRESHNESS RULES
+11. After any edit in `app/`, `scripts/`, or `.streamlit/`, run:
+    - `python3 scripts/refresh_dev_manual.py`
+12. This command must refresh all of these artifacts before push:
+    - `reports/Developer_Insights_Bible_CURRENT.md`
+    - `reports/Developer_Insights_Bible_CURRENT_Full.pdf`
+    - `reports/dev_manual_assets/pipeline_dependency_graph.png`
+    - `reports/dev_manual_assets/sheet_usage_heatmap.png`
+    - `reports/dev_manual_assets/migration_impact.png`
+    - `reports/dev_manual_assets/risk_distribution.png`
+    - `reports/DEV_MANUAL_STATUS.json`
+13. If any artifact generation fails, STOP and report the error. Do not push partial manual updates.

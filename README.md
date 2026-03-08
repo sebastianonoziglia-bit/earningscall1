@@ -16,3 +16,11 @@ license: apache-2.0
 
 Interactive dashboard for global media, advertising, and market intelligence.  
 Built with Streamlit and deployed via Docker.
+
+## Refresh Dev Manual (Current-State)
+
+To regenerate the full current-state developer manual package (markdown + PDF + chart assets + status manifest), run:
+
+```bash
+python3 scripts/refresh_dev_manual.py
+```
