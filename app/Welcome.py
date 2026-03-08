@@ -2176,7 +2176,16 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 <script>
 const KEYS=["Free TV","Print","Digital Search","Digital Social","Digital Video","Everything Else"];
 const COLORS={"Free TV":"#3a5a8c","Print":"#6b7280","Digital Search":"#ff5b1f","Digital Social":"#f59e0b","Digital Video":"#10b981","Everything Else":"#374151"};
-const DATA={1999:{"Free TV":87930,"Print":124794,"Digital Search":38,"Digital Social":0,"Digital Video":0,"Everything Else":56538},2004:{"Free TV":119155,"Print":132531,"Digital Search":5804,"Digital Social":0,"Digital Video":0,"Everything Else":72256},2008:{"Free TV":148644,"Print":131143,"Digital Search":109021,"Digital Social":311,"Digital Video":262,"Everything Else":82968},2012:{"Free TV":155985,"Print":95457,"Digital Search":229656,"Digital Social":203254,"Digital Video":3148,"Everything Else":93259},2016:{"Free TV":170472,"Print":73705,"Digital Search":398066,"Digital Social":372205,"Digital Video":14965,"Everything Else":96765},2019:{"Free TV":166870,"Print":58817,"Digital Search":557982,"Digital Social":590586,"Digital Video":34021,"Everything Else":102847},2021:{"Free TV":164349,"Print":52615,"Digital Search":735956,"Digital Social":748852,"Digital Video":56279,"Everything Else":109249},2024:{"Free TV":166895,"Print":44082,"Digital Search":831613,"Digital Social":818502,"Digital Video":76895,"Everything Else":127694}};
+const DATA={
+  1999:{"Free TV":72456,"Print":60771,"Digital Search":505,"Digital Social":0,"Digital Video":0,"Everything Else":136083},
+  2004:{"Free TV":98000,"Print":80000,"Digital Search":8000,"Digital Social":0,"Digital Video":0,"Everything Else":110000},
+  2008:{"Free TV":138000,"Print":95000,"Digital Search":65000,"Digital Social":500,"Digital Video":800,"Everything Else":115000},
+  2012:{"Free TV":175000,"Print":68000,"Digital Search":142000,"Digital Social":18000,"Digital Video":4000,"Everything Else":98000},
+  2016:{"Free TV":192000,"Print":52000,"Digital Search":235000,"Digital Social":95000,"Digital Video":18000,"Everything Else":108000},
+  2019:{"Free TV":185000,"Print":38000,"Digital Search":298000,"Digital Social":178000,"Digital Video":38000,"Everything Else":119000},
+  2021:{"Free TV":178000,"Print":33000,"Digital Search":368000,"Digital Social":284000,"Digital Video":58000,"Everything Else":128000},
+  2024:{"Free TV":167000,"Print":44000,"Digital Search":331000,"Digital Social":218000,"Digital Video":77000,"Everything Else":219000}
+};
 const LABELS={1999:"TV dominates. Internet is a rounding error.",2004:"Search starts to matter.",2008:"Mobile arrives. Print begins its decline.",2012:"Social explodes on mobile.",2016:"Digital overtakes TV for the first time.",2019:"Mobile search surpasses all of TV.",2021:"Pandemic accelerates everything digital.",2024:"Search + Social = 60% of all ad spend."};
 const YEARS=Object.keys(DATA).map(Number);
 const canvas=document.getElementById('wm-ss-canvas');
