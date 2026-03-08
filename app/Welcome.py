@@ -2265,18 +2265,27 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
   <div class="wa-headline">Two companies. Most of the money.</div>
   <div class="wa-body">Of the $740B digital ad market in 2024, Alphabet and Meta together captured over half.</div>
   <div class="wa-bfield" id="wa-bf">
-    <div class="wb" id="wb-alpha" data-delay="0" style="width:220px;height:220px;background:radial-gradient(circle at 35% 35%,rgba(66,133,244,.3),rgba(66,133,244,.1));border:2px solid rgba(66,133,244,.4);color:#4285f4;left:4%;top:8%;"><div class="wb-lbl">Alphabet</div><div class="wb-val">$237B</div><div class="wb-sub">32% of digital ads</div></div>
-    <div class="wb" id="wb-meta" data-delay="200" style="width:190px;height:190px;background:radial-gradient(circle at 35% 35%,rgba(24,119,242,.25),rgba(24,119,242,.08));border:2px solid rgba(24,119,242,.35);color:#1877f2;left:27%;top:48%;"><div class="wb-lbl">Meta</div><div class="wb-val">$164B</div><div class="wb-sub">22% of digital ads</div></div>
-    <div class="wb" data-delay="400" style="width:108px;height:108px;background:rgba(255,153,0,.12);border:1.5px solid rgba(255,153,0,.4);color:#ff9900;left:52%;top:4%;"><div class="wb-lbl">Amazon</div><div class="wb-val">$56B</div><div class="wb-sub">7.5%</div></div>
-    <div class="wb" data-delay="550" style="width:78px;height:78px;background:rgba(0,188,212,.1);border:1.5px solid rgba(0,188,212,.3);color:#00bcd4;left:65%;top:36%;"><div class="wb-lbl" style="font-size:9px;">Microsoft</div><div class="wb-val" style="font-size:13px;">$18B</div><div class="wb-sub">2.4%</div></div>
-    <div class="wb" data-delay="650" style="width:56px;height:56px;background:rgba(30,215,96,.1);border:1.5px solid rgba(30,215,96,.3);color:#1ed760;left:74%;top:7%;"><div class="wb-lbl" style="font-size:8px;">Spotify</div><div class="wb-val" style="font-size:11px;">$2.1B</div></div>
-    <div class="wb" data-delay="700" style="width:50px;height:50px;background:rgba(100,181,246,.1);border:1.5px solid rgba(100,181,246,.25);color:#64b5f6;left:81%;top:54%;"><div class="wb-lbl" style="font-size:8px;">Disney</div><div class="wb-val" style="font-size:10px;">$3.4B</div></div>
-    <div class="wb" data-delay="750" style="width:44px;height:44px;background:rgba(156,39,176,.1);border:1.5px solid rgba(156,39,176,.25);color:#ce93d8;left:71%;top:71%;"><div class="wb-lbl" style="font-size:8px;">Comcast</div><div class="wb-val" style="font-size:10px;">$6.8B</div></div>
-    <div class="wb" data-delay="800" style="width:40px;height:40px;background:rgba(229,9,20,.1);border:1.5px solid rgba(229,9,20,.25);color:#e50914;left:59%;top:75%;"><div class="wb-lbl" style="font-size:7px;">Netflix</div><div class="wb-val" style="font-size:9px;">$2.4B</div></div>
-    <div class="wb" data-delay="900" style="width:125px;height:125px;background:rgba(255,255,255,.03);border:1.5px dashed rgba(255,255,255,.15);color:rgba(255,255,255,.4);left:41%;top:54%;"><div class="wb-lbl" style="font-size:9px;">Rest of market</div><div class="wb-val" style="font-size:15px;color:rgba(255,255,255,.45);">$262B</div><div class="wb-sub">35%</div></div>
+    <div class="wb" id="wb-alpha" data-delay="0" data-value="237" style="width:220px;height:220px;background:radial-gradient(circle at 35% 35%,rgba(66,133,244,.3),rgba(66,133,244,.1));border:2px solid rgba(66,133,244,.4);color:#4285f4;left:4%;top:8%;"><div class="wb-lbl">Alphabet</div><div class="wb-val">$237B</div><div class="wb-sub">32% of digital ads</div></div>
+    <div class="wb" id="wb-meta" data-delay="200" data-value="164" style="width:190px;height:190px;background:radial-gradient(circle at 35% 35%,rgba(24,119,242,.25),rgba(24,119,242,.08));border:2px solid rgba(24,119,242,.35);color:#1877f2;left:27%;top:48%;"><div class="wb-lbl">Meta</div><div class="wb-val">$164B</div><div class="wb-sub">22% of digital ads</div></div>
+    <div class="wb" data-delay="400" data-value="56" style="width:108px;height:108px;background:rgba(255,153,0,.12);border:1.5px solid rgba(255,153,0,.4);color:#ff9900;left:52%;top:4%;"><div class="wb-lbl">Amazon</div><div class="wb-val">$56B</div><div class="wb-sub">7.5%</div></div>
+    <div class="wb" data-delay="550" data-value="18" style="width:78px;height:78px;background:rgba(0,188,212,.1);border:1.5px solid rgba(0,188,212,.3);color:#00bcd4;left:65%;top:36%;"><div class="wb-lbl" style="font-size:9px;">Microsoft</div><div class="wb-val" style="font-size:13px;">$18B</div><div class="wb-sub">2.4%</div></div>
+    <div class="wb" data-delay="650" data-value="2.1" style="width:56px;height:56px;background:rgba(30,215,96,.1);border:1.5px solid rgba(30,215,96,.3);color:#1ed760;left:74%;top:7%;"><div class="wb-lbl" style="font-size:8px;">Spotify</div><div class="wb-val" style="font-size:11px;">$2.1B</div></div>
+    <div class="wb" data-delay="700" data-value="3.4" style="width:50px;height:50px;background:rgba(100,181,246,.1);border:1.5px solid rgba(100,181,246,.25);color:#64b5f6;left:81%;top:54%;"><div class="wb-lbl" style="font-size:8px;">Disney</div><div class="wb-val" style="font-size:10px;">$3.4B</div></div>
+    <div class="wb" data-delay="750" data-value="6.8" style="width:44px;height:44px;background:rgba(156,39,176,.1);border:1.5px solid rgba(156,39,176,.25);color:#ce93d8;left:71%;top:71%;"><div class="wb-lbl" style="font-size:8px;">Comcast</div><div class="wb-val" style="font-size:10px;">$6.8B</div></div>
+    <div class="wb" data-delay="800" data-value="2.4" style="width:40px;height:40px;background:rgba(229,9,20,.1);border:1.5px solid rgba(229,9,20,.25);color:#e50914;left:59%;top:75%;"><div class="wb-lbl" style="font-size:7px;">Netflix</div><div class="wb-val" style="font-size:9px;">$2.4B</div></div>
+    <div class="wb" data-delay="900" data-value="262" style="width:125px;height:125px;background:rgba(255,255,255,.03);border:1.5px dashed rgba(255,255,255,.15);color:rgba(255,255,255,.4);left:41%;top:54%;"><div class="wb-lbl" style="font-size:9px;">Rest of market</div><div class="wb-val" style="font-size:15px;color:rgba(255,255,255,.45);">$262B</div><div class="wb-sub">35%</div></div>
   </div>
 </div>
 <script>
+const SCALE=7.15;
+document.querySelectorAll('#wa-s2 .wb[data-value]').forEach(el=>{
+  const value=parseFloat(el.getAttribute('data-value')||'0');
+  if(!Number.isFinite(value) || value<=0) return;
+  const r=Math.sqrt(value)*SCALE;
+  const d=Math.max(20, r*2);
+  el.style.width=d+'px';
+  el.style.height=d+'px';
+});
 const _io=new IntersectionObserver(entries=>{entries.forEach(e=>{if(!e.isIntersecting)return;const el=e.target;if(el.classList.contains('wa-row')||el.classList.contains('wb')){const d=parseInt(el.dataset.delay||0);setTimeout(()=>el.classList.add('vis'),d);}  _io.unobserve(el);});},{threshold:0.1});
 document.querySelectorAll('.wa-row,.wb').forEach(el=>_io.observe(el));
 </script>
