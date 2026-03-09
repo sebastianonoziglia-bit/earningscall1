@@ -178,16 +178,36 @@ def _has_core_financial_coverage(path: str | Path | None) -> bool:
 
 
 def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -> Optional[str]:
-    """Resolve the primary workbook path from Google Sheets export only."""
-    del local_candidates  # Call signature kept for compatibility with existing callers.
+    """Resolve the primary workbook path.
 
-    source_pref = str(os.getenv("FINANCIAL_DATA_SOURCE", DEFAULT_FINANCIAL_DATA_SOURCE)).strip().lower()
-    if source_pref not in {"google", "gsheet", "sheet"}:
-        logger.info(
-            "FINANCIAL_DATA_SOURCE=%s is unsupported for workbook resolution; forcing Google export",
-            source_pref or "(empty)",
-        )
+    Resolution order:
+    1. Explicit local_candidates (caller-supplied paths).
+    2. Auto-detected bundled XLSX files in app/attached_assets/ relative to this file.
+    3. Google Sheets export (network download, used as fallback).
 
+    Using a valid local file avoids the 20-45 s cold-start network round-trip.
+    """
+    # 1 + 2: try local files first (fast path — no network)
+    _auto_candidates: list[str] = []
+    _here = Path(__file__).resolve()
+    for _rel in (
+        _here.parents[1] / "attached_assets",
+        _here.parents[0] / "attached_assets",
+    ):
+        if _rel.is_dir():
+            _auto_candidates.extend(str(p) for p in sorted(_rel.glob("*.xlsx")))
+
+    _all_local = list(local_candidates or []) + _auto_candidates
+    for _candidate in _all_local:
+        _p = Path(_candidate)
+        if not _p.exists() or not _is_valid_xlsx_file(_p):
+            continue
+        if _has_expected_workbook_tabs(_p) and _has_core_financial_coverage(_p):
+            logger.info("WORKBOOK_RESOLVE using local file: %s", _p)
+            return str(_p.resolve())
+        logger.info("WORKBOOK_RESOLVE local candidate failed validation: %s", _p)
+
+    # 3: fall back to Google Sheets download
     sheet_ref = (
         os.getenv("FINANCIAL_DATA_GSHEET_URL")
         or os.getenv("FINANCIAL_DATA_GSHEET_ID")
@@ -201,7 +221,7 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
     try:
         refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "14400"))
     except Exception:
-        refresh_seconds = 60
+        refresh_seconds = 14400
         logger.warning(
             "WORKBOOK_RESOLVE invalid FINANCIAL_DATA_GSHEET_REFRESH_SECONDS; using default=%s",
             refresh_seconds,
