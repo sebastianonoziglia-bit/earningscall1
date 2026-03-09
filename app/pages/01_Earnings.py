@@ -1310,8 +1310,25 @@ def main():
         if not excel_path:
             return pd.DataFrame()
         try:
-            df = pd.read_excel(excel_path, sheet_name="M2_values", usecols=["USD observation_date", "WM2NS"])
-            df = df.rename(columns={"USD observation_date": "date", "WM2NS": "value"})
+            _df = None
+            for _sn in ("M2", "M2_values"):
+                try:
+                    _df = pd.read_excel(excel_path, sheet_name=_sn)
+                    if _df is not None and not _df.empty:
+                        break
+                except Exception:
+                    _df = None
+            if _df is None or _df.empty:
+                return pd.DataFrame()
+            _df.columns = [str(c).strip() for c in _df.columns]
+            _lowered = {c.lower(): c for c in _df.columns}
+            _date_col = (_lowered.get("usd observation_date") or _lowered.get("observation_date")
+                         or _lowered.get("date"))
+            _val_col = (_lowered.get("wm2ns") or _lowered.get("m2sl") or _lowered.get("m2")
+                        or _lowered.get("value"))
+            if not _date_col or not _val_col:
+                return pd.DataFrame()
+            df = _df[[_date_col, _val_col]].rename(columns={_date_col: "date", _val_col: "value"})
             df["date"] = pd.to_datetime(df["date"], errors="coerce")
             df["value"] = pd.to_numeric(df["value"], errors="coerce")
             return df.dropna(subset=["date", "value"])

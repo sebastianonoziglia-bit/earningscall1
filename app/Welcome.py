@@ -714,7 +714,9 @@ def _select_latest_quarter_for_year(macro_df: pd.DataFrame, year: int) -> str:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _load_m2_yearly_series(excel_path: str, source_stamp: int) -> pd.DataFrame:
-    raw = _read_excel_sheet_cached(excel_path, "M2_values", source_stamp)
+    raw = _read_excel_sheet_cached(excel_path, "M2", source_stamp)
+    if raw.empty:
+        raw = _read_excel_sheet_cached(excel_path, "M2_values", source_stamp)
     if raw.empty:
         return pd.DataFrame(columns=["year", "m2_value"])
 
@@ -738,7 +740,7 @@ def _load_m2_yearly_series(excel_path: str, source_stamp: int) -> pd.DataFrame:
         df["_parsed_date"] = pd.to_datetime(df[date_col], errors="coerce")
 
     value_col = ""
-    preferred = {"wm2ns", "wm2", "m2", "m2value", "value"}
+    preferred = {"wm2ns", "wm2", "m2", "m2sl", "m2value", "value"}
     for col in df.columns:
         normalized = re.sub(r"[^a-z0-9]+", "", col.lower())
         if normalized in preferred:
@@ -2392,19 +2394,16 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 .wr-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
 .wr-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}
 .wr-sub{color:#8b949e;font-size:14px;margin:0 0 36px;}
-.wr-grid{display:flex;gap:10px;align-items:flex-end;justify-content:flex-start;flex-wrap:wrap;}
-.wr-col{display:flex;flex-direction:column;align-items:center;width:88px;}
-.wr-bars{display:flex;flex-direction:column;align-items:stretch;width:52px;margin-bottom:8px;}
-.wr-bar{width:52px;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);position:relative;min-height:0;}
+.wr-grid{display:flex;gap:0;align-items:flex-end;justify-content:space-between;width:100%;}
+.wr-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;}
+.wr-bars{display:flex;flex-direction:column;align-items:stretch;width:70%;margin:0 auto 6px;}
+.wr-bar{width:100%;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);position:relative;min-height:2px;}
 .wr-bar-ad{background:#ff5b1f;}
 .wr-bar-other{background:#1e3a5f;}
 .wr-bar-other{border-radius:4px 4px 0 0;}
 .wr-bar-ad{border-radius:0 0 4px 4px;}
-.wr-val{position:absolute;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:#e6edf3;width:100%;text-align:center;white-space:nowrap;}
-.wr-val-inside{bottom:4px;}
-.wr-val-outside{top:-18px;color:#8b949e;}
-.wr-name{font-size:10px;font-weight:700;color:#e6edf3;text-align:center;margin-bottom:4px;font-family:'Syne',sans-serif;}
-.wr-total{font-size:9px;color:#8b949e;text-align:center;}
+.wr-name{font-size:9px;font-weight:700;color:#e6edf3;text-align:center;margin-bottom:4px;font-family:'Syne',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
+.wr-total{font-size:8px;color:#8b949e;text-align:center;}
 .wr-legend{display:flex;gap:20px;margin-top:20px;}
 .wr-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
 .wr-leg-dot{width:10px;height:10px;border-radius:2px;}
@@ -2443,14 +2442,10 @@ companies.forEach(c=>{
   col.innerHTML=`
     <div class="wr-name">${c.name}</div>
     <div class="wr-bars">
-      <div class="wr-bar wr-bar-other" style="height:0px" data-h="${otherH}">
-        ${otherH>22?`<span class="wr-val wr-val-inside">$${Math.round(c.total-c.ad)}B</span>`:`<span class="wr-val wr-val-outside">$${Math.round(c.total-c.ad)}B</span>`}
-      </div>
-      <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}">
-        ${adH>22?`<span class="wr-val wr-val-inside">$${c.ad>=10?Math.round(c.ad)+'B':c.ad+'B'}</span>`:`<span class="wr-val wr-val-outside">$${c.ad>=10?Math.round(c.ad)+'B':c.ad+'B'}</span>`}
-      </div>
+      <div class="wr-bar wr-bar-other" style="height:0px" data-h="${otherH}"></div>
+      <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}"></div>
     </div>
-    <div class="wr-total">$${c.total>=10?Math.round(c.total)+'B':c.total+'B'}</div>
+    <div class="wr-total">$${c.total>=10?Math.round(c.total)+'B':c.total+'B'} · ${adPct}% ad</div>
   `;
   grid.appendChild(col);
 });
@@ -2540,6 +2535,7 @@ try:
             st.info("Ad dependency chart unavailable.")
         else:
             dep_rows.sort(key=lambda x: x["ad_pct"], reverse=True)
+            dep_rows = list(reversed(dep_rows))
             dep_fig = go.Figure()
             dep_fig.add_trace(
                 go.Bar(
@@ -2738,46 +2734,6 @@ except Exception:
     st.info("Structural shift chart unavailable.")
 _separator()
 
-# Beat 8 — Search vs traditional
-_section(
-    "Search Dominance",
-    "Search alone beats all traditional media combined.",
-    "Search now clears the combined weight of legacy TV, radio, and print in most recent GroupM snapshots."
-)
-try:
-    import plotly.graph_objects as go
-    if groupm_df.empty or not groupm_year_col:
-        st.info("Search vs Traditional chart unavailable.")
-    else:
-        g_row = _yr(groupm_df, effective_year, groupm_year_col)
-        search_col = _find_col(groupm_df, ["search"], ["non"])
-        trad_cols = []
-        for c in groupm_df.columns:
-            norm = re.sub(r"[^a-z0-9]+", "", c.lower())
-            if c in {groupm_year_col, search_col}:
-                continue
-            if any(x in norm for x in ["traditionaltv", "radio", "print", "newspaper"]):
-                trad_cols.append(c)
-        if g_row.empty or not search_col or not trad_cols:
-            st.info("Search vs Traditional chart unavailable.")
-        else:
-            search_b = float(pd.to_numeric(g_row[search_col], errors="coerce").iloc[0] or 0.0)
-            trad_b = float(sum(float(pd.to_numeric(g_row[c], errors="coerce").iloc[0] or 0.0) for c in trad_cols))
-            if search_b <= 0 and trad_b <= 0:
-                st.info("Search vs Traditional chart unavailable.")
-            else:
-                ratio = search_b / trad_b if trad_b > 0 else None
-                st_fig = go.Figure(go.Bar(x=[search_b, trad_b], y=["Search", "Traditional (TV+Radio+Print)"], orientation="h", marker=dict(color=["#ff9900", "#4472c4"]), text=[f"${search_b:.0f}B", f"${trad_b:.0f}B"], textposition="outside", textfont=dict(color="white"), hovertemplate="%{y}: $%{x:.0f}B<extra></extra>"))
-                _apply_dark_chart_layout(st_fig, height=210, margin=dict(l=0, r=60, t=32, b=8), extra_layout=dict(xaxis=dict(visible=False), showlegend=False))
-                st.plotly_chart(st_fig, use_container_width=True)
-                caption = f"Search advertising alone accounts for ${search_b:.0f}B in {effective_year}."
-                if ratio:
-                    caption += f" That is {ratio:.1f}× larger than all traditional TV, radio, and print combined."
-                st.caption(caption)
-except Exception:
-    st.info("Search vs Traditional chart unavailable.")
-_separator()
-
 # Beat 9 — Gapminder bubble
 _section(
     "The Landscape",
@@ -2834,6 +2790,7 @@ try:
                 hover_name="company",
                 custom_data=["revenue_b", "ad_pct", "ad_rev_b"],
                 size_max=65,
+                log_y=True,
                 labels={"rev_yoy": "Revenue YoY Growth (%)", "market_cap_b": "Market Cap ($B)"},
             )
             b_fig.update_traces(
@@ -2843,6 +2800,8 @@ try:
                 b_fig,
                 height=590,
                 extra_layout=dict(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
                     xaxis=dict(ticksuffix="%", color="rgba(255,255,255,0.35)", gridcolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.08)", zeroline=True, zerolinecolor="rgba(255,255,255,0.15)"),
                     yaxis=dict(color="rgba(255,255,255,0.35)", gridcolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.08)"),
                 ),
@@ -2863,7 +2822,7 @@ _separator()
 # Beat 10 — Performance chart
 _section(
     "The Market Bet",
-    "The ad-driven giants didn\'t just grow. They beat the market.",
+    "Starting from the same base of 100, who compounded fastest?",
     "Top market-cap compounders are benchmarked against major indices on a normalized base."
 )
 try:
@@ -2934,7 +2893,7 @@ try:
                     st.plotly_chart(p_fig, use_container_width=True)
                     best = perf.nlargest(1, "tsr").iloc[0]
                     st.caption(
-                        f"Normalized to 100 at start. Top 3 market cap growers vs S&P500 and Nasdaq. {best['company']} led with +{best['tsr']:.0f}% market cap growth over {y_start}→{effective_year}."
+                        f"All lines start at 100. A line at 200 means the asset doubled. {best['company']} was the top compounder at +{best['tsr']:.0f}% market cap growth {y_start}→{effective_year}. S&P 500 and Nasdaq shown as benchmarks."
                     )
 except Exception:
     st.info("Performance chart unavailable.")

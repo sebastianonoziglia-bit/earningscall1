@@ -1845,17 +1845,22 @@ def _load_m2_yearly_df(excel_path: str, source_stamp: int = 0) -> pd.DataFrame:
     path = Path(excel_path)
     if not path.exists():
         return pd.DataFrame()
-    try:
-        df = pd.read_excel(path, sheet_name="M2_values")
-    except Exception:
-        return pd.DataFrame()
+    _df = None
+    for _sn in ("M2", "M2_values"):
+        try:
+            _df = pd.read_excel(path, sheet_name=_sn)
+            if _df is not None and not _df.empty:
+                break
+        except Exception:
+            _df = None
+    df = _df
     if df is None or df.empty:
         return pd.DataFrame()
 
     out = df.copy()
     out.columns = [str(c).strip() for c in out.columns]
 
-    value_col = _find_column_by_alias(out, ["WM2NS", "WM2", "M2", "M2 Value", "M2_values"])
+    value_col = _find_column_by_alias(out, ["WM2NS", "M2SL", "WM2", "M2", "M2 Value", "M2_values"])
     if not value_col:
         return pd.DataFrame()
 
@@ -1935,16 +1940,21 @@ def _load_m2_quarterly(excel_path: str, source_stamp: int = 0) -> pd.DataFrame:
     path = Path(excel_path)
     if not path.exists():
         return pd.DataFrame()
-    try:
-        df = pd.read_excel(path, sheet_name="M2_values")
-    except Exception:
-        return pd.DataFrame()
+    _df = None
+    for _sn in ("M2", "M2_values"):
+        try:
+            _df = pd.read_excel(path, sheet_name=_sn)
+            if _df is not None and not _df.empty:
+                break
+        except Exception:
+            _df = None
+    df = _df
     if df is None or df.empty:
         return pd.DataFrame()
 
     out = df.copy()
     out.columns = [str(c).strip() for c in out.columns]
-    value_col = _find_column_by_alias(out, ["WM2NS", "WM2", "M2", "M2 Value", "M2_values"])
+    value_col = _find_column_by_alias(out, ["WM2NS", "M2SL", "WM2", "M2", "M2 Value", "M2_values"])
     date_col = _find_column_by_alias(
         out,
         ["USD observation_date", "observation_date", "observation", "date", "period"],

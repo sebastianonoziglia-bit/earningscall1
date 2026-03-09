@@ -32,15 +32,22 @@ def _load_m2_from_excel_cached(path: str, source_stamp: int) -> pd.DataFrame:
       - 'USD observation_date'
       - 'WM2NS' (billions USD)
     """
-    try:
-        df = pd.read_excel(path, sheet_name="M2_values").copy()
-    except Exception:
+    _df = None
+    for _sn in ("M2", "M2_values"):
+        try:
+            _df = pd.read_excel(path, sheet_name=_sn)
+            if _df is not None and not _df.empty:
+                break
+        except Exception:
+            _df = None
+    if _df is None or _df.empty:
         return pd.DataFrame()
+    df = _df.copy()
 
     df.columns = [str(c).strip() for c in df.columns]
     lowered = {str(c).strip().lower(): c for c in df.columns}
     date_col = lowered.get("usd observation_date") or lowered.get("observation_date") or lowered.get("date")
-    value_col = lowered.get("wm2ns") or lowered.get("m2") or lowered.get("value")
+    value_col = lowered.get("wm2ns") or lowered.get("m2sl") or lowered.get("m2") or lowered.get("value")
     if not value_col:
         return pd.DataFrame()
 

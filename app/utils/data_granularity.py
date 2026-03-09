@@ -177,11 +177,12 @@ def get_month_labels_for_year(excel_path: str, year: int) -> list[str]:
     if not excel_path:
         return []
     names = set(get_workbook_sheet_names(excel_path))
-    if "M2_values" not in names:
+    _m2_sheet = "M2" if "M2" in names else "M2_values" if "M2_values" in names else None
+    if not _m2_sheet:
         return []
 
     try:
-        df = pd.read_excel(excel_path, sheet_name="M2_values")
+        df = pd.read_excel(excel_path, sheet_name=_m2_sheet)
     except Exception:
         return []
     if df is None or df.empty:
