@@ -259,3 +259,22 @@ def get_workbook_source_stamp(path: str | None) -> int:
         return int(os.stat(path).st_mtime_ns)
     except OSError:
         return 0
+
+
+def get_live_data_xlsx(refresh_seconds: int = 3600) -> Optional[str]:
+    """Return a path to a freshly-downloaded Google Sheets XLSX for live sheets
+    (Minute, Daily, Holders). Cached locally for *refresh_seconds* (default 1 h).
+    Returns None if the download fails and no stale cache is available.
+    """
+    sheet_ref = (
+        os.getenv("FINANCIAL_DATA_GSHEET_URL")
+        or os.getenv("FINANCIAL_DATA_GSHEET_ID")
+        or DEFAULT_GOOGLE_SHEET_URL
+    )
+    sheet_id = extract_google_sheet_id(sheet_ref)
+    if not sheet_id:
+        return None
+    try:
+        return _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
+    except Exception:
+        return None
