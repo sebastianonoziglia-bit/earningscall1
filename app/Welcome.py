@@ -2273,15 +2273,15 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
   <div class="wa-headline">Two companies. Most of the money.</div>
   <div class="wa-body">Of the $740B digital ad market in 2024, Alphabet and Meta together captured over half.</div>
   <div class="wa-bfield" id="wa-bf">
-    <div class="wb" id="wb-alpha" data-delay="0" data-value="237" style="width:220px;height:220px;background:radial-gradient(circle at 35% 35%,rgba(66,133,244,.3),rgba(66,133,244,.1));border:2px solid rgba(66,133,244,.4);color:#4285f4;left:4%;top:8%;"><div class="wb-lbl">Alphabet</div><div class="wb-val">$237B</div><div class="wb-sub">32% of digital ads</div></div>
-    <div class="wb" id="wb-meta" data-delay="200" data-value="164" style="width:190px;height:190px;background:radial-gradient(circle at 35% 35%,rgba(24,119,242,.25),rgba(24,119,242,.08));border:2px solid rgba(24,119,242,.35);color:#1877f2;left:27%;top:48%;"><div class="wb-lbl">Meta</div><div class="wb-val">$164B</div><div class="wb-sub">22% of digital ads</div></div>
-    <div class="wb" data-delay="400" data-value="56" style="width:108px;height:108px;background:rgba(255,153,0,.12);border:1.5px solid rgba(255,153,0,.4);color:#ff9900;left:52%;top:4%;"><div class="wb-lbl">Amazon</div><div class="wb-val">$56B</div><div class="wb-sub">7.5%</div></div>
-    <div class="wb" data-delay="550" data-value="18" style="width:78px;height:78px;background:rgba(0,188,212,.1);border:1.5px solid rgba(0,188,212,.3);color:#00bcd4;left:65%;top:36%;"><div class="wb-lbl" style="font-size:9px;">Microsoft</div><div class="wb-val" style="font-size:13px;">$18B</div><div class="wb-sub">2.4%</div></div>
-    <div class="wb" data-delay="650" data-value="2.1" style="width:56px;height:56px;background:rgba(30,215,96,.1);border:1.5px solid rgba(30,215,96,.3);color:#1ed760;left:74%;top:7%;"><div class="wb-lbl" style="font-size:8px;">Spotify</div><div class="wb-val" style="font-size:11px;">$2.1B</div></div>
-    <div class="wb" data-delay="700" data-value="3.4" style="width:50px;height:50px;background:rgba(100,181,246,.1);border:1.5px solid rgba(100,181,246,.25);color:#64b5f6;left:81%;top:54%;"><div class="wb-lbl" style="font-size:8px;">Disney</div><div class="wb-val" style="font-size:10px;">$3.4B</div></div>
-    <div class="wb" data-delay="750" data-value="6.8" style="width:44px;height:44px;background:rgba(156,39,176,.1);border:1.5px solid rgba(156,39,176,.25);color:#ce93d8;left:71%;top:71%;"><div class="wb-lbl" style="font-size:8px;">Comcast</div><div class="wb-val" style="font-size:10px;">$6.8B</div></div>
-    <div class="wb" data-delay="800" data-value="2.4" style="width:40px;height:40px;background:rgba(229,9,20,.1);border:1.5px solid rgba(229,9,20,.25);color:#e50914;left:59%;top:75%;"><div class="wb-lbl" style="font-size:7px;">Netflix</div><div class="wb-val" style="font-size:9px;">$2.4B</div></div>
-    <div class="wb" data-delay="900" data-value="262" style="width:125px;height:125px;background:rgba(255,255,255,.03);border:1.5px dashed rgba(255,255,255,.15);color:rgba(255,255,255,.4);left:41%;top:54%;"><div class="wb-lbl" style="font-size:9px;">Rest of market</div><div class="wb-val" style="font-size:15px;color:rgba(255,255,255,.45);">$262B</div><div class="wb-sub">35%</div></div>
+    <div class="wb" id="wb-alpha" data-delay="0" data-value="237" style="width:220px;height:220px;background:radial-gradient(circle at 35% 35%,rgba(66,133,244,.3),rgba(66,133,244,.1));border:2px solid rgba(66,133,244,.4);color:#4285f4;left:18%;top:20%;"><div class="wb-lbl">Alphabet</div><div class="wb-val">$237B</div><div class="wb-sub">32% of digital ads</div></div>
+    <div class="wb" id="wb-meta" data-delay="200" data-value="164" style="width:190px;height:190px;background:radial-gradient(circle at 35% 35%,rgba(24,119,242,.25),rgba(24,119,242,.08));border:2px solid rgba(24,119,242,.35);color:#1877f2;left:38%;top:28%;"><div class="wb-lbl">Meta</div><div class="wb-val">$164B</div><div class="wb-sub">22% of digital ads</div></div>
+    <div class="wb" data-delay="900" data-value="262" style="width:125px;height:125px;background:rgba(255,255,255,.03);border:1.5px dashed rgba(255,255,255,.15);color:rgba(255,255,255,.4);left:58%;top:30%;"><div class="wb-lbl" style="font-size:9px;">Rest of market</div><div class="wb-val" style="font-size:15px;color:rgba(255,255,255,.45);">$262B</div><div class="wb-sub">35%</div></div>
+    <div class="wb" data-delay="400" data-value="56" style="width:108px;height:108px;background:rgba(255,153,0,.12);border:1.5px solid rgba(255,153,0,.4);color:#ff9900;left:72%;top:18%;"><div class="wb-lbl">Amazon</div><div class="wb-val">$56B</div><div class="wb-sub">7.5%</div></div>
+    <div class="wb" data-delay="550" data-value="18" style="width:78px;height:78px;background:rgba(0,188,212,.1);border:1.5px solid rgba(0,188,212,.3);color:#00bcd4;left:82%;top:24%;"><div class="wb-lbl" style="font-size:9px;">Microsoft</div><div class="wb-val" style="font-size:13px;">$18B</div><div class="wb-sub">2.4%</div></div>
+    <div class="wb" data-delay="650" data-value="2.1" style="width:56px;height:56px;background:rgba(30,215,96,.1);border:1.5px solid rgba(30,215,96,.3);color:#1ed760;left:90%;top:37%;"><div class="wb-lbl" style="font-size:8px;">Spotify</div><div class="wb-val" style="font-size:11px;">$2.1B</div></div>
+    <div class="wb" data-delay="700" data-value="3.4" style="width:50px;height:50px;background:rgba(100,181,246,.1);border:1.5px solid rgba(100,181,246,.25);color:#64b5f6;left:74%;top:64%;"><div class="wb-lbl" style="font-size:8px;">Disney</div><div class="wb-val" style="font-size:10px;">$3.4B</div></div>
+    <div class="wb" data-delay="750" data-value="6.8" style="width:44px;height:44px;background:rgba(156,39,176,.1);border:1.5px solid rgba(156,39,176,.25);color:#ce93d8;left:84%;top:66%;"><div class="wb-lbl" style="font-size:8px;">Comcast</div><div class="wb-val" style="font-size:10px;">$6.8B</div></div>
+    <div class="wb" data-delay="800" data-value="1.8" style="width:40px;height:40px;background:rgba(108,45,199,.12);border:1.5px solid rgba(108,45,199,.25);color:#6c2dc7;left:93%;top:70%;"><div class="wb-lbl" style="font-size:7px;">Roku</div><div class="wb-val" style="font-size:9px;">$1.8B</div></div>
   </div>
 </div>
 <script>
@@ -2299,53 +2299,87 @@ document.querySelectorAll('.wa-row,.wb').forEach(el=>_io.observe(el));
 </script>
 </div>
 """,
-    height=1400,
+    height=1500,
 )
-
-big_pct = (big_tech_b / global_ad_denom * 100) if global_ad_denom else 0.0
-tracked_pct = (total_tracked_b / global_ad_denom * 100) if global_ad_denom else 0.0
-other_pct = max(0.0, tracked_pct - big_pct)
-rest_pct = max(0.0, 100.0 - tracked_pct)
 
 _separator()
 st.components.v1.html(
-    f"""
+    """
 <div id="wm-conc-root">
 <style>
-html,body{{margin:0;padding:0;background:#0d1117;border:none;outline:none;}}
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-conc-root{{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}}
-#wm-conc-root *{{box-sizing:border-box;}}
-.wc-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}}
-.wc-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 8px;color:#e6edf3;line-height:1.14;}}
-.wc-body{{color:#8b949e;font-size:14px;line-height:1.6;margin:0 0 20px;max-width:900px;}}
-.wc-stack{{display:flex;align-items:stretch;width:100%;height:74px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.12);background:#111827;}}
-.wc-seg{{display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#ffffff;white-space:nowrap;padding:0 8px;}}
-.wc-big{{background:#ff5b1f;}}
-.wc-oth{{background:#2563eb;}}
-.wc-rest{{background:#1f2937;}}
-.wc-metrics{{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;}}
-.wc-chip{{border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);border-radius:10px;padding:8px 10px;color:#cbd5e1;font-size:12px;}}
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
+html,body{margin:0;padding:0;background:#0d1117;}
+iframe{border:none!important;}
+#wm-conc-root{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}
+#wm-conc-root *{box-sizing:border-box;}
+.wc-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
+.wc-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;}
+.wc-sub{color:#8b949e;font-size:14px;margin:0 0 32px;}
+.wc-bar-container{width:100%;height:110px;display:flex;border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;opacity:0;transform:translateY(12px);transition:opacity .8s ease,transform .8s ease;}
+.wc-bar-container.vis{opacity:1;transform:translateY(0);}
+.wc-seg{height:100%;transition:flex 1.6s cubic-bezier(.34,1.1,.64,1);flex:0;position:relative;border-right:2px solid rgba(255,255,255,0.15);overflow:hidden;cursor:default;}
+.wc-seg:last-child{border-right:none;}
+.wc-seg:hover{filter:brightness(1.08);}
+.wc-seg-inner{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 14px;pointer-events:none;}
+.wc-seg-cat{font-size:10px;font-weight:700;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+.wc-seg-amt{font-size:16px;font-weight:800;color:#fff;margin-top:3px;white-space:nowrap;}
+.wc-seg-pct{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;white-space:nowrap;}
+.wc-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;}
+.wc-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
+.wc-leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
 </style>
 <div class="wc-label">THE CONCENTRATION</div>
 <div class="wc-headline">Most of it went to very few hands.</div>
-<div class="wc-body">Just 5 Big Tech companies captured <strong style="color:#fff;">${big_tech_b:.0f}B</strong> — <strong style="color:#ff5b1f;">{big_pct:.1f}%</strong> of all global ad spend. Our full tracked universe held {tracked_pct:.1f}%.</div>
-<div class="wc-stack">
-  <div class="wc-seg wc-big" style="width:{max(0.0, min(100.0, big_pct)):.2f}%;">Big Tech {big_pct:.1f}%</div>
-  <div class="wc-seg wc-oth" style="width:{max(0.0, min(100.0, other_pct)):.2f}%;">Other Tracked {other_pct:.1f}%</div>
-  <div class="wc-seg wc-rest" style="width:{max(0.0, min(100.0, rest_pct)):.2f}%;">Rest {rest_pct:.1f}%</div>
+<div class="wc-sub">Of $1,056B spent globally on advertising in 2024, just 5 companies captured more than half.</div>
+<div class="wc-bar-container" id="wc-bar">
+  <div class="wc-seg" id="wcs-alpha" style="background:linear-gradient(135deg,#1a3a6b,#0d2040);">
+    <div class="wc-seg-inner"><div class="wc-seg-cat">Alphabet</div><div class="wc-seg-amt">$237B</div><div class="wc-seg-pct">22.4%</div></div>
+  </div>
+  <div class="wc-seg" id="wcs-meta" style="background:linear-gradient(135deg,#1a2a5e,#0d1a40);">
+    <div class="wc-seg-inner"><div class="wc-seg-cat">Meta</div><div class="wc-seg-amt">$164B</div><div class="wc-seg-pct">15.5%</div></div>
+  </div>
+  <div class="wc-seg" id="wcs-amzn" style="background:linear-gradient(135deg,#3d2800,#2a1800);">
+    <div class="wc-seg-inner"><div class="wc-seg-cat">Amazon</div><div class="wc-seg-amt">$56B</div><div class="wc-seg-pct">5.3%</div></div>
+  </div>
+  <div class="wc-seg" id="wcs-other-bt" style="background:linear-gradient(135deg,#1a2a1a,#0d1a0d);">
+    <div class="wc-seg-inner"><div class="wc-seg-cat">Apple+MSFT</div><div class="wc-seg-amt">$36B</div><div class="wc-seg-pct">3.4%</div></div>
+  </div>
+  <div class="wc-seg" id="wcs-media" style="background:linear-gradient(135deg,#1a1a3a,#0d0d2a);">
+    <div class="wc-seg-inner"><div class="wc-seg-cat">Streaming</div><div class="wc-seg-amt">$37B</div><div class="wc-seg-pct">3.5%</div></div>
+  </div>
+  <div class="wc-seg" id="wcs-rest" style="background:rgba(255,255,255,.04);border:none;">
+    <div class="wc-seg-inner"><div class="wc-seg-cat" style="color:rgba(255,255,255,.4)">Rest of World</div><div class="wc-seg-amt" style="color:rgba(255,255,255,.35)">$526B</div><div class="wc-seg-pct" style="color:rgba(255,255,255,.3)">49.8%</div></div>
+  </div>
 </div>
-<div class="wc-metrics">
-  <div class="wc-chip">Big Tech: ${big_tech_b:.0f}B</div>
-  <div class="wc-chip">Tracked Total: ${total_tracked_b:.0f}B</div>
-  <div class="wc-chip">Global Total: ${global_ad_denom:.0f}B</div>
-  <div class="wc-chip">Untracked: ${untracked_b:.0f}B</div>
+<div class="wc-legend">
+  <div class="wc-leg"><div class="wc-leg-dot" style="background:#1a3a6b;"></div>Alphabet $237B</div>
+  <div class="wc-leg"><div class="wc-leg-dot" style="background:#1a2a5e;"></div>Meta $164B</div>
+  <div class="wc-leg"><div class="wc-leg-dot" style="background:#3d2800;"></div>Amazon $56B</div>
+  <div class="wc-leg"><div class="wc-leg-dot" style="background:#1a2a1a;"></div>Apple + Microsoft $36B</div>
+  <div class="wc-leg"><div class="wc-leg-dot" style="background:#1a1a3a;"></div>Streaming & Media $37B</div>
+  <div class="wc-leg"><div class="wc-leg-dot" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);"></div>Rest of World $526B</div>
 </div>
+<script>
+const bar=document.getElementById('wc-bar');
+const io=new IntersectionObserver(entries=>{
+  if(!entries[0].isIntersecting)return;
+  bar.classList.add('vis');
+  setTimeout(()=>{
+    document.getElementById('wcs-alpha').style.flex='22.4';
+    document.getElementById('wcs-meta').style.flex='15.5';
+    document.getElementById('wcs-amzn').style.flex='5.3';
+    document.getElementById('wcs-other-bt').style.flex='3.4';
+    document.getElementById('wcs-media').style.flex='3.5';
+    document.getElementById('wcs-rest').style.flex='49.8';
+  },200);
+  io.unobserve(bar);
+},{threshold:0.2});
+io.observe(bar);
+</script>
 </div>
 """,
-    height=420,
+    height=520,
 )
-
 _separator()
 st.components.v1.html(
     """
@@ -2553,23 +2587,24 @@ _separator()
 _section(
     "The Duopoly",
     "Two companies. One grip.",
-    "Alphabet and Meta dominate the tracked ad pool. The donut below shows how much they control versus everyone else."
+    "Alphabet and Meta dominate digital advertising. The donut below shows their share of the $1,056B global digital ad market."
 )
 try:
     import plotly.graph_objects as go
-    if total_tracked_b <= 0:
+    global_digital_market_b = 1056.0
+    if global_digital_market_b <= 0:
         st.info("Duopoly chart unavailable.")
     else:
         duo_b = (
             float(ad_lookup.get("Alphabet", {}).get("ad_revenue_musd", 0.0))
             + float(ad_lookup.get("Meta Platforms", {}).get("ad_revenue_musd", 0.0))
         ) / 1e3
-        rest_b = max(total_tracked_b - duo_b, 0.0)
-        duo_pct = duo_b / total_tracked_b * 100 if total_tracked_b else 0.0
+        rest_b = max(global_digital_market_b - duo_b, 0.0)
+        duo_pct = duo_b / global_digital_market_b * 100 if global_digital_market_b else 0.0
         d_fig = go.Figure(
             go.Pie(
                 values=[duo_b, rest_b],
-                labels=["Alphabet + Meta", "Everyone Else"],
+                labels=["Alphabet + Meta", "Rest of global market"],
                 hole=0.65,
                 marker=dict(colors=["#ff5b1f", "rgba(255,255,255,0.08)"]),
                 textfont=dict(color="white"),
@@ -2583,7 +2618,7 @@ try:
             extra_layout=dict(
                 annotations=[
                     dict(
-                        text=f"<b>{duo_pct:.1f}%</b><br><span style='font-size:10px'>Duopoly</span>",
+                        text=f"<b>{duo_pct:.1f}%</b><br><span style='font-size:10px'>Global share</span>",
                         x=0.5,
                         y=0.5,
                         showarrow=False,
@@ -2595,7 +2630,7 @@ try:
         )
         st.plotly_chart(d_fig, use_container_width=True)
         st.caption(
-            f"Alphabet and Meta together controlled {duo_pct:.1f}% of all tracked digital ad revenue in {effective_year}. Combined: ${duo_b:.0f}B."
+            f"Alphabet and Meta together controlled {duo_pct:.1f}% of the $1,056B global digital ad market in {effective_year}. Combined: ${duo_b:.0f}B."
         )
 except Exception:
     st.info("Duopoly chart unavailable.")
@@ -2946,81 +2981,62 @@ except Exception:
     st.info("Market cap history unavailable.")
 _separator()
 
-# Beat 12 — Subscribers pictogram
-_section(
-    "The Human Side",
-    "Behind every dollar: a human being.",
-    "Subscriber footprints contextualize where recurring attention is concentrated across streaming and audio platforms."
+# Beat 12 — Human side bars
+st.components.v1.html(
+    """
+<div id="wm-human-root">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
+html,body{margin:0;padding:0;background:#0d1117;}
+#wm-human-root{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}
+.wh-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
+.wh-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}
+.wh-sub{color:#8b949e;font-size:14px;margin:0 0 32px;}
+.wh-row{display:flex;align-items:center;gap:16px;margin-bottom:18px;}
+.wh-name{width:100px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#e6edf3;text-align:right;flex-shrink:0;}
+.wh-track{flex:1;height:28px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden;position:relative;}
+.wh-fill{height:100%;border-radius:4px;width:0%;transition:width 1.4s cubic-bezier(.34,1.1,.64,1);}
+.wh-val{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#e6edf3;}
+.wh-caption{font-size:12px;color:#8b949e;margin-top:8px;}
+</style>
+<div class="wh-label">THE HUMAN SIDE</div>
+<div class="wh-headline">Behind every dollar: a human being.</div>
+<div class="wh-sub">Paid subscribers and active users across the tracked universe. 2024.</div>
+<div id="wh-rows"></div>
+<div class="wh-caption" id="wh-caption"></div>
+<script>
+const companies=[
+  {name:"YouTube",val:2500,color:"#ff0000",label:"2.5B users"},
+  {name:"Spotify",val:675,color:"#1db954",label:"675M users"},
+  {name:"Netflix",val:301,color:"#e50914",label:"301M subs"},
+  {name:"Disney+",val:174,color:"#113ccf",label:"174M subs"},
+  {name:"Amazon",val:200,color:"#ff9900",label:"200M Prime"},
+  {name:"Max (WBD)",val:116,color:"#0047ab",label:"116M subs"},
+  {name:"Paramount+",val:77,color:"#0033a0",label:"77M subs"},
+  {name:"Roku",val:89,color:"#6f1ab1",label:"89M accounts"},
+];
+const max=Math.max(...companies.map(c=>c.val));
+const rows=document.getElementById('wh-rows');
+const total=companies.reduce((s,c)=>s+c.val,0);
+companies.forEach(c=>{
+  const pct=Math.round((c.val/max)*100);
+  rows.innerHTML+=`<div class="wh-row">
+    <div class="wh-name">${c.name}</div>
+    <div class="wh-track"><div class="wh-fill" style="background:${c.color}" data-w="${pct}"></div><span class="wh-val">${c.label}</span></div>
+  </div>`;
+});
+document.getElementById('wh-caption').textContent=`Combined: ${(total/1000).toFixed(1)}B people — nearly half the world's population uses at least one of these platforms daily.`;
+const io=new IntersectionObserver(entries=>{
+  if(!entries[0].isIntersecting)return;
+  document.querySelectorAll('.wh-fill').forEach(el=>el.style.width=el.dataset.w+'%');
+  io.unobserve(entries[0].target);
+},{threshold:0.2});
+io.observe(rows);
+</script>
+</div>
+""",
+    height=420,
 )
-try:
-    sub_df = _read_excel_sheet_cached(excel_path, "Company_subscribers_values", source_stamp) if excel_path else pd.DataFrame()
-    if sub_df.empty:
-        st.info("Subscriber data unavailable.")
-    else:
-        sub_df.columns = [str(c).strip() for c in sub_df.columns]
-        year_col = _find_col(sub_df, ["year"])
-        scope = _yr(sub_df, effective_year, year_col) if year_col else sub_df.copy()
-        if scope.empty:
-            scope = sub_df.copy()
-        streaming = ["Netflix", "Spotify", "Disney", "Paramount"]
-        rows_html = []
-        total_subs = 0.0
-        company_col = _find_col(scope, ["company"]) or _find_col(scope, ["service"]) or _find_col(scope, ["platform"])
-        subs_col = _find_col(scope, ["subscriber"])
-        if company_col and subs_col:
-            scope[subs_col] = pd.to_numeric(scope[subs_col], errors="coerce")
-            scope = scope.dropna(subset=[company_col, subs_col])
-            for company in streaming:
-                rows = scope[scope[company_col].astype(str).str.lower().str.contains(company.lower(), na=False)]
-                if rows.empty:
-                    continue
-                subs_raw = float(rows[subs_col].sum())
-                subs_m = subs_raw / 1000 if subs_raw > 10000 else subs_raw
-                total_subs += subs_m
-                icons = "●" * min(int(subs_m / 10), 30)
-                rows_html.append(
-                    f"<div style='margin-bottom:14px;display:flex;align-items:center;gap:10px;'>"
-                    f"<span style='color:#ffffff;font-weight:600;display:inline-block;width:120px;'>{escape(company)}</span>"
-                    f"<span style='color:#ff5b1f;letter-spacing:2px;'>{icons}</span>"
-                    f"<span style='color:rgba(255,255,255,0.5);font-size:0.85rem;margin-left:8px;'>{subs_m:.0f}M</span>"
-                    f"</div>"
-                )
-        else:
-            row = scope.iloc[-1]
-            for company in streaming:
-                matches = [c for c in scope.columns if company.lower() in c.lower()]
-                if not matches:
-                    continue
-                subs_raw = pd.to_numeric(pd.Series([row[matches[0]]]), errors="coerce").iloc[0]
-                if pd.isna(subs_raw):
-                    continue
-                subs_raw = float(subs_raw)
-                subs_m = subs_raw / 1000 if subs_raw > 10000 else subs_raw
-                total_subs += subs_m
-                icons = "●" * min(int(subs_m / 10), 30)
-                rows_html.append(
-                    f"<div style='margin-bottom:14px;display:flex;align-items:center;gap:10px;'>"
-                    f"<span style='color:#ffffff;font-weight:600;display:inline-block;width:120px;'>{escape(company)}</span>"
-                    f"<span style='color:#ff5b1f;letter-spacing:2px;'>{icons}</span>"
-                    f"<span style='color:rgba(255,255,255,0.5);font-size:0.85rem;margin-left:8px;'>{subs_m:.0f}M</span>"
-                    f"</div>"
-                )
-        if not rows_html:
-            st.info("Subscriber data unavailable.")
-        else:
-            st.markdown(
-                "<div style='padding:8px 0;'>"
-                + "".join(rows_html)
-                + "<div style='color:rgba(255,255,255,0.3);font-size:0.75rem;margin-top:8px;'>● = 10M subscribers</div>"
-                + "</div>",
-                unsafe_allow_html=True,
-            )
-            china_pop = 1400
-            st.caption(
-                f"Combined paid subscribers: {total_subs:.0f}M — {'more than' if total_subs > china_pop else 'approaching'} the population of China ({china_pop}M)."
-            )
-except Exception:
-    st.info("Subscriber data unavailable.")
 _separator()
 
 # Beat 13 — Live ticker
