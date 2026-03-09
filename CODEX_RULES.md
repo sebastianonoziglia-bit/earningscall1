@@ -47,3 +47,7 @@
     - `reports/dev_manual_assets/risk_distribution.png`
     - `reports/DEV_MANUAL_STATUS.json`
 13. If any artifact generation fails, STOP and report the error. Do not push partial manual updates.
+14. Canonical bible outputs are only:
+    - `reports/Developer_Insights_Bible_CURRENT.md`
+    - `reports/Developer_Insights_Bible_CURRENT_Full.pdf`
+    Any legacy duplicates (`reports/Developer_Insights_Bible.md`, `reports/Developer_Insights_Bible_Full.pdf`) must not be recreated.

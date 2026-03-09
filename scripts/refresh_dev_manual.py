@@ -11,6 +11,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPORTS = ROOT / "reports"
 STATUS_PATH = REPORTS / "DEV_MANUAL_STATUS.json"
+BIBLE_MD = REPORTS / "Developer_Insights_Bible_CURRENT.md"
+BIBLE_PDF = REPORTS / "Developer_Insights_Bible_CURRENT_Full.pdf"
+LEGACY_DUPLICATES = [
+    REPORTS / "Developer_Insights_Bible.md",
+    REPORTS / "Developer_Insights_Bible_Full.pdf",
+]
 
 
 def _run(cmd: list[str]) -> None:
@@ -29,10 +35,19 @@ def _git(args: list[str], fallback: str = "unknown") -> str:
         return fallback
 
 
-def _build_status() -> dict:
+def _remove_legacy_duplicates() -> list[str]:
+    removed: list[str] = []
+    for path in LEGACY_DUPLICATES:
+        if path.exists():
+            path.unlink()
+            removed.append(str(path.relative_to(ROOT)))
+    return removed
+
+
+def _build_status(removed_legacy: list[str] | None = None) -> dict:
     tracked = [
-        REPORTS / "Developer_Insights_Bible_CURRENT.md",
-        REPORTS / "Developer_Insights_Bible_CURRENT_Full.pdf",
+        BIBLE_MD,
+        BIBLE_PDF,
         REPORTS / "dev_manual_assets" / "pipeline_dependency_graph.png",
         REPORTS / "dev_manual_assets" / "sheet_usage_heatmap.png",
         REPORTS / "dev_manual_assets" / "migration_impact.png",
@@ -58,6 +73,11 @@ def _build_status() -> dict:
             "scripts/generate_current_bible.py",
             "scripts/generate_current_bible_pdf.py",
         ],
+        "canonical_bible_files": [
+            str(BIBLE_MD.relative_to(ROOT)),
+            str(BIBLE_PDF.relative_to(ROOT)),
+        ],
+        "removed_legacy_duplicates": removed_legacy or [],
         "artifacts": file_meta,
     }
 
@@ -75,9 +95,14 @@ def main() -> None:
     _run(["python3", "scripts/generate_current_bible.py"])
     if not args.skip_pdf:
         _run(["python3", "scripts/generate_current_bible_pdf.py"])
+    removed_legacy = _remove_legacy_duplicates()
+    if removed_legacy:
+        print("[cleanup] removed legacy duplicates:")
+        for rel in removed_legacy:
+            print(f"  - {rel}")
 
     REPORTS.mkdir(parents=True, exist_ok=True)
-    status = _build_status()
+    status = _build_status(removed_legacy=removed_legacy)
     STATUS_PATH.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {STATUS_PATH}")
 

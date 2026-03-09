@@ -24,3 +24,7 @@ To regenerate the full current-state developer manual package (markdown + PDF + 
 ```bash
 python3 scripts/refresh_dev_manual.py
 ```
+
+Canonical outputs:
+- `reports/Developer_Insights_Bible_CURRENT.md`
+- `reports/Developer_Insights_Bible_CURRENT_Full.pdf`
