@@ -94,7 +94,7 @@ def _download_google_sheet_xlsx(sheet_id: str, refresh_seconds: int = 60) -> Opt
 
     export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
     try:
-        response = requests.get(export_url, timeout=45)
+        response = requests.get(export_url, timeout=20)
         response.raise_for_status()
         if not _is_valid_xlsx_payload(response.headers.get("content-type", ""), response.content):
             # Keep older cache, if present, when response is not a workbook (private/no-access pages often return HTML).
@@ -199,7 +199,7 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
         return None
 
     try:
-        refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "60"))
+        refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "14400"))
     except Exception:
         refresh_seconds = 60
         logger.warning(
