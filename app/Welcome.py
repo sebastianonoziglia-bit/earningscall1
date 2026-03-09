@@ -1829,7 +1829,12 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
         if pd.isna(price):
             continue
         change = pd.to_numeric(pd.Series([last.get("change", np.nan)]), errors="coerce").iloc[0]
-        change_txt = f"{change:+.2f}%" if pd.notna(change) else "n/a"
+        if pd.notna(change):
+            arrow = "▲" if change >= 0 else "▼"
+            change_color = "#22c55e" if change >= 0 else "#ef4444"
+            change_html = f"<span style='color:{change_color};font-weight:700;'>{arrow} {abs(change):.2f}%</span>"
+        else:
+            change_html = "<span style='color:rgba(255,255,255,0.4);'>—</span>"
         ticker_display = ticker_aliases[0]
         logo_b64 = _resolve_logo(company, logos)
         logo_html = (
@@ -1840,9 +1845,9 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
         items.append(
             "<div class='wm-stock-item'>"
             f"<div style='display:inline-flex;align-items:center;gap:8px;width:100%;'>{logo_html}"
-            f"<span style='color:#ffffff;font-weight:700;font-size:0.8rem;'>{escape(company)}</span>"
+            f"<span style='color:#ffffff;font-weight:700;font-size:0.8rem;'>{escape(ticker_display)}</span>"
             f"<span style='margin-left:auto;color:#ffffff;font-family:monospace;font-size:0.92rem;font-weight:700;'>${price:,.2f}</span></div>"
-            f"<div style='color:rgba(255,255,255,0.64);font-size:0.72rem;'>{escape(change_txt)} · {escape(ticker_display)}</div>"
+            f"<div style='font-size:0.75rem;margin-top:2px;'>{change_html}</div>"
             "</div>"
         )
     if not items:
@@ -2107,11 +2112,19 @@ try:
                     locationmode="country names",
                     color=value_col,
                     color_continuous_scale="Blues",
+                    hover_name=country_col,
+                    hover_data={country_col: False, value_col: ":.2f"},
+                    labels={value_col: "Ad Spend % GDP"},
+                )
+                map_fig.update_traces(
+                    hovertemplate="<b>%{hovertext}</b><br>Ad spend % of GDP: %{z:.2f}%<extra></extra>",
+                    marker_line_color="rgba(255,255,255,0.12)",
+                    marker_line_width=0.5,
                 )
                 _apply_dark_chart_layout(
                     map_fig,
-                    height=470,
-                    margin=dict(l=0, r=0, t=32, b=0),
+                    height=520,
+                    margin=dict(l=0, r=0, t=0, b=0),
                     extra_layout=dict(
                         paper_bgcolor="#0d1117",
                         plot_bgcolor="#0d1117",
@@ -2121,20 +2134,23 @@ try:
                             landcolor="#1a2332",
                             showframe=False,
                             showcoastlines=True,
-                            coastlinecolor="rgba(255,255,255,0.08)",
+                            coastlinecolor="rgba(255,255,255,0.12)",
                             showocean=True,
-                            oceancolor="#0d1117",
-                            projection_type="natural earth",
-                            center=dict(lat=35, lon=-10),
-                            projection_scale=1.2,
+                            oceancolor="#060b14",
+                            showlakes=False,
+                            showcountries=False,
+                            projection_type="orthographic",
+                            lataxis_showgrid=False,
+                            lonaxis_showgrid=False,
                         ),
                     ),
                 )
-                # Force ocean/water styling explicitly for map traces.
                 map_fig.update_geos(
                     showocean=True,
-                    oceancolor="#0d1117",
+                    oceancolor="#060b14",
                     bgcolor="#0d1117",
+                    lataxis_showgrid=False,
+                    lonaxis_showgrid=False,
                 )
                 st.plotly_chart(map_fig, use_container_width=True)
 except Exception:

@@ -1050,11 +1050,21 @@ def main():
         ],
     }
 
-    def render_plotly(fig, xaxis_is_year=False):
-        fig.update_layout(
-            font=dict(family="Montserrat, sans-serif", color="#111827"),
-            dragmode=False,
-        )
+    def render_plotly(fig, xaxis_is_year=False, light_theme=False):
+        if light_theme:
+            fig.update_layout(
+                font=dict(family="Montserrat, sans-serif", color="#111827"),
+                dragmode=False,
+            )
+        else:
+            fig.update_layout(
+                font=dict(family="Montserrat, sans-serif", color="#e6edf3"),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(255,255,255,0.03)",
+                dragmode=False,
+            )
+            fig.update_xaxes(gridcolor="rgba(255,255,255,0.07)", zerolinecolor="rgba(255,255,255,0.12)")
+            fig.update_yaxes(gridcolor="rgba(255,255,255,0.07)", zerolinecolor="rgba(255,255,255,0.12)")
         if xaxis_is_year:
             fig.update_xaxes(dtick=1, tickformat="d")
         st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
@@ -3686,7 +3696,7 @@ def main():
                     text=center_text,
                     x=0.5,
                     y=0.32,
-                    font=dict(size=14, family="Montserrat, sans-serif", color="#111827"),
+                    font=dict(size=14, family="Montserrat, sans-serif", color="#e6edf3"),
                     showarrow=False,
                 )
             ]
@@ -4611,7 +4621,7 @@ def main():
         if heatmap_freq in {"Quarterly", "Monthly"} and len(x_labels) >= 20:
             heatmap_fig.update_xaxes(tickfont=dict(size=10))
         heatmap_fig.update_yaxes(showgrid=False)
-        render_plotly(heatmap_fig)
+        render_plotly(heatmap_fig, light_theme=True)
 
     if heatmap_mode == "Company Metrics":
         heatmap_metric_list = heatmap_metrics or []
