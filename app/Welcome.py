@@ -1502,6 +1502,10 @@ div[data-testid="stPlotlyChart"] > div {
     border: 1px solid rgba(148,163,184,0.22);
     background: rgba(15,23,42,0.72);
     padding: 10px 12px;
+    color: #e2e8f0 !important;
+}
+.wm-pulse-item * {
+    color: inherit !important;
 }
 .wm-stock-item {
     width: min(300px, 78vw);
@@ -1510,6 +1514,10 @@ div[data-testid="stPlotlyChart"] > div {
     border: 1px solid rgba(148,163,184,0.22);
     background: rgba(15,23,42,0.72);
     padding: 7px 10px;
+    color: #e2e8f0 !important;
+}
+.wm-stock-item * {
+    color: inherit !important;
 }
 .wm-mini-logo {
     width: 42px;
@@ -1526,6 +1534,24 @@ div[data-testid="stPlotlyChart"] > div {
 }
 @media (max-width: 768px) {
     .wm-wrap { padding: 0 6px 24px; }
+}
+/* KPI % change arrows — force color against any theme */
+.kpi-yoy-pos, .kpi-yoy-pos * {
+    color: #22c55e !important;
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+}
+.kpi-yoy-neg, .kpi-yoy-neg * {
+    color: #ef4444 !important;
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+}
+/* Hero narrative text */
+.wm-hero-narrative, .wm-hero-narrative * {
+    color: rgba(255,255,255,0.88) !important;
+}
+.wm-hero-narrative strong {
+    font-weight: 700 !important;
 }
 </style>
 """,
@@ -1773,10 +1799,10 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
         )
         pulse_items.append(
             "<div class='wm-pulse-item'>"
-            f"<div style='color:#e2e8f0;font-style:italic;font-size:0.85rem;line-height:1.45;'>“{escape(quote)}”</div>"
+            f"<div style='color:#e2e8f0 !important;font-style:italic;font-size:0.85rem;line-height:1.45;'>&ldquo;{escape(quote)}&rdquo;</div>"
             f"<div style='margin-top:8px;display:inline-flex;align-items:center;gap:8px;font-size:0.75rem;'>"
-            f"{logo_html}<span style='color:#ffffff;font-weight:700;'>{escape(company)}</span>"
-            f"<span style='color:rgba(255,255,255,0.75);'>— {escape(speaker)}</span></div>"
+            f"{logo_html}<span style='color:#ffffff !important;font-weight:700;'>{escape(company)}</span>"
+            f"<span style='color:rgba(255,255,255,0.82) !important;'>&#8212; {escape(speaker)}</span></div>"
             "</div>"
         )
     if not pulse_items:
@@ -1845,8 +1871,8 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
         items.append(
             "<div class='wm-stock-item'>"
             f"<div style='display:inline-flex;align-items:center;gap:8px;width:100%;'>{logo_html}"
-            f"<span style='color:#ffffff;font-weight:700;font-size:0.8rem;'>{escape(ticker_display)}</span>"
-            f"<span style='margin-left:auto;color:#ffffff;font-family:monospace;font-size:0.92rem;font-weight:700;'>${price:,.2f}</span></div>"
+            f"<span style='color:#ffffff !important;font-weight:700;font-size:0.8rem;'>{escape(ticker_display)}</span>"
+            f"<span style='margin-left:auto;color:#ffffff !important;font-family:monospace;font-size:0.92rem;font-weight:700;'>${price:,.2f}</span></div>"
             f"<div style='font-size:0.75rem;margin-top:2px;'>{change_html}</div>"
             "</div>"
         )
@@ -1993,25 +2019,25 @@ kpi1_val = f"${groupm_b:.0f}B" if groupm_b else "—"
 kpi1_yoy = ""
 if groupm_yoy is not None:
     if groupm_yoy >= 0:
-        kpi1_yoy = f"<span style='color:#22c55e !important;font-size:0.85rem !important;'>▲ {groupm_yoy:.1f}%</span>"
+        kpi1_yoy = f"<span class='kpi-yoy-pos'>▲ {groupm_yoy:.1f}%</span>"
     else:
-        kpi1_yoy = f"<span style='color:#ef4444 !important;font-size:0.85rem !important;'>▼ {abs(groupm_yoy):.1f}%</span>"
+        kpi1_yoy = f"<span class='kpi-yoy-neg'>▼ {abs(groupm_yoy):.1f}%</span>"
 
 kpi2_val = f"${rev_b/1e3:.1f}T" if rev_b and rev_b >= 1000 else (f"${rev_b:.0f}B" if rev_b else "—")
 kpi2_yoy = ""
 if rev_yoy is not None:
     if rev_yoy >= 0:
-        kpi2_yoy = f"<span style='color:#22c55e !important;font-size:0.85rem !important;'>▲ {rev_yoy:.1f}%</span>"
+        kpi2_yoy = f"<span class='kpi-yoy-pos'>▲ {rev_yoy:.1f}%</span>"
     else:
-        kpi2_yoy = f"<span style='color:#ef4444 !important;font-size:0.85rem !important;'>▼ {abs(rev_yoy):.1f}%</span>"
+        kpi2_yoy = f"<span class='kpi-yoy-neg'>▼ {abs(rev_yoy):.1f}%</span>"
 
 kpi3_val = f"${mcap_b/1e3:.1f}T" if mcap_b and mcap_b >= 1000 else (f"${mcap_b:.0f}B" if mcap_b else "—")
 kpi3_yoy = ""
 if mcap_yoy is not None:
     if mcap_yoy >= 0:
-        kpi3_yoy = f"<span style='color:#22c55e !important;font-size:0.85rem !important;'>▲ {mcap_yoy:.1f}%</span>"
+        kpi3_yoy = f"<span class='kpi-yoy-pos'>▲ {mcap_yoy:.1f}%</span>"
     else:
-        kpi3_yoy = f"<span style='color:#ef4444 !important;font-size:0.85rem !important;'>▼ {abs(mcap_yoy):.1f}%</span>"
+        kpi3_yoy = f"<span class='kpi-yoy-neg'>▼ {abs(mcap_yoy):.1f}%</span>"
 
 st.markdown(
     f"""
@@ -2067,9 +2093,8 @@ st.markdown(
                       margin-top:6px;">{effective_year} · 14 companies</div>
         </div>
       </div>
-      <div style="color:rgba(255,255,255,0.6) !important;font-size:1.05rem;
-                  line-height:1.85;max-width:680px;">
-        <span style="color:rgba(255,255,255,0.6) !important;">{narrative_html}</span>
+      <div class="wm-hero-narrative" style="font-size:1.05rem;line-height:1.85;max-width:680px;">
+        {narrative_html}
       </div>
       <div style="color:rgba(255,255,255,0.2);font-size:0.85rem;
                   margin-top:48px;letter-spacing:0.1em;">
@@ -3170,12 +3195,7 @@ _section(
 _render_transcript_pulse_strip(effective_year, selected_quarter)
 _separator()
 
-# Beat 15 — Stock tape
-_section(
-    "Market Tape",
-    "Live price strip from tracked names.",
-    "A thinner rolling tape mirrors the transcript band style and keeps headline market movement in view."
-)
+# Beat 15 — Stock tape (no section header, just the tape)
 _render_stock_price_strip(market_feed_df)
 _separator()
 
