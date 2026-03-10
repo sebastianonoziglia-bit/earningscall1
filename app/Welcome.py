@@ -2292,7 +2292,9 @@ currentAngles=getAngles(1999);drawDonut(currentAngles);stepIdx=1;pauseTimer=setT
 )
 _separator()
 
-_attn_html = (
+@st.cache_data(show_spinner=False)
+def _build_attn_html(ad_json_str: str, groupm_json_str: str) -> str:
+    return (
     """
 <div id="wm-attn-root">
 <style>
@@ -2304,38 +2306,54 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 .wa-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
 .wa-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.14;margin:0 0 8px;}
 .wa-body{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 32px;}
-.wa-split{display:flex;gap:0;width:100%;min-height:360px;align-items:center;}
-.wa-col{flex:1;display:flex;flex-direction:column;gap:20px;padding:0 32px;}
-.wa-col-hdr{color:#ff5b1f;font-size:10px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;margin-bottom:4px;}
-.wa-divider{width:1px;background:linear-gradient(to bottom,transparent,rgba(255,255,255,0.1),transparent);align-self:stretch;flex-shrink:0;}
-.wa-row{display:flex;align-items:center;gap:14px;opacity:0;transform:translateX(-40px);transition:opacity .6s ease,transform .6s cubic-bezier(.34,1.2,.64,1);}
-.wa-row.fr{flex-direction:row-reverse;transform:translateX(40px);}
-.wa-row.vis{opacity:1;transform:translateX(0);}
-.wa-dot{border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;}
-.wa-name{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;color:#e6edf3;}
-.wa-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#ff5b1f;line-height:1;}
-.wa-desc{font-size:12px;color:#8b949e;}
-.wa-txt-r{text-align:right;}
+.wa-col-hdr{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#8b949e;margin-bottom:12px;font-family:'Syne',sans-serif;}
+.wa-bars{display:flex;flex-direction:column;gap:8px;width:100%;}
+.wb-row{display:flex;align-items:center;gap:8px;opacity:0;transform:translateX(-8px);transition:opacity .5s ease,transform .5s ease;width:100%;}
+.wb-row.wb-r{transform:translateX(8px);}
+.wb-row.vis{opacity:1;transform:translateX(0);}
+.wb-n{font-size:11px;font-weight:700;color:#c9d1d9;min-width:80px;white-space:nowrap;font-family:'Syne',sans-serif;}
+.wb-track{flex:1;height:6px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;position:relative;}
+.wb-fill{height:100%;width:0;background:var(--c);border-radius:3px;transition:width 1.1s cubic-bezier(.4,0,.2,1);}
+.wb-v{font-size:13px;font-weight:800;color:#ff5b1f;min-width:52px;text-align:right;font-family:'Syne',sans-serif;}
+.wb-s{font-size:10px;color:#8b949e;min-width:80px;white-space:nowrap;}
 .wa-sep{width:40px;height:2px;background:#ff5b1f;margin:8px 0 32px;}
 </style>
 <div class="wa-scene" id="wa-s1">
   <div class="wa-label">THE SCALE OF ATTENTION</div>
   <div class="wa-headline">Humanity gives these companies its most precious resource.</div>
-  <div class="wa-body">Every day. Every minute. Here's where billions of hours go — and who gets paid for them.</div>
-  <div class="wa-split">
-    <div class="wa-col">
+  <div class="wa-body">Every day. Every minute. Here is where billions of hours go — and who gets paid for them.</div>
+  <div style="display:flex;gap:32px;margin-top:24px;width:100%;">
+    <div style="flex:1;min-width:0;">
       <div class="wa-col-hdr">Minutes per user · per day</div>
-      <div class="wa-row" data-delay="100"><div class="wa-dot" style="width:68px;height:68px;background:rgba(255,0,0,.15);border:2px solid rgba(255,80,80,.4);font-size:18px;">&#9654;</div><div><div class="wa-name">YouTube</div><div class="wa-val">24 min</div><div class="wa-desc">2.5B users · 1B hrs/day total</div></div></div>
-      <div class="wa-row" data-delay="250"><div class="wa-dot" style="width:54px;height:54px;background:rgba(30,215,96,.12);border:2px solid rgba(30,215,96,.35);font-size:15px;">&#9835;</div><div><div class="wa-name">Spotify</div><div class="wa-val">30 min</div><div class="wa-desc">675M users · audio-first</div></div></div>
-      <div class="wa-row" data-delay="400"><div class="wa-dot" style="width:62px;height:62px;background:rgba(229,9,20,.15);border:2px solid rgba(229,9,20,.4);font-size:17px;">N</div><div><div class="wa-name">Netflix</div><div class="wa-val">120 min</div><div class="wa-desc">301M subscribers · premium lean-back</div></div></div>
-      <div class="wa-row" data-delay="550"><div class="wa-dot" style="width:46px;height:46px;background:rgba(100,180,255,.1);border:2px solid rgba(100,180,255,.3);font-size:13px;">R</div><div><div class="wa-name">Roku</div><div class="wa-val">98 min</div><div class="wa-desc">89M accounts · CTV gateway</div></div></div>
+      <div class="wa-bars" id="wa-min-bars">
+        <div class="wb-row" data-delay="0"  data-w="100"  style="--c:rgba(229,9,20,0.75)"><span class="wb-n">Netflix</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">120 min</span><span class="wb-s">301M subs</span></div>
+        <div class="wb-row" data-delay="60"  data-w="42"  style="--c:rgba(255,91,31,0.75)"><span class="wb-n">Spotify</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">50 min</span><span class="wb-s">600M MAUs</span></div>
+        <div class="wb-row" data-delay="120" data-w="32"  style="--c:rgba(255,153,0,0.8)"><span class="wb-n">Amazon PV</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">40 min</span><span class="wb-s">200M actives</span></div>
+        <div class="wb-row" data-delay="180" data-w="32"  style="--c:rgba(24,119,242,0.8)"><span class="wb-n">Meta Fb</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">39 min</span><span class="wb-s">2.1B DAUs</span></div>
+        <div class="wb-row" data-delay="240" data-w="26"  style="--c:rgba(225,48,108,0.8)"><span class="wb-n">Instagram</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">31 min</span><span class="wb-s">2.0B MAUs</span></div>
+        <div class="wb-row" data-delay="300" data-w="20"  style="--c:rgba(255,0,0,0.7)"><span class="wb-n">YouTube</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">24 min</span><span class="wb-s">2.5B MAUs</span></div>
+        <div class="wb-row" data-delay="360" data-w="50"  style="--c:rgba(100,65,165,0.75)"><span class="wb-n">WBD / Max</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">60 min</span><span class="wb-s">97M subs</span></div>
+        <div class="wb-row" data-delay="420" data-w="50"  style="--c:rgba(0,100,180,0.75)"><span class="wb-n">Disney+</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">60 min</span><span class="wb-s">149M subs</span></div>
+        <div class="wb-row" data-delay="480" data-w="50"  style="--c:rgba(0,84,160,0.75)"><span class="wb-n">Paramount+</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">60 min</span><span class="wb-s">71M subs</span></div>
+        <div class="wb-row" data-delay="540" data-w="50"  style="--c:rgba(210,32,42,0.75)"><span class="wb-n">Peacock</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">60 min</span><span class="wb-s">35M subs</span></div>
+        <div class="wb-row" data-delay="600" data-w="12"  style="--c:rgba(145,70,255,0.75)"><span class="wb-n">Twitch</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">14 min</span><span class="wb-s">240M MAUs</span></div>
+      </div>
     </div>
-    <div class="wa-divider"></div>
-    <div class="wa-col" style="align-items:flex-end;">
-      <div class="wa-col-hdr" style="text-align:right;">$ earned per minute watched</div>
-      <div class="wa-row fr" data-delay="150"><div class="wa-dot" style="width:76px;height:76px;background:rgba(255,91,31,.2);border:2px solid rgba(255,91,31,.5);font-size:11px;color:#ff5b1f;">$0.0029</div><div class="wa-txt-r"><div class="wa-name">Netflix</div><div class="wa-val" style="color:#ff5b1f;">Highest yield</div><div class="wa-desc">$39.9B rev ÷ total minutes</div></div></div>
-      <div class="wa-row fr" data-delay="300"><div class="wa-dot" style="width:62px;height:62px;background:rgba(30,215,96,.12);border:2px solid rgba(30,215,96,.3);font-size:10px;color:#1ed760;">$0.0021</div><div class="wa-txt-r"><div class="wa-name">Spotify</div><div class="wa-val" style="color:#1ed760;">+music premium</div><div class="wa-desc">$15.7B revenue</div></div></div>
-      <div class="wa-row fr" data-delay="450"><div class="wa-dot" style="width:54px;height:54px;background:rgba(255,0,0,.1);border:2px solid rgba(255,80,80,.3);font-size:10px;color:#ff5050;">$0.0016</div><div class="wa-txt-r"><div class="wa-name">YouTube</div><div class="wa-val" style="color:#ff5050;">Least per minute</div><div class="wa-desc">$35.5B ads ÷ 1B hrs/day</div></div></div>
+    <div style="flex:1;min-width:0;">
+      <div class="wa-col-hdr" style="text-align:right;">$ earned per minute watched · yield rank</div>
+      <div class="wa-bars" id="wa-rev-bars" style="align-items:flex-end;">
+        <div class="wb-row wb-r" data-delay="50"  data-w="100" style="--c:rgba(0,100,180,0.85)"><span class="wb-v" style="text-align:right;">$0.0066</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Disney+</span><span class="wb-s" style="text-align:right;">$21.9B ÷ 3.3T min</span></div>
+        <div class="wb-row wb-r" data-delay="110" data-w="85" style="--c:rgba(210,32,42,0.8)"><span class="wb-v" style="text-align:right;">$0.0056</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Peacock</span><span class="wb-s" style="text-align:right;">$5.0B ÷ 0.9T min</span></div>
+        <div class="wb-row wb-r" data-delay="170" data-w="73" style="--c:rgba(0,84,160,0.75)"><span class="wb-v" style="text-align:right;">$0.0048</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Paramount+</span><span class="wb-s" style="text-align:right;">$7.6B ÷ 1.6T min</span></div>
+        <div class="wb-row wb-r" data-delay="230" data-w="70" style="--c:rgba(100,65,165,0.75)"><span class="wb-v" style="text-align:right;">$0.0046</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">WBD / Max</span><span class="wb-s" style="text-align:right;">$10.2B ÷ 2.2T min</span></div>
+        <div class="wb-row wb-r" data-delay="290" data-w="67" style="--c:rgba(255,153,0,0.8)"><span class="wb-v" style="text-align:right;">$0.0044</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Amazon PV</span><span class="wb-s" style="text-align:right;">$13.5B ÷ 3.1T min</span></div>
+        <div class="wb-row wb-r" data-delay="350" data-w="50" style="--c:rgba(225,48,108,0.8)"><span class="wb-v" style="text-align:right;">$0.0033</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Instagram</span><span class="wb-s" style="text-align:right;">$73B ÷ 21.9T min</span></div>
+        <div class="wb-row wb-r" data-delay="410" data-w="44" style="--c:rgba(229,9,20,0.75)"><span class="wb-v" style="text-align:right;">$0.0029</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Netflix</span><span class="wb-s" style="text-align:right;">$33.7B ÷ 11.8T min</span></div>
+        <div class="wb-row wb-r" data-delay="470" data-w="42" style="--c:rgba(24,119,242,0.8)"><span class="wb-v" style="text-align:right;">$0.0028</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Meta Fb</span><span class="wb-s" style="text-align:right;">$90B ÷ 31.8T min</span></div>
+        <div class="wb-row wb-r" data-delay="530" data-w="36" style="--c:rgba(30,215,96,0.8)"><span class="wb-v" style="text-align:right;">$0.0024</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Spotify</span><span class="wb-s" style="text-align:right;">$15.6B ÷ 6.5T min</span></div>
+        <div class="wb-row wb-r" data-delay="590" data-w="33" style="--c:rgba(145,70,255,0.75)"><span class="wb-v" style="text-align:right;">$0.0022</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Twitch</span><span class="wb-s" style="text-align:right;">$2.8B ÷ 1.25T min</span></div>
+        <div class="wb-row wb-r" data-delay="650" data-w="24" style="--c:rgba(255,0,0,0.7)"><span class="wb-v" style="text-align:right;">$0.0016</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">YouTube</span><span class="wb-s" style="text-align:right;">$36.1B ÷ 21.9T min</span></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2358,16 +2376,16 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
   </div>
 </div>
 <script>
-const _io=new IntersectionObserver(entries=>{entries.forEach(e=>{if(!e.isIntersecting)return;const el=e.target;if(el.classList.contains('wa-row')){const d=parseInt(el.dataset.delay||0);setTimeout(()=>el.classList.add('vis'),d);}_io.unobserve(el);});},{threshold:0.1});
-document.querySelectorAll('.wa-row').forEach(el=>_io.observe(el));
+const _io=new IntersectionObserver(entries=>{entries.forEach(e=>{if(!e.isIntersecting)return;const el=e.target;const d=parseInt(el.dataset.delay||0);const w=el.dataset.w||'0';setTimeout(()=>{el.classList.add('vis');const fill=el.querySelector('.wb-fill');if(fill)fill.style.width=w+'%';},d);_io.unobserve(el);});},{threshold:0.1,rootMargin:'0px 0px -20px 0px'});
+document.querySelectorAll('.wb-row').forEach(el=>_io.observe(el));
 </script>
 <script>
 (function(){
 var AD_DATA="""
-    + _ad_json_str
+    + ad_json_str
     + """;
 var GROUPM_DATA="""
-    + _global_adv_json_str
+    + groupm_json_str
     + """;
 var COMPANIES=[
   {id:'Alphabet',  cx:24, cy:38, bg:'rgba(66,133,244,0.18)',  br:'rgba(66,133,244,0.6)'},
@@ -2445,21 +2463,21 @@ function runStep(){
   stepIdx++;
   aTimer=setTimeout(runStep,last?3500:1350);
 }
-var obs2=new IntersectionObserver(function(entries){
-  entries.forEach(function(e){
-    if(e.isIntersecting&&!started){
-      started=true;obs2.disconnect();
-      updateYear(YEARS[0]);stepIdx=1;aTimer=setTimeout(runStep,1600);
-    }
-  });
-},{threshold:0.2});
-var s2=document.getElementById('wa-s2');
-if(s2)obs2.observe(s2);
+if(YEARS.length>0){
+  updateYear(YEARS[0]);
+  stepIdx=1;
+  aTimer=setTimeout(runStep,1600);
+} else {
+  var field2=document.getElementById('wa-dup-field');
+  if(field2){field2.innerHTML='<div style="padding:40px;color:#8b949e;font-size:13px;">Ad revenue data loading…</div>';}
+}
 })();
 </script>
 </div>
 """
-)
+    )
+
+_attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str)
 st.components.v1.html(_attn_html, height=1500)
 
 _separator()
