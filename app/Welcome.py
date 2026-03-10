@@ -1395,6 +1395,19 @@ macro_df = _load_overview_macro_sheet(excel_path, source_stamp) if excel_path el
 ad_sheet_df = _load_company_ad_revenue_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
 m2_yearly_df = _load_m2_yearly_series(excel_path, source_stamp) if excel_path else pd.DataFrame()
 
+# Load Global_Adv_Aggregates (country-level aggregate, values in $M) for total market denominator
+global_adv_df = _read_excel_sheet_cached(excel_path, "Global_Adv_Aggregates", source_stamp) if excel_path else pd.DataFrame()
+if not global_adv_df.empty:
+    global_adv_df.columns = [str(c).strip() for c in global_adv_df.columns]
+    global_adv_df["year"] = pd.to_numeric(global_adv_df["year"], errors="coerce")
+    global_adv_df["value"] = pd.to_numeric(global_adv_df["value"], errors="coerce")
+    global_adv_df = global_adv_df.dropna(subset=["year", "value"])
+    global_adv_df["year"] = global_adv_df["year"].astype(int)
+# Per-year totals in $B (values in sheet are $M → ÷1000)
+_global_adv_totals: "pd.Series" = (
+    global_adv_df.groupby("year")["value"].sum() / 1_000.0
+).round(1) if not global_adv_df.empty else pd.Series(dtype=float)
+
 # Serialize ad revenue data for animated bubble chart JS
 _ad_col_map = {
     "Google_Ads": "Alphabet", "Meta_Ads": "Meta", "Amazon_Ads": "Amazon",
@@ -1422,18 +1435,12 @@ if not ad_sheet_df.empty:
                     pass
 _ad_json_str = json.dumps(_ad_by_year)
 
-# Build per-year GroupM total for use as duopoly denominator in JS
-_groupm_by_year: dict = {}
-if not groupm_df.empty and groupm_year_col and groupm_total_col:
-    for _, _grow in groupm_df.iterrows():
-        try:
-            _gy = int(pd.to_numeric(_grow[groupm_year_col], errors="coerce"))
-            _gv = _normalize_groupm_to_billions(_grow[groupm_total_col])
-            if _gv and _gv > 0:
-                _groupm_by_year[_gy] = round(_gv, 1)
-        except (TypeError, ValueError):
-            pass
-_groupm_json_str = json.dumps(_groupm_by_year)
+# Build per-year global ad total for JS denominator (from Global_Adv_Aggregates)
+_global_adv_by_year: dict = {}
+for _gyr, _gval in _global_adv_totals.items():
+    if _gval and _gval > 0:
+        _global_adv_by_year[int(_gyr)] = round(float(_gval), 1)
+_global_adv_json_str = json.dumps(_global_adv_by_year)
 
 db_path = ROOT_DIR / "earningscall_intelligence.db"
 
@@ -1992,48 +1999,25 @@ mcap_col = next((c for c in metrics.columns if "market" in c.lower() and "cap" i
 if mcap_col not in metrics.columns and "market_cap" in metrics.columns:
     mcap_col = "market_cap"
 
-groupm_df = _read_excel_sheet_cached(excel_path, "Global Advertising (GroupM)", source_stamp) if excel_path else pd.DataFrame()
-if not groupm_df.empty:
-    groupm_df.columns = [str(c).strip() for c in groupm_df.columns]
-groupm_year_col = _find_col(groupm_df, ["year"]) if not groupm_df.empty else ""
-groupm_total_col = _find_col(groupm_df, ["total"]) if not groupm_df.empty else ""
-if not groupm_df.empty and groupm_year_col and not groupm_total_col:
-    numeric_candidates = []
-    for c in groupm_df.columns:
-        if c == groupm_year_col:
-            continue
-        vals = pd.to_numeric(groupm_df[c], errors="coerce")
-        if vals.notna().sum() > 0:
-            groupm_df[c] = vals
-            numeric_candidates.append(c)
-    if numeric_candidates:
-        groupm_df["_computed_total"] = groupm_df[numeric_candidates].sum(axis=1, min_count=1)
-        groupm_total_col = "_computed_total"
+# Derive global ad spend totals from Global_Adv_Aggregates (loaded earlier)
+global_adv_b = None
+global_adv_yoy = None
+effective_year_global_adv = effective_year
 
-groupm_b = None
-groupm_yoy = None
-effective_year_groupm = effective_year
+if not _global_adv_totals.empty:
+    _lookup_yr = effective_year if effective_year in _global_adv_totals.index else int(_global_adv_totals.index.max())
+    effective_year_global_adv = _lookup_yr
+    global_adv_b = float(_global_adv_totals[_lookup_yr])
+    _prev_yr = _lookup_yr - 1
+    if _prev_yr in _global_adv_totals.index:
+        _prev_val = float(_global_adv_totals[_prev_yr])
+        if _prev_val > 0:
+            global_adv_yoy = _yoy(global_adv_b, _prev_val)
 
-
-def _normalize_groupm_to_billions(value: Any) -> Optional[float]:
-    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
-    if pd.isna(numeric):
-        return None
-    val = float(numeric)
-    # GroupM sheets can be stored in $M; convert to $B for display/ratios.
-    return val / 1_000.0 if abs(val) > 5_000 else val
-
-
-if not groupm_df.empty and groupm_year_col and groupm_total_col:
-    g_row = _yr(groupm_df, effective_year, groupm_year_col)
-    if not g_row.empty:
-        effective_year_groupm = int(pd.to_numeric(g_row[groupm_year_col], errors="coerce").iloc[0])
-        groupm_b = _normalize_groupm_to_billions(g_row[groupm_total_col].iloc[0])
-    g_prev = _yr(groupm_df, effective_year_groupm - 1, groupm_year_col)
-    if not g_prev.empty and groupm_b is not None:
-        groupm_prev_b = _normalize_groupm_to_billions(g_prev[groupm_total_col].iloc[0])
-        if groupm_prev_b is not None:
-            groupm_yoy = _yoy(groupm_b, groupm_prev_b)
+# Keep legacy aliases so remaining code below continues to work
+groupm_b = global_adv_b
+groupm_yoy = global_adv_yoy
+effective_year_groupm = effective_year_global_adv
 
 rev_b = None
 rev_yoy = None
@@ -2137,7 +2121,7 @@ st.components.v1.html(
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Global Ad Spend</div>"
     f"<div style='color:#ff5b1f;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi1_val}</div>"
     f"<div style='margin-top:4px;'>{kpi1_yoy}</div>"
-    f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year_groupm} &middot; GroupM</div></div>"
+    f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year_groupm} &middot; Global Aggregates</div></div>"
     f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Tracked Revenue</div>"
     f"<div style='color:#ff5b1f;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi2_val}</div>"
@@ -2381,7 +2365,7 @@ var AD_DATA="""
     + _ad_json_str
     + """;
 var GROUPM_DATA="""
-    + _groupm_json_str
+    + _global_adv_json_str
     + """;
 var COMPANIES=[
   {id:'Alphabet',  cx:24, cy:38, bg:'rgba(66,133,244,0.18)',  br:'rgba(66,133,244,0.6)'},
@@ -2796,7 +2780,7 @@ var AD="""
     + _ad_json_str
     + """;
 var GROUPM="""
-    + _groupm_json_str
+    + _global_adv_json_str
     + """;
 var canvas=document.getElementById('wmd-canvas');
 var ctx=canvas.getContext('2d');
@@ -2889,18 +2873,15 @@ _section(
 )
 try:
     import plotly.graph_objects as go
-    if m2_yearly_df.empty or groupm_df.empty or not groupm_year_col or not groupm_total_col:
+    if m2_yearly_df.empty or _global_adv_totals.empty:
         st.info("M2 vs Ad Spend chart unavailable.")
     else:
         m2_scoped = m2_yearly_df.copy()
         m2_scoped["year"] = pd.to_numeric(m2_scoped["year"], errors="coerce")
         m2_scoped["m2_value"] = pd.to_numeric(m2_scoped["m2_value"], errors="coerce")
         m2_scoped = m2_scoped.dropna(subset=["year", "m2_value"])
-        gm = groupm_df[[groupm_year_col, groupm_total_col]].copy()
+        gm = _global_adv_totals.reset_index()
         gm.columns = ["year", "ad_total"]
-        gm["year"] = pd.to_numeric(gm["year"], errors="coerce")
-        gm["ad_total"] = pd.to_numeric(gm["ad_total"], errors="coerce")
-        gm = gm.dropna(subset=["year", "ad_total"])
         merged = m2_scoped.merge(gm, on="year", how="inner")
         merged = merged[merged["year"] >= 2010].sort_values("year")
         if merged.empty:
@@ -2941,44 +2922,56 @@ _section(
 )
 try:
     import plotly.graph_objects as go
-    if groupm_df.empty or not groupm_year_col:
+    if global_adv_df.empty:
         st.info("Structural shift chart unavailable.")
     else:
-        gdf = groupm_df.copy()
-        gdf[groupm_year_col] = pd.to_numeric(gdf[groupm_year_col], errors="coerce")
-        gdf = gdf.dropna(subset=[groupm_year_col]).copy()
-        gdf[groupm_year_col] = gdf[groupm_year_col].astype(int)
-        gdf = gdf[gdf[groupm_year_col] >= 2010].sort_values(groupm_year_col)
-        if gdf.empty:
+        # Group raw metric_types into display channels
+        _channel_map = {
+            "TV": ["Free TV", "Pay TV"],
+            "Streaming / Video": ["Video Desktop", "Video Mobile"],
+            "Search": ["Search Desktop", "Search Mobile"],
+            "Social": ["Social Desktop", "Social Mobile"],
+            "Display": ["Display Desktop", "Display Mobile"],
+            "OOH": ["Traditional OOH", "Digital OOH"],
+            "Print": ["Magazine", "Newspaper"],
+            "Radio": ["Radio"],
+            "Cinema / Other": ["Cinema", "Other Desktop", "Other Mobile"],
+        }
+        _channel_colors = {
+            "TV": "#4472c4",
+            "Streaming / Video": "#00bcd4",
+            "Search": "#ff9900",
+            "Social": "#ffd600",
+            "Display": "#e57373",
+            "OOH": "#888888",
+            "Print": "#a5a5a5",
+            "Radio": "#9c27b0",
+            "Cinema / Other": "#607d8b",
+        }
+        gdf_agg = global_adv_df[global_adv_df["year"] >= 2010].copy()
+        # Map metric_type → channel group, then sum per year
+        _mt_to_ch = {mt: ch for ch, mts in _channel_map.items() for mt in mts}
+        gdf_agg["channel"] = gdf_agg["metric_type"].map(_mt_to_ch)
+        gdf_agg = gdf_agg.dropna(subset=["channel"])
+        gdf_pivot = (
+            gdf_agg.groupby(["year", "channel"])["value"].sum().unstack(fill_value=0) / 1_000.0
+        )
+        if gdf_pivot.empty:
             st.info("Structural shift chart unavailable.")
         else:
-            channels = {
-                "Traditional TV": ("#4472c4", _find_col(gdf, ["traditional", "tv"])),
-                "Connected TV": ("#00bcd4", _find_col(gdf, ["connected", "tv"])),
-                "Search": ("#ff9900", _find_col(gdf, ["search"], ["non"])),
-                "Non-Search": ("#ffd600", _find_col(gdf, ["non", "search"])),
-                "Retail Media": ("#22c55e", _find_col(gdf, ["retail"])),
-                "Traditional OOH": ("#888888", _find_col(gdf, ["traditional", "ooh"])),
-                "Digital OOH": ("#26a69a", _find_col(gdf, ["digital", "ooh"])),
-            }
             s_fig = go.Figure()
-            for channel, (color, col) in channels.items():
-                if not col:
+            for ch in _channel_map:
+                if ch not in gdf_pivot.columns:
                     continue
-                vals = pd.to_numeric(gdf[col], errors="coerce")
-                if vals.notna().sum() == 0:
-                    continue
-                s_fig.add_trace(go.Scatter(x=gdf[groupm_year_col], y=vals, name=channel, stackgroup="one", line=dict(width=0), fillcolor=color, hovertemplate=f"{channel}: $%{{y:.0f}}B<extra></extra>"))
-            if not s_fig.data:
-                st.info("Structural shift chart unavailable.")
-            else:
-                retail_col = channels.get("Retail Media", ("", ""))[1]
-                if retail_col:
-                    r_2022 = gdf[gdf[groupm_year_col] == 2022][retail_col]
-                    if not r_2022.empty and pd.notna(r_2022.iloc[0]):
-                        s_fig.add_annotation(x=2022, y=float(r_2022.iloc[0]), text="Retail Media emerges", showarrow=True, arrowcolor="white", font=dict(color="white", size=11), arrowhead=2)
-                _apply_dark_chart_layout(s_fig, height=390)
-                st.plotly_chart(s_fig, use_container_width=True)
+                s_fig.add_trace(go.Scatter(
+                    x=gdf_pivot.index, y=gdf_pivot[ch],
+                    name=ch, stackgroup="one",
+                    line=dict(width=0), fillcolor=_channel_colors[ch],
+                    hovertemplate=f"{ch}: $%{{y:.0f}}B<extra></extra>",
+                ))
+            _apply_dark_chart_layout(s_fig, height=390)
+            st.plotly_chart(s_fig, use_container_width=True)
+            st.caption("Global ad spend by channel category, sourced from country-level aggregates. Values in $B.")
 except Exception:
     st.info("Structural shift chart unavailable.")
 _separator()
