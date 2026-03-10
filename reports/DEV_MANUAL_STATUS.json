@@ -1,0 +1,55 @@
+{
+  "generated_at_utc": "2026-03-10T10:00:27Z",
+  "git_branch": "main",
+  "git_head": "743a6a434921ee3da4f0b624763a4808feeac6b5",
+  "git_head_short": "743a6a4",
+  "working_tree_dirty": true,
+  "generator_scripts": [
+    "scripts/generate_dev_manual_assets.py",
+    "scripts/generate_current_bible.py",
+    "scripts/generate_current_bible_pdf.py"
+  ],
+  "canonical_bible_files": [
+    "reports/Developer_Insights_Bible_CURRENT.md",
+    "reports/Developer_Insights_Bible_CURRENT_Full.pdf"
+  ],
+  "removed_legacy_duplicates": [],
+  "artifacts": [
+    {
+      "path": "reports/Developer_Insights_Bible_CURRENT.md",
+      "exists": true,
+      "size_bytes": 37064,
+      "modified_utc": "2026-03-10T10:00:26Z"
+    },
+    {
+      "path": "reports/Developer_Insights_Bible_CURRENT_Full.pdf",
+      "exists": true,
+      "size_bytes": 445722,
+      "modified_utc": "2026-03-10T10:00:27Z"
+    },
+    {
+      "path": "reports/dev_manual_assets/pipeline_dependency_graph.png",
+      "exists": true,
+      "size_bytes": 180640,
+      "modified_utc": "2026-03-10T09:58:45Z"
+    },
+    {
+      "path": "reports/dev_manual_assets/sheet_usage_heatmap.png",
+      "exists": true,
+      "size_bytes": 244601,
+      "modified_utc": "2026-03-10T09:58:48Z"
+    },
+    {
+      "path": "reports/dev_manual_assets/migration_impact.png",
+      "exists": true,
+      "size_bytes": 96214,
+      "modified_utc": "2026-03-10T09:58:54Z"
+    },
+    {
+      "path": "reports/dev_manual_assets/risk_distribution.png",
+      "exists": true,
+      "size_bytes": 47084,
+      "modified_utc": "2026-03-10T09:59:03Z"
+    }
+  ]
+}
