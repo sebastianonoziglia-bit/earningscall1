@@ -1880,8 +1880,8 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
         )
         pulse_items.append(
             "<div class='item'>"
-            f"<div style='font-style:italic;font-size:0.85rem;line-height:1.45;'>&ldquo;{escape(quote)}&rdquo;</div>"
-            f"<div style='margin-top:8px;display:flex;align-items:center;gap:8px;font-size:0.75rem;'>"
+            f"<div class='item-quote'>&ldquo;{escape(quote)}&rdquo;</div>"
+            f"<div class='item-meta'>"
             f"{logo_html}<span style='font-weight:700;'>{escape(company)}</span>"
             f"<span style='opacity:0.72;'>&#8212; {escape(speaker)}</span></div>"
             "</div>"
@@ -1893,14 +1893,16 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
     st.components.v1.html(
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
         "html,body{margin:0;padding:0;background:#0d1117;}*{box-sizing:border-box;}"
-        ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(148,163,184,0.24);background:rgba(6,11,20,0.92);padding:10px 0;}"
-        ".track{display:flex;align-items:stretch;gap:12px;width:max-content;animation:scroll 42s linear infinite;}"
-        ".item{width:380px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:10px 12px;}"
-        ".logo{width:36px;height:36px;object-fit:contain;border-radius:50%;background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.26);padding:3px;flex-shrink:0;}"
+        ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(148,163,184,0.24);background:rgba(6,11,20,0.92);padding:12px 0;}"
+        ".track{display:flex;align-items:flex-start;gap:12px;width:max-content;animation:scroll 42s linear infinite;}"
+        ".item{width:380px;height:170px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;}"
+        ".item-quote{font-style:italic;font-size:0.83rem;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;}"
+        ".item-meta{margin-top:8px;display:flex;align-items:center;gap:8px;font-size:0.74rem;flex-shrink:0;}"
+        ".logo{width:32px;height:32px;object-fit:contain;border-radius:50%;background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.26);padding:3px;flex-shrink:0;}"
         "@keyframes scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}"
         "</style>"
         f"<div class='strip' style='color:#e2e8f0;font-family:DM Sans,sans-serif;'><div class='track'>{_pulse_track}</div></div>",
-        height=160,
+        height=210,
     )
     if pulse_source:
         st.caption(f"Source: {pulse_source}")
@@ -2461,69 +2463,173 @@ if(s2)obs2.observe(s2);
 st.components.v1.html(_attn_html, height=1500)
 
 _separator()
-# --- Concentration bar: dynamic values from GroupM + ad revenue sheet ---
+# --- Concentration: segments from Global_Adv_Aggregates + Company_advertising_revenue ---
 _conc_yr = effective_year
 _conc_ad = _ad_by_year.get(_conc_yr, {})
-_conc_alpha = _conc_ad.get("Alphabet", 0.0)
-_conc_meta = _conc_ad.get("Meta", 0.0)
-_conc_amzn = _conc_ad.get("Amazon", 0.0)
-_conc_apple = _conc_ad.get("Apple", 0.0)
-_conc_msft = _conc_ad.get("Microsoft", 0.0)
+_conc_alpha    = _conc_ad.get("Alphabet", 0.0)
+_conc_meta     = _conc_ad.get("Meta", 0.0)
+_conc_amzn     = _conc_ad.get("Amazon", 0.0)
+_conc_apple    = _conc_ad.get("Apple", 0.0)
+_conc_msft     = _conc_ad.get("Microsoft", 0.0)
 _conc_apple_msft = _conc_apple + _conc_msft
-_conc_total = groupm_b if groupm_b and groupm_b > 0 else (_conc_alpha + _conc_meta + _conc_amzn + _conc_apple_msft) * 2
-_conc_known = _conc_alpha + _conc_meta + _conc_amzn + _conc_apple_msft
-_conc_rest = max(0.0, _conc_total - _conc_known)
-def _pct(v): return f"{v/_conc_total*100:.1f}" if _conc_total > 0 else "0.0"
-def _amt(v): return f"${v:.0f}B"
-_conc_n_companies = sum(1 for x in [_conc_alpha, _conc_meta, _conc_amzn, _conc_apple_msft] if x > 0)
-_conc_top_share = (_conc_known / _conc_total * 100) if _conc_total > 0 else 0
-st.components.v1.html(
-    "<style>@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');"
-    "html,body{margin:0;padding:0;background:#0d1117;}*{box-sizing:border-box;}"
-    "#wm-conc-root{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}"
-    ".wc-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}"
-    ".wc-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#e6edf3;margin:0 0 6px;}"
-    ".wc-sub{color:#8b949e;font-size:14px;margin:0 0 32px;}"
-    ".wc-bar-container{width:100%;height:110px;display:flex;border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;opacity:0;transform:translateY(12px);transition:opacity .8s ease,transform .8s ease;}"
-    ".wc-bar-container.vis{opacity:1;transform:translateY(0);}"
-    ".wc-seg{height:100%;transition:flex 1.6s cubic-bezier(.34,1.1,.64,1);flex:0;position:relative;border-right:2px solid rgba(255,255,255,0.15);overflow:hidden;}"
-    ".wc-seg:last-child{border-right:none;}.wc-seg:hover{filter:brightness(1.08);}"
-    ".wc-seg-inner{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 14px;}"
-    ".wc-seg-cat{font-size:10px;font-weight:700;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}"
-    ".wc-seg-amt{font-size:16px;font-weight:800;color:#fff;margin-top:3px;white-space:nowrap;}"
-    ".wc-seg-pct{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;white-space:nowrap;}"
-    ".wc-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;}"
-    ".wc-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}"
-    ".wc-leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}"
-    "</style>"
-    f"<div id='wm-conc-root'>"
-    f"<div class='wc-label'>THE CONCENTRATION</div>"
-    f"<div class='wc-headline'>Most of it went to very few hands.</div>"
-    f"<div class='wc-sub'>Of {_amt(_conc_total)} spent globally on advertising in {_conc_yr}, just {_conc_n_companies} companies captured {_conc_top_share:.0f}% of the market.</div>"
-    f"<div class='wc-bar-container' id='wc-bar'>"
-    + (f"<div class='wc-seg' id='wcs-alpha' style='background:linear-gradient(135deg,#1a3a6b,#0d2040);'><div class='wc-seg-inner'><div class='wc-seg-cat'>Alphabet</div><div class='wc-seg-amt'>{_amt(_conc_alpha)}</div><div class='wc-seg-pct'>{_pct(_conc_alpha)}%</div></div></div>" if _conc_alpha > 0 else "")
-    + (f"<div class='wc-seg' id='wcs-meta' style='background:linear-gradient(135deg,#1a2a5e,#0d1a40);'><div class='wc-seg-inner'><div class='wc-seg-cat'>Meta</div><div class='wc-seg-amt'>{_amt(_conc_meta)}</div><div class='wc-seg-pct'>{_pct(_conc_meta)}%</div></div></div>" if _conc_meta > 0 else "")
-    + (f"<div class='wc-seg' id='wcs-amzn' style='background:linear-gradient(135deg,#3d2800,#2a1800);'><div class='wc-seg-inner'><div class='wc-seg-cat'>Amazon</div><div class='wc-seg-amt'>{_amt(_conc_amzn)}</div><div class='wc-seg-pct'>{_pct(_conc_amzn)}%</div></div></div>" if _conc_amzn > 0 else "")
-    + (f"<div class='wc-seg' id='wcs-other-bt' style='background:linear-gradient(135deg,#1a2a1a,#0d1a0d);'><div class='wc-seg-inner'><div class='wc-seg-cat'>Apple+MSFT</div><div class='wc-seg-amt'>{_amt(_conc_apple_msft)}</div><div class='wc-seg-pct'>{_pct(_conc_apple_msft)}%</div></div></div>" if _conc_apple_msft > 0 else "")
-    + f"<div class='wc-seg' id='wcs-rest' style='background:rgba(255,255,255,.04);border:none;'><div class='wc-seg-inner'><div class='wc-seg-cat' style='color:rgba(255,255,255,.4)'>Rest of Market</div><div class='wc-seg-amt' style='color:rgba(255,255,255,.35)'>{_amt(_conc_rest)}</div><div class='wc-seg-pct' style='color:rgba(255,255,255,.3)'>{_pct(_conc_rest)}%</div></div></div>"
-    + "</div>"
-    + "<div class='wc-legend'>"
-    + (f"<div class='wc-leg'><div class='wc-leg-dot' style='background:#1a3a6b;'></div>Alphabet {_amt(_conc_alpha)}</div>" if _conc_alpha > 0 else "")
-    + (f"<div class='wc-leg'><div class='wc-leg-dot' style='background:#1a2a5e;'></div>Meta {_amt(_conc_meta)}</div>" if _conc_meta > 0 else "")
-    + (f"<div class='wc-leg'><div class='wc-leg-dot' style='background:#3d2800;'></div>Amazon {_amt(_conc_amzn)}</div>" if _conc_amzn > 0 else "")
-    + (f"<div class='wc-leg'><div class='wc-leg-dot' style='background:#1a2a1a;'></div>Apple + Microsoft {_amt(_conc_apple_msft)}</div>" if _conc_apple_msft > 0 else "")
-    + f"<div class='wc-leg'><div class='wc-leg-dot' style='background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);'></div>Rest of Market {_amt(_conc_rest)}</div>"
-    + "</div>"
-    + "<script>const bar=document.getElementById('wc-bar');const io=new IntersectionObserver(entries=>{"
-    + "if(!entries[0].isIntersecting)return;bar.classList.add('vis');setTimeout(()=>{"
-    + (f"document.getElementById('wcs-alpha').style.flex='{_pct(_conc_alpha)}';" if _conc_alpha > 0 else "")
-    + (f"document.getElementById('wcs-meta').style.flex='{_pct(_conc_meta)}';" if _conc_meta > 0 else "")
-    + (f"document.getElementById('wcs-amzn').style.flex='{_pct(_conc_amzn)}';" if _conc_amzn > 0 else "")
-    + (f"document.getElementById('wcs-other-bt').style.flex='{_pct(_conc_apple_msft)}';" if _conc_apple_msft > 0 else "")
-    + f"document.getElementById('wcs-rest').style.flex='{_pct(_conc_rest)}';"
-    + "},200);io.unobserve(bar);},{threshold:0.2});io.observe(bar);</script></div>",
-    height=480,
-)
+_conc_named    = _conc_alpha + _conc_meta + _conc_amzn + _conc_apple_msft
+# Total from Global_Adv_Aggregates (best available whole-market figure)
+_conc_total = groupm_b if groupm_b and groupm_b > 0 else (_conc_named * 2.0)
+
+# Metric-type breakdown for _conc_yr from global_adv_df (already loaded)
+_conc_by_type: dict = {}
+if not global_adv_df.empty:
+    _cyr_df = global_adv_df[global_adv_df["year"] == _conc_yr]
+    _conc_by_type = (_cyr_df.groupby("metric_type")["value"].sum() / 1_000.0).to_dict()
+
+# Digital residual = all digital metric-types minus named-company revenues
+_digital_keys = [k for k in _conc_by_type if any(
+    x in k for x in ["Search", "Social", "Display", "Video", "Digital OOH", "Other Desktop", "Other Mobile"]
+)]
+_digital_total = sum(_conc_by_type[k] for k in _digital_keys)
+_digital_other = max(0.0, _digital_total - _conc_named)
+
+# Non-digital categories
+_trad_cats = [
+    ("TV (Free + Pay)", ["Free TV Worldwide", "Pay TV Worldwide"],        "#444444"),
+    ("Print",           ["Newspaper Worldwide", "Magazine Worldwide"],    "#333333"),
+    ("Radio",           ["Radio Worldwide"],                              "#282828"),
+    ("OOH",             ["Traditional OOH Worldwide"],                    "#1e1e1e"),
+    ("Cinema",          ["Cinema Worldwide"],                             "#161616"),
+]
+
+# Build ordered segments list
+_conc_segments = []
+if _conc_alpha    > 0: _conc_segments.append({"category": "Alphabet",    "amount": round(_conc_alpha, 1),    "percent": _conc_alpha    / _conc_total * 100, "color": "#ff4202"})
+if _conc_meta     > 0: _conc_segments.append({"category": "Meta",        "amount": round(_conc_meta, 1),     "percent": _conc_meta     / _conc_total * 100, "color": "#ff6b3d"})
+if _conc_amzn     > 0: _conc_segments.append({"category": "Amazon",      "amount": round(_conc_amzn, 1),     "percent": _conc_amzn     / _conc_total * 100, "color": "#ff8f5e"})
+if _conc_apple_msft > 0: _conc_segments.append({"category": "Apple + MSFT", "amount": round(_conc_apple_msft, 1), "percent": _conc_apple_msft / _conc_total * 100, "color": "#ffb380"})
+if _digital_other > 0.5: _conc_segments.append({"category": "Other Digital", "amount": round(_digital_other, 1), "percent": _digital_other / _conc_total * 100, "color": "#555555"})
+for _cat_name, _cat_keys, _cat_color in _trad_cats:
+    _cat_val = sum(_conc_by_type.get(k, 0.0) for k in _cat_keys)
+    if _cat_val > 0.5:
+        _conc_segments.append({"category": _cat_name, "amount": round(_cat_val, 1), "percent": _cat_val / _conc_total * 100, "color": _cat_color})
+
+_conc_top_share = sum(s["percent"] for s in _conc_segments if s["category"] in ["Alphabet", "Meta", "Amazon", "Apple + MSFT"])
+_conc_segments_json = json.dumps(_conc_segments)
+
+st.components.v1.html(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap');
+html,body{{margin:0;padding:0;background:#0d1117;}}
+*{{box-sizing:border-box;}}
+#conc-root{{background:#0d1117;padding:32px 24px 40px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
+.wc-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
+.wc-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#e6edf3;margin:0 0 6px;}}
+.wc-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
+.bar-container{{width:100%;height:130px;display:flex;position:relative;z-index:2;border-radius:8px;overflow:visible;border:1px solid #2a2a2a;}}
+.bar-segment{{height:100%;transition:opacity .2s;cursor:pointer;position:relative;border-right:2px solid rgba(255,255,255,0.6);overflow:visible;flex-shrink:0;}}
+.bar-segment:first-child{{border-radius:8px 0 0 8px;}}
+.bar-segment:last-child{{border-right:none;border-radius:0 8px 8px 0;}}
+.bar-segment:hover{{filter:brightness(1.08);}}
+.seg-label{{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 12px;pointer-events:none;overflow:hidden;}}
+.seg-label-cat{{font-size:10px;font-weight:700;color:rgba(255,255,255,.80);text-transform:uppercase;letter-spacing:.05em;line-height:1.2;white-space:nowrap;}}
+.seg-label-amt{{font-size:15px;font-weight:800;color:#fff;line-height:1.25;margin-top:3px;white-space:nowrap;}}
+.seg-label-pct{{font-size:11px;font-weight:400;color:rgba(255,255,255,.72);line-height:1.2;margin-top:1px;white-space:nowrap;}}
+#bar-above-labels{{position:relative;width:100%;}}
+.seg-above-label{{position:absolute;border-radius:6px;padding:7px 10px;white-space:nowrap;pointer-events:none;z-index:20;box-shadow:0 2px 10px rgba(0,0,0,.3);transform:translateX(-50%);}}
+.seg-above-label-cat{{font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.04em;}}
+.seg-above-label-amt{{font-size:13px;font-weight:800;color:#fff;margin-top:2px;}}
+.seg-above-label-pct{{font-size:10px;color:rgba(255,255,255,.7);margin-top:1px;}}
+</style>
+<div id="conc-root">
+  <div class="wc-label">THE CONCENTRATION</div>
+  <div class="wc-headline">Most of it went to very few hands.</div>
+  <div class="wc-sub">Of ${_conc_total:.0f}B spent globally on advertising in {_conc_yr}, 4 companies captured {_conc_top_share:.0f}% of the market.</div>
+  <div id="bar-above-labels" style="height:0px;margin-bottom:0;"></div>
+  <div class="bar-container" id="barContainer"></div>
+</div>
+<script>
+const SEGMENTS = {_conc_segments_json};
+const TOTAL = {_conc_total:.1f};
+const INLINE_THRESHOLD = 6.5;
+
+function fmtAmt(b) {{ return '$' + (b >= 1000 ? (b/1000).toFixed(1) + 'T' : b.toFixed(0) + 'B'); }}
+function fmtPct(p) {{ return p.toFixed(1) + '%'; }}
+
+const barContainer = document.getElementById('barContainer');
+const aboveLabelsEl = document.getElementById('bar-above-labels');
+
+let cumPct = 0;
+const smallItems = [];
+
+for (const segment of SEGMENTS) {{
+  const pct = Math.max(0, Number(segment.percent) || 0);
+  const seg = document.createElement('div');
+  seg.className = 'bar-segment';
+  seg.style.width = pct + '%';
+  seg.style.background = segment.color;
+  seg.title = segment.category + ': ' + fmtAmt(segment.amount) + ' (' + fmtPct(segment.percent) + ')';
+
+  if (pct >= INLINE_THRESHOLD) {{
+    const lbl = document.createElement('div');
+    lbl.className = 'seg-label';
+    const c = document.createElement('div'); c.className = 'seg-label-cat'; c.textContent = segment.category;
+    const a = document.createElement('div'); a.className = 'seg-label-amt'; a.textContent = fmtAmt(segment.amount);
+    const p = document.createElement('div'); p.className = 'seg-label-pct'; p.textContent = fmtPct(segment.percent);
+    lbl.appendChild(c); lbl.appendChild(a); lbl.appendChild(p);
+    seg.appendChild(lbl);
+  }} else {{
+    const cx_pct = (cumPct + pct / 2) / 100;
+    smallItems.push({{ cx_pct, segment }});
+  }}
+  cumPct += pct;
+  barContainer.appendChild(seg);
+}}
+
+if (smallItems.length > 0) {{
+  smallItems.sort((a, b) => a.cx_pct - b.cx_pct);
+  const LABEL_W_PCT = 0.14;
+  const ROW_H = 72;
+  const GAP_PCT = 0.005;
+  const rows = [];
+  smallItems.forEach(item => {{
+    let row = 0;
+    while (rows[row] !== undefined && item.cx_pct - LABEL_W_PCT / 2 < rows[row] + GAP_PCT) row++;
+    rows[row] = item.cx_pct + LABEL_W_PCT / 2;
+    item.row = row;
+  }});
+  const totalRows = rows.length || 1;
+  aboveLabelsEl.style.height = (totalRows * ROW_H + 12) + 'px';
+  aboveLabelsEl.style.marginBottom = '4px';
+
+  smallItems.forEach(item => {{
+    const {{ cx_pct, segment, row }} = item;
+    const bottomOffset = row * ROW_H + 8;
+    const lbl = document.createElement('div');
+    lbl.className = 'seg-above-label';
+    lbl.style.background = segment.color;
+    lbl.style.bottom = bottomOffset + 'px';
+    lbl.style.left = (cx_pct * 100) + '%';
+    const c = document.createElement('div'); c.className = 'seg-above-label-cat'; c.textContent = segment.category;
+    const a = document.createElement('div'); a.className = 'seg-above-label-amt'; a.textContent = fmtAmt(segment.amount);
+    const p = document.createElement('div'); p.className = 'seg-above-label-pct'; p.textContent = fmtPct(segment.percent);
+    lbl.appendChild(c); lbl.appendChild(a); lbl.appendChild(p);
+    aboveLabelsEl.appendChild(lbl);
+
+    // Clamp label to bar bounds
+    requestAnimationFrame(() => {{
+      const hostW = Math.max(1, aboveLabelsEl.getBoundingClientRect().width || 1);
+      const labelW = Math.max(1, lbl.getBoundingClientRect().width || 1);
+      const edgeInset = 8;
+      const halfPct = ((labelW / 2) + edgeInset) / hostW * 100;
+      const rawPct = cx_pct * 100;
+      const clamped = Math.max(halfPct, Math.min(100 - halfPct, rawPct));
+      lbl.style.left = clamped + '%';
+      // connector line
+      const line = document.createElement('div');
+      line.style.cssText = 'position:absolute;bottom:0;left:' + clamped + '%;width:1px;background:' + segment.color + ';opacity:0.45;height:' + (bottomOffset + 8) + 'px;transform:translateX(-50%)';
+      aboveLabelsEl.insertBefore(line, lbl);
+    }});
+  }});
+}}
+</script>
+""", height=520)
 _separator()
 st.components.v1.html(
     """
