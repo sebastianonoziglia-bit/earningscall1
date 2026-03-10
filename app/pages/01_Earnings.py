@@ -1065,27 +1065,29 @@ def main():
             fig.update_yaxes(tickfont=dict(color="#111827"), title_font=dict(color="#111827"))
         else:
             fig.update_layout(
-                font=dict(family="Montserrat, sans-serif", color="#e6edf3"),
+                font=dict(family="Montserrat, sans-serif", color="#374151"),
                 paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(255,255,255,0.03)",
+                plot_bgcolor="rgba(0,0,0,0.02)",
                 legend=dict(
-                    bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#e6edf3"),
-                    title=dict(font=dict(color="#e6edf3")),
+                    bgcolor="rgba(248,249,250,0.95)",
+                    bordercolor="rgba(0,0,0,0.12)",
+                    borderwidth=1,
+                    font=dict(color="#374151"),
+                    title=dict(font=dict(color="#111827")),
                 ),
                 dragmode=False,
             )
             fig.update_xaxes(
-                gridcolor="rgba(255,255,255,0.07)",
-                zerolinecolor="rgba(255,255,255,0.12)",
-                tickfont=dict(color="#e6edf3"),
-                title_font=dict(color="#e6edf3"),
+                gridcolor="rgba(0,0,0,0.07)",
+                zerolinecolor="rgba(0,0,0,0.12)",
+                tickfont=dict(color="#374151"),
+                title_font=dict(color="#374151"),
             )
             fig.update_yaxes(
-                gridcolor="rgba(255,255,255,0.07)",
-                zerolinecolor="rgba(255,255,255,0.12)",
-                tickfont=dict(color="#e6edf3"),
-                title_font=dict(color="#e6edf3"),
+                gridcolor="rgba(0,0,0,0.07)",
+                zerolinecolor="rgba(0,0,0,0.12)",
+                tickfont=dict(color="#374151"),
+                title_font=dict(color="#374151"),
             )
         if xaxis_is_year:
             fig.update_xaxes(dtick=1, tickformat="d")
@@ -3749,13 +3751,13 @@ def main():
                             dict(
                                 text=f"<b>{_plabel}</b>",
                                 x=0.5,
-                                y=0.5,
+                                y=0.26,
                                 xref="paper",
                                 yref="paper",
                                 font=dict(
-                                    size=15,
+                                    size=11,
                                     family="Montserrat, sans-serif",
-                                    color="#e6edf3",
+                                    color="#8b949e",
                                 ),
                                 showarrow=False,
                             )
@@ -3822,14 +3824,16 @@ def main():
                         x=1.02,
                         y=0.5,
                         yanchor="middle",
-                        bgcolor="rgba(0,0,0,0)",
-                        font=dict(color="#e6edf3"),
+                        bgcolor="rgba(13,17,23,0.88)",
+                        bordercolor="rgba(255,255,255,0.14)",
+                        borderwidth=1,
+                        font=dict(color="#e6edf3", size=11),
                         title=dict(
                             text="Segments",
-                            font=dict(color="#e6edf3"),
+                            font=dict(color="#c9d1d9", size=11),
                         ),
                     ),
-                    margin=dict(l=10, r=130, t=20, b=110),
+                    margin=dict(l=10, r=140, t=20, b=110),
                     uniformtext_minsize=9,
                     uniformtext_mode="hide",
                     updatemenus=[
@@ -3870,9 +3874,9 @@ def main():
                                     ],
                                 },
                             ],
-                            "font": {"size": 20, "color": "#e6edf3"},
-                            "bgcolor": "rgba(255,255,255,0.07)",
-                            "bordercolor": "rgba(255,255,255,0.18)",
+                            "font": {"size": 18, "color": "#111827"},
+                            "bgcolor": "rgba(200,210,220,0.18)",
+                            "bordercolor": "rgba(0,0,0,0.18)",
                             "borderwidth": 1,
                             "pad": {"l": 10, "r": 10, "t": 5, "b": 5},
                         }
@@ -3881,21 +3885,23 @@ def main():
                         {
                             "active": _init_idx,
                             "currentvalue": {
-                                "prefix": "",
+                                "prefix": "Period: ",
                                 "visible": True,
-                                "xanchor": "center",
-                                "font": {"size": 11, "color": "#e6edf3"},
+                                "xanchor": "left",
+                                "font": {"size": 13, "color": "#111827", "family": "Montserrat, sans-serif"},
                             },
-                            "pad": {"b": 8, "t": 8},
+                            "pad": {"b": 10, "t": 50},
                             "len": 0.82,
                             "x": 0.18,
-                            "y": -0.02,
+                            "y": 0,
                             "steps": _slider_steps,
-                            "font": {"color": "#8b949e", "size": 9},
-                            "bgcolor": "rgba(255,255,255,0.06)",
-                            "bordercolor": "rgba(255,255,255,0.14)",
-                            "activebgcolor": "rgba(88,166,255,0.35)",
-                            "tickcolor": "rgba(255,255,255,0.12)",
+                            "font": {"color": "#374151", "size": 9},
+                            "bgcolor": "rgba(200,210,220,0.15)",
+                            "bordercolor": "rgba(0,0,0,0.15)",
+                            "activebgcolor": "#2563eb",
+                            "tickcolor": "rgba(0,0,0,0.25)",
+                            "ticklen": 5,
+                            "minorticklen": 3,
                         }
                     ],
                 ),
@@ -4039,9 +4045,6 @@ def main():
                 x=0,
                 y=1.04,
                 yanchor="bottom",
-                bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#e6edf3"),
-                title=dict(font=dict(color="#e6edf3")),
             ),
             hoverlabel=HOVERLABEL_STYLE,
         )
