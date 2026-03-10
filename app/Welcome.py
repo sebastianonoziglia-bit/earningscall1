@@ -123,6 +123,33 @@ div[data-testid="block-container"] {
 .stCaption, div[data-testid="stVerticalBlock"] {
     background: transparent !important;
 }
+.section-label {
+    color: #ff5b1f;
+    font-size: 0.7rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-family: 'DM Sans', sans-serif;
+}
+.section-title {
+    color: #ffffff;
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 16px;
+    font-family: 'Syne', sans-serif;
+}
+.section-desc {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.97rem;
+    line-height: 1.8;
+}
+.section-footnote {
+    color: rgba(255,255,255,0.35);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    margin-top: 12px;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -1733,27 +1760,23 @@ def _section(label: str, headline: str, body: str, section_class: str = ""):
     class_attr = "sv"
     if section_class:
         class_attr = f"{class_attr} {section_class}"
-    st.markdown(
-        f"""
+    _, col_mid, _ = st.columns([1, 2.5, 1])
+    with col_mid:
+        st.markdown(
+            f"""
         <div class="{class_attr}" style="padding:56px 0 20px;background:transparent;">
-          <div style="color:#ff5b1f;font-size:0.7rem;letter-spacing:0.28em;
-                      text-transform:uppercase;margin-bottom:10px;">{escape(str(label))}</div>
-          <div style="color:white;font-size:1.45rem;font-weight:700;
-                      line-height:1.25;margin-bottom:16px;">{escape(str(headline))}</div>
-          <div style="color:rgba(255,255,255,0.55);font-size:0.97rem;
-                      line-height:1.8;max-width:760px;">{body}</div>
+          <div class="section-label">{escape(str(label))}</div>
+          <div class="section-title">{escape(str(headline))}</div>
+          <div class="section-desc">{body}</div>
         </div>
         """,
-        unsafe_allow_html=True,
-    )
+            unsafe_allow_html=True,
+        )
 
 
 def _separator():
     st.markdown(
-        """
-        <div style="border-top:1px solid rgba(255,255,255,0.06);
-                    margin:8px 0 0 0;"></div>
-        """,
+        '<hr style="border:none; border-top: 1px solid #1e1e1e; margin: 8px 0;">',
         unsafe_allow_html=True,
     )
 
@@ -1797,19 +1820,21 @@ def _yoy_vec(current_series, prev_series):
 def _apply_dark_chart_layout(fig, *, height=360, margin=None, extra_layout=None):
     base_layout = dict(
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(255,255,255,0.03)",
-        font=dict(color="rgba(255,255,255,0.7)"),
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#ffffff"),
         xaxis=dict(
-            color="rgba(255,255,255,0.35)",
-            gridcolor="rgba(255,255,255,0.05)",
-            linecolor="rgba(255,255,255,0.08)",
+            color="#aaaaaa",
+            gridcolor="#2a2a2a",
+            linecolor="#333333",
+            tickfont=dict(color="#aaaaaa"),
         ),
         yaxis=dict(
-            color="rgba(255,255,255,0.35)",
-            gridcolor="rgba(255,255,255,0.05)",
-            linecolor="rgba(255,255,255,0.08)",
+            color="#aaaaaa",
+            gridcolor="#2a2a2a",
+            linecolor="#333333",
+            tickfont=dict(color="#aaaaaa"),
         ),
-        legend=dict(font=dict(color="rgba(255,255,255,0.6)")),
+        legend=dict(font=dict(color="#ffffff"), bgcolor="rgba(0,0,0,0)"),
         margin=margin or dict(l=0, r=0, t=32, b=40),
         height=height,
     )
@@ -2414,40 +2439,22 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
   <div class="wa-label">THE AD DUOPOLY</div>
   <div class="wa-headline">Two companies. Most of the money.</div>
   <div class="wa-body">Watch how Alphabet and Meta came to dominate digital advertising &#8212; from 2010 to today.</div>
-  <div style="display:flex;width:100%;height:460px;align-items:stretch;margin-top:8px;">
-    <div style="width:30%;display:flex;flex-direction:column;padding:16px 20px 16px 4px;border-right:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
-      <div style="color:#8b949e;font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:2px;">Year</div>
-      <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:64px;font-weight:800;color:#e6edf3;line-height:1;transition:opacity .2s ease;">—</div>
-      <div style="height:2px;width:100%;background:rgba(255,255,255,0.08);border-radius:2px;margin:10px 0 18px;"><div id="wa-dup-prog" style="height:100%;background:#ff5b1f;border-radius:2px;width:0%;transition:width 1s ease;"></div></div>
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;">
-        <div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;background:#4285f4;border-radius:2px;flex-shrink:0;"></div><span style="font-size:11px;color:#8b949e;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Alphabet</span></div>
-            <span id="wa-alp-val" style="font-size:13px;font-weight:800;color:#e6edf3;font-family:'Syne',sans-serif;"></span>
-          </div>
-          <div style="height:14px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div id="wa-alp-bar" style="height:100%;width:0%;background:#4285f4;border-radius:4px;transition:width 1.2s cubic-bezier(.22,1,.36,1);"></div></div>
-        </div>
-        <div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;background:#0866ff;border-radius:2px;flex-shrink:0;"></div><span style="font-size:11px;color:#8b949e;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Meta</span></div>
-            <span id="wa-meta-val" style="font-size:13px;font-weight:800;color:#e6edf3;font-family:'Syne',sans-serif;"></span>
-          </div>
-          <div style="height:14px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div id="wa-meta-bar" style="height:100%;width:0%;background:#0866ff;border-radius:4px;transition:width 1.2s cubic-bezier(.22,1,.36,1);"></div></div>
-        </div>
-        <div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;background:#4a4a4a;border-radius:2px;flex-shrink:0;"></div><span style="font-size:11px;color:#8b949e;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Rest of Digital</span></div>
-            <span id="wa-rest-val" style="font-size:13px;font-weight:800;color:#8b949e;font-family:'Syne',sans-serif;"></span>
-          </div>
-          <div style="height:14px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div id="wa-rest-bar" style="height:100%;width:0%;background:#4a4a4a;border-radius:4px;transition:width 1.2s cubic-bezier(.22,1,.36,1);"></div></div>
-        </div>
-      </div>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:flex-end;">
-        <div><div style="color:#8b949e;font-size:10px;margin-bottom:2px;">Total market</div><div id="wa-dup-tot" style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#ff5b1f;line-height:1.1;">&#8212;</div></div>
-        <div style="text-align:right;"><div style="color:#8b949e;font-size:10px;margin-bottom:2px;">Duo share</div><div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#4285f4;line-height:1.1;">&#8212;%</div></div>
+  <div style="display:flex;width:100%;height:460px;align-items:stretch;gap:0;margin-top:8px;">
+    <div style="width:230px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 20px 12px 0;border-right:1px solid rgba(255,255,255,0.07);">
+      <canvas id="wa-duo-canvas" width="200" height="200"></canvas>
+      <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:#e6edf3;line-height:1;margin-top:10px;transition:opacity .2s ease;">—</div>
+      <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#ff5b1f;line-height:1;margin-top:4px;">—%</div>
+      <div style="color:#8b949e;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-top:2px;">Duopoly share</div>
+      <div id="wa-dup-tot" style="font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:#8b949e;margin-top:10px;">Total: —</div>
+      <div style="height:2px;width:85%;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:10px;"><div id="wa-dup-prog" style="height:100%;background:#ff5b1f;border-radius:2px;width:0%;transition:width 1s ease;"></div></div>
+      <div style="display:flex;gap:12px;margin-top:10px;">
+        <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:#ff5b1f;flex-shrink:0;"></div>Duopoly</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);flex-shrink:0;"></div>Rest</div>
       </div>
     </div>
-    <div id="wa-dup-field" style="flex:1;position:relative;height:100%;overflow:hidden;min-width:0;"></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 0 8px 24px;overflow:hidden;min-width:0;">
+      <div id="wa-dup-bars" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
   </div>
 </div>
 <script>
@@ -2474,44 +2481,32 @@ var AD_DATA="""
 var GROUPM_DATA="""
     + groupm_json_str
     + """;
-var COMPANIES=[
-  {id:'Alphabet',  cx:24, cy:38, bg:'rgba(66,133,244,0.18)',  br:'rgba(66,133,244,0.6)'},
-  {id:'Meta',      cx:52, cy:44, bg:'rgba(24,119,242,0.14)',  br:'rgba(24,119,242,0.55)'},
-  {id:'Amazon',    cx:74, cy:20, bg:'rgba(255,153,0,0.14)',   br:'rgba(255,153,0,0.55)'},
-  {id:'Microsoft', cx:80, cy:57, bg:'rgba(0,164,239,0.11)',   br:'rgba(0,164,239,0.42)'},
-  {id:'TikTok',    cx:64, cy:68, bg:'rgba(238,29,82,0.11)',   br:'rgba(238,29,82,0.42)'},
-  {id:'Netflix',   cx:87, cy:30, bg:'rgba(229,9,20,0.11)',    br:'rgba(229,9,20,0.42)'},
-  {id:'Apple',     cx:38, cy:63, bg:'rgba(190,190,200,0.08)', br:'rgba(190,190,200,0.32)'},
-  {id:'Spotify',   cx:91, cy:62, bg:'rgba(30,215,96,0.09)',   br:'rgba(30,215,96,0.34)'},
-  {id:'Twitter/X', cx:70, cy:80, bg:'rgba(29,161,242,0.09)',  br:'rgba(29,161,242,0.32)'},
-  {id:'Snapchat',  cx:86, cy:78, bg:'rgba(255,209,0,0.09)',   br:'rgba(255,209,0,0.34)'},
-  {id:'Disney',    cx:78, cy:73, bg:'rgba(100,130,250,0.08)', br:'rgba(100,130,250,0.3)'},
-  {id:'Comcast',   cx:57, cy:80, bg:'rgba(210,32,42,0.08)',   br:'rgba(210,32,42,0.3)'},
-  {id:'WBD',       cx:46, cy:73, bg:'rgba(139,92,246,0.08)',  br:'rgba(139,92,246,0.3)'},
-  {id:'Paramount', cx:36, cy:77, bg:'rgba(0,84,160,0.08)',    br:'rgba(0,84,160,0.3)'}
-];
-var MAX_R=90,MIN_R=10;
-var ALL_VALS=[];
-Object.keys(USE_DATA).forEach(function(y){var yr=USE_DATA[y];Object.keys(yr).forEach(function(k){ALL_VALS.push(yr[k]);});});
-var MAX_VAL=ALL_VALS.length?Math.max.apply(null,ALL_VALS):1;
-function logR(v){if(!v||v<=0)return 0;return MIN_R+(MAX_R-MIN_R)*Math.log(v+1)/Math.log(MAX_VAL+1);}
-var field=document.getElementById('wa-dup-field');
-var bubs={};
-if(field){
-  COMPANIES.forEach(function(c){
-    var cid=c.id.replace(/[^a-zA-Z0-9]/g,'_');
-    var el=document.createElement('div');
-    el.style.cssText='position:absolute;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6px;opacity:0;width:20px;height:20px;transform:translate(-50%,-50%);transition:width 1.2s cubic-bezier(.34,1.1,.64,1),height 1.2s cubic-bezier(.34,1.1,.64,1),opacity .6s ease;box-sizing:border-box;overflow:hidden;pointer-events:none;';
-    el.style.left=c.cx+'%';
-    el.style.top=c.cy+'%';
-    el.style.background='radial-gradient(circle at 35% 35%,'+c.bg+',transparent)';
-    el.style.border='1.5px solid '+c.br;
-    el.innerHTML='<div style="font-family:\'Syne\',sans-serif;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.72);white-space:nowrap;overflow:hidden;max-width:95%;display:none;" id="lbl_'+cid+'">'+c.id+'</div><div style="font-family:\'Syne\',sans-serif;font-weight:800;color:#fff;line-height:1.1;white-space:nowrap;" id="val_'+cid+'"></div>';
-    field.appendChild(el);
-    bubs[c.id]={el:el,cid:cid};
-  });
+var COMPANY_COLORS={
+  'Alphabet':'#4285f4','Meta':'#0866ff','Amazon':'#ff9900','Microsoft':'#00a4ef',
+  'TikTok':'#ee1d52','Netflix':'#e50914','Apple':'#a0a0a0','Spotify':'#1ed760',
+  'Twitter/X':'#1da1f2','Snapchat':'#ffd100','Disney':'#6482fa',
+  'Comcast':'#d2202a','WBD':'#8b5cf6','Paramount':'#0054a0'
+};
+var duoCanvas=document.getElementById('wa-duo-canvas');
+var duoCtx=duoCanvas?duoCanvas.getContext('2d'):null;
+function drawDuoDonut(alpPct,metaPct){
+  if(!duoCtx)return;
+  var cx=100,cy=100,r=88,ir=54;
+  duoCtx.clearRect(0,0,200,200);
+  var gap=0.016;
+  var start=-Math.PI/2;
+  var alpA=alpPct*(Math.PI*2);
+  var metaA=metaPct*(Math.PI*2);
+  var restA=(1-alpPct-metaPct)*(Math.PI*2);
+  var s1=start,e1=s1+alpA-gap;
+  var s2=s1+alpA+gap,e2=s2+metaA-gap;
+  var s3=s2+metaA+gap,e3=start+Math.PI*2-gap;
+  if(alpA>0.01){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s1,e1);duoCtx.closePath();duoCtx.fillStyle='#4285f4';duoCtx.fill();}
+  if(metaA>0.01){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s2,e2);duoCtx.closePath();duoCtx.fillStyle='#0866ff';duoCtx.fill();}
+  if(restA>0.01&&(alpPct+metaPct)<0.99){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s3,e3);duoCtx.closePath();duoCtx.fillStyle='rgba(255,255,255,0.1)';duoCtx.fill();}
+  duoCtx.beginPath();duoCtx.arc(cx,cy,ir,0,Math.PI*2);duoCtx.fillStyle='#0d1117';duoCtx.fill();
 }
-// Fallback dataset so bubbles always display even when live data is unavailable
+// Fallback dataset so bars always display even when live data is unavailable
 var FALLBACK_DATA={
   2010:{"Alphabet":29,"Meta":2,"Amazon":0.8,"Microsoft":2.5},
   2012:{"Alphabet":43,"Meta":5,"Amazon":1.5,"Microsoft":3.5,"Twitter/X":0.5},
@@ -2541,35 +2536,34 @@ function updateYear(yr){
   var tEl=document.getElementById('wa-dup-tot');
   var pEl=document.getElementById('wa-dup-pct');
   var prEl=document.getElementById('wa-dup-prog');
-  if(tEl)tEl.textContent=total>0?'$'+(total>=1000?(total/1000).toFixed(1)+'T':total.toFixed(0)+'B'):'—';
+  if(tEl)tEl.textContent=total>0?'Total: $'+(total>=1000?(total/1000).toFixed(1)+'T':total.toFixed(0)+'B'):'Total: —';
   if(pEl)pEl.textContent=total>0?(duo/total*100).toFixed(0)+'%':'—%';
   if(prEl){var idx=YEARS.indexOf(yr);var pct=YEARS.length>1?idx/(YEARS.length-1)*100:100;prEl.style.width=pct+'%';}
-  // Update mini bar chart in left panel
-  var alpPct=total>0?Math.min(alpVal/total*100,100):0;
-  var metaPct=total>0?Math.min(metaVal/total*100,100):0;
-  var restPct=Math.max(0,100-alpPct-metaPct);
-  var alpBar=document.getElementById('wa-alp-bar'),metaBar=document.getElementById('wa-meta-bar'),restBar=document.getElementById('wa-rest-bar');
-  var alpValEl=document.getElementById('wa-alp-val'),metaValEl=document.getElementById('wa-meta-val'),restValEl=document.getElementById('wa-rest-val');
-  if(alpBar)alpBar.style.width=alpPct+'%';
-  if(metaBar)metaBar.style.width=metaPct+'%';
-  if(restBar)restBar.style.width=restPct+'%';
-  if(alpValEl)alpValEl.textContent=alpVal>0?'$'+alpVal.toFixed(0)+'B':'—';
-  if(metaValEl)metaValEl.textContent=metaVal>0?'$'+metaVal.toFixed(0)+'B':'—';
-  if(restValEl){var restAbs=total-duo;restValEl.textContent=restAbs>0?'$'+restAbs.toFixed(0)+'B':'—';}
-  COMPANIES.forEach(function(c){
-    var val=data[c.id]||0;
-    var b=bubs[c.id];
-    if(!b)return;
-    var r=logR(val),d=r*2;
-    if(val<=0||r<MIN_R){b.el.style.opacity='0';b.el.style.width='20px';b.el.style.height='20px';}
-    else{
-      b.el.style.opacity='1';b.el.style.width=d+'px';b.el.style.height=d+'px';
-      var vEl=document.getElementById('val_'+b.cid);
-      if(vEl){var fs=r>55?'15px':r>35?'12px':r>22?'9px':'7px';vEl.style.fontSize=fs;vEl.textContent='$'+(val>=100?val.toFixed(0):val.toFixed(1))+'B';}
-      var lEl=document.getElementById('lbl_'+b.cid);
-      if(lEl)lEl.style.display=r>22?'block':'none';
-    }
-  });
+  // Draw donut: Alphabet (blue), Meta (darker blue), rest (dim)
+  var alpFrac=total>0?Math.min(alpVal/total,1):0;
+  var metaFrac=total>0?Math.min(metaVal/total,1-alpFrac):0;
+  drawDuoDonut(alpFrac,metaFrac);
+  // Build sorted horizontal bars for right column
+  var barsEl=document.getElementById('wa-dup-bars');
+  if(barsEl){
+    var entries=Object.keys(data).map(function(k){return{name:k,val:data[k]||0};}).filter(function(e){return e.val>0;});
+    entries.sort(function(a,b){return b.val-a.val;});
+    var maxVal=entries.length?entries[0].val:1;
+    var html='';
+    entries.slice(0,12).forEach(function(e){
+      var pct=Math.max(2,(e.val/maxVal)*100);
+      var col=COMPANY_COLORS[e.name]||'#555';
+      var valStr=e.val>=100?'$'+e.val.toFixed(0)+'B':'$'+e.val.toFixed(1)+'B';
+      html+='<div style="display:flex;align-items:center;gap:8px;">'
+        +'<div style="width:68px;text-align:right;font-size:10px;color:#8b949e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;">'+e.name+'</div>'
+        +'<div style="flex:1;height:12px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">'
+        +'<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:3px;transition:width 1.1s cubic-bezier(.22,1,.36,1);"></div>'
+        +'</div>'
+        +'<div style="width:44px;font-size:10px;font-weight:700;color:#e6edf3;font-family:\'Syne\',sans-serif;flex-shrink:0;">'+valStr+'</div>'
+        +'</div>';
+    });
+    barsEl.innerHTML=html;
+  }
 }
 function runStep(){
   if(stepIdx>=YEARS.length){stepIdx=0;aTimer=setTimeout(runStep,3500);return;}
@@ -2582,9 +2576,6 @@ if(YEARS.length>0){
   updateYear(YEARS[0]);
   stepIdx=1;
   aTimer=setTimeout(runStep,1600);
-} else {
-  var field2=document.getElementById('wa-dup-field');
-  if(field2){field2.innerHTML='<div style="padding:40px;color:#8b949e;font-size:13px;">Ad revenue data loading…</div>';}
 }
 })();
 </script>
@@ -2968,265 +2959,6 @@ io.observe(grid);
 )
 _separator()
 
-# Beat 3 — Treemap
-_section(
-    "The Revenue Map",
-    "Not all revenue is advertising.",
-    "Each rectangle represents one company, sized by total revenue. Color shows year-over-year growth — green is acceleration, red is contraction. Hover for details.",
-)
-try:
-    if metrics.empty or "revenue" not in metrics.columns:
-        st.info("Revenue treemap unavailable.")
-    else:
-        treemap_df = metrics[metrics["year"] == effective_year].copy()
-        prev_df = metrics[metrics["year"] == (effective_year - 1)][["company", "revenue"]].rename(columns={"revenue": "prev_rev"})
-        treemap_df = treemap_df.merge(prev_df, on="company", how="left")
-        treemap_df["revenue_b"] = pd.to_numeric(treemap_df["revenue"], errors="coerce") / 1e3
-        treemap_df["rev_yoy"] = _yoy_vec(treemap_df["revenue"], treemap_df["prev_rev"])
-        treemap_df = treemap_df.dropna(subset=["company", "revenue_b"])
-        if treemap_df.empty:
-            st.info("Revenue treemap unavailable.")
-        else:
-            t_fig = px.treemap(
-                treemap_df,
-                path=["company"],
-                values="revenue_b",
-                color="rev_yoy",
-                color_continuous_scale=["#ef4444", "#1f2937", "#22c55e"],
-                color_continuous_midpoint=0,
-                custom_data=["rev_yoy", "revenue_b"],
-                title=f"Revenue by Company — {effective_year}",
-            )
-            t_fig.update_traces(
-                hovertemplate="<b>%{label}</b><br>Revenue: $%{customdata[1]:.0f}B<br>YoY: %{customdata[0]:+.1f}%<extra></extra>",
-                textfont=dict(color="white"),
-            )
-            _apply_dark_chart_layout(t_fig, height=420, margin=dict(l=0, r=0, t=46, b=0))
-            st.plotly_chart(t_fig, use_container_width=True)
-            st.caption("Rectangle size = total revenue. Color = YoY growth (green = growth, red = decline). Hover for details.")
-except Exception:
-    st.info("Revenue treemap unavailable.")
-_separator()
-
-# Beat 4 — Ad dependency bar
-_section(
-    "The Dependency",
-    "Some live and die by advertising. Others barely care.",
-    "This stack shows ad revenue as a share of total revenue for each company. High values indicate direct exposure to ad market volatility.",
-)
-try:
-    import plotly.graph_objects as go
-    if metrics.empty or "revenue" not in metrics.columns:
-        st.info("Ad dependency chart unavailable.")
-    else:
-        dep_rows = []
-        for _, row in metrics[metrics["year"] == effective_year].iterrows():
-            company = str(row.get("company", ""))
-            total_rev = float(pd.to_numeric(pd.Series([row.get("revenue", np.nan)]), errors="coerce").iloc[0] or 0.0)
-            ad_rev = float(ad_lookup.get(company, {}).get("ad_revenue_musd", 0.0))
-            ad_pct = min((ad_rev / total_rev * 100) if total_rev > 0 else 0.0, 100.0)
-            dep_rows.append(
-                {
-                    "company": company,
-                    "ad_pct": ad_pct,
-                    "non_ad_pct": max(100 - ad_pct, 0),
-                    "ad_rev_b": ad_rev / 1e3,
-                    "total_rev_b": total_rev / 1e3,
-                }
-            )
-        dep_rows = [r for r in dep_rows if r["company"]]
-        if not dep_rows:
-            st.info("Ad dependency chart unavailable.")
-        else:
-            dep_rows.sort(key=lambda x: x["ad_pct"], reverse=True)
-            dep_rows = list(reversed(dep_rows))
-            dep_fig = go.Figure()
-            dep_fig.add_trace(
-                go.Bar(
-                    y=[r["company"] for r in dep_rows],
-                    x=[r["ad_pct"] for r in dep_rows],
-                    name="Ad Revenue %",
-                    orientation="h",
-                    marker=dict(color="#ff5b1f"),
-                    customdata=[[r["ad_rev_b"], r["total_rev_b"]] for r in dep_rows],
-                    hovertemplate="<b>%{y}</b><br>Ad Revenue: $%{customdata[0]:.1f}B (%{x:.1f}%)<br>Total Revenue: $%{customdata[1]:.1f}B<extra></extra>",
-                )
-            )
-            dep_fig.add_trace(
-                go.Bar(
-                    y=[r["company"] for r in dep_rows],
-                    x=[r["non_ad_pct"] for r in dep_rows],
-                    name="Non-Ad Revenue %",
-                    orientation="h",
-                    marker=dict(color="rgba(255,255,255,0.08)"),
-                    hoverinfo="skip",
-                )
-            )
-            _apply_dark_chart_layout(
-                dep_fig,
-                height=430,
-                extra_layout=dict(
-                    barmode="stack",
-                    xaxis=dict(range=[0, 100], ticksuffix="%", color="rgba(255,255,255,0.35)", gridcolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.08)"),
-                    yaxis=dict(color="rgba(255,255,255,0.35)", gridcolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.08)"),
-                    margin=dict(l=120, r=0, t=32, b=40),
-                ),
-            )
-            st.plotly_chart(dep_fig, use_container_width=True)
-            most_dep = dep_rows[0]
-            least_dep = dep_rows[-1]
-            st.caption(
-                f"{most_dep['company']} derives {most_dep['ad_pct']:.0f}% of its revenue from advertising — it is functionally an ad company. "
-                f"{least_dep['company']} sits at {least_dep['ad_pct']:.1f}% and is far less exposed."
-            )
-except Exception:
-    st.info("Ad dependency chart unavailable.")
-_separator()
-
-# Beat 5 — Duopoly donut (animated timeline)
-st.components.v1.html(
-    """
-<div style="margin:0;padding:56px 0 20px;background:transparent;font-family:'DM Sans',sans-serif;">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-html,body{margin:0;padding:0;background:#0d1117;}
-</style>
-<div style="color:#ff5b1f;font-size:0.7rem;letter-spacing:0.28em;text-transform:uppercase;margin-bottom:10px;font-family:'DM Sans',sans-serif;">The Duopoly</div>
-<div style="color:#ffffff;font-size:1.45rem;font-weight:700;line-height:1.25;margin-bottom:16px;font-family:'Syne',sans-serif;">Two companies. One grip.</div>
-<div style="color:rgba(255,255,255,0.6);font-size:0.97rem;line-height:1.8;max-width:760px;">Alphabet and Meta dominate digital advertising. Watch their share of the global digital ad market grow from 2010 to today.</div>
-</div>
-""",
-    height=160,
-)
-_duo_donut_html = (
-    """
-<div id="wm-duo-root">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
-html,body{margin:0;padding:0;background:#0d1117;}
-#wm-duo-root{background:#0d1117;padding:16px 24px 32px;font-family:'DM Sans',sans-serif;color:#e6edf3;}
-#wm-duo-root *{box-sizing:border-box;}
-.wmd-wrap{display:flex;gap:0;align-items:center;justify-content:center;min-height:300px;}
-.wmd-canvas-col{display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.wmd-info{padding:0 32px;min-width:200px;}
-.wmd-year{font-family:'Syne',sans-serif;font-size:56px;font-weight:800;color:#e6edf3;line-height:1;transition:opacity .2s ease;}
-.wmd-pct{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:#ff5b1f;line-height:1;margin-top:10px;}
-.wmd-pct-label{font-size:11px;color:#8b949e;margin-top:3px;letter-spacing:.05em;text-transform:uppercase;}
-.wmd-total{font-size:14px;color:#8b949e;margin-top:14px;}
-.wmd-total strong{color:#e6edf3;font-weight:700;}
-.wmd-prog{height:3px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:20px;width:100%;}
-.wmd-prog-bar{height:100%;background:#ff5b1f;border-radius:2px;width:0%;transition:width 1s ease;}
-.wmd-legend{display:flex;gap:16px;margin-top:18px;flex-wrap:wrap;}
-.wmd-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
-.wmd-leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
-</style>
-<div class="wmd-wrap">
-  <div class="wmd-canvas-col">
-    <canvas id="wmd-canvas" width="260" height="260"></canvas>
-  </div>
-  <div class="wmd-info">
-    <div class="wmd-year" id="wmd-yr">2010</div>
-    <div class="wmd-pct" id="wmd-pct">—%</div>
-    <div class="wmd-pct-label">Duopoly share of digital ads</div>
-    <div class="wmd-total" id="wmd-total">Total market: <strong>$—B</strong></div>
-    <div class="wmd-prog"><div class="wmd-prog-bar" id="wmd-prog"></div></div>
-    <div class="wmd-legend">
-      <div class="wmd-leg"><div class="wmd-leg-dot" style="background:#ff5b1f;"></div>Alphabet + Meta</div>
-      <div class="wmd-leg"><div class="wmd-leg-dot" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);"></div>Rest of market</div>
-    </div>
-  </div>
-</div>
-<script>
-(function(){
-var AD="""
-    + _ad_json_str
-    + """;
-var GROUPM="""
-    + _global_adv_json_str
-    + """;
-var canvas=document.getElementById('wmd-canvas');
-var ctx=canvas.getContext('2d');
-var cx=130,cy=130,r=110,ir=66;
-function drawDonut(duoPct){
-  var duo=Math.max(0,Math.min(1,duoPct));
-  var gap=0.018;
-  ctx.clearRect(0,0,260,260);
-  var start=-Math.PI/2;
-  var duoEnd=start+duo*(Math.PI*2)-gap;
-  var restStart=start+duo*(Math.PI*2)+gap;
-  var restEnd=start+Math.PI*2-gap;
-  if(duo>0.01){ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,duoEnd);ctx.closePath();ctx.fillStyle='#ff5b1f';ctx.fill();}
-  if(duo<0.99){ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,restStart,restEnd);ctx.closePath();ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fill();}
-  ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='#0d1117';ctx.fill();
-}
-var YEARS=Object.keys(AD).map(Number).sort(function(a,b){return a-b;});
-function getYearStats(yr){
-  var data=AD[yr]||{};
-  var total=GROUPM[yr]||0;
-  if(!total){Object.keys(data).forEach(function(k){if(data[k]>0)total+=data[k];});}
-  var duo=0;
-  if(data['Alphabet'])duo+=data['Alphabet'];
-  if(data['Meta'])duo+=data['Meta'];
-  return{total:total,duo:duo,pct:total>0?duo/total:0};
-}
-var current={pct:0};
-var target={pct:0};
-var rafId=null;
-function lerp(a,b,t){return a+(b-a)*t;}
-function animateTo(targetPct,onDone){
-  var from=current.pct;
-  var t=0;
-  if(rafId)cancelAnimationFrame(rafId);
-  function step(){
-    t=Math.min(t+0.035,1);
-    current.pct=lerp(from,targetPct,t);
-    drawDonut(current.pct);
-    if(t<1){rafId=requestAnimationFrame(step);}
-    else{current.pct=targetPct;if(onDone)onDone();}
-  }
-  rafId=requestAnimationFrame(step);
-}
-var stepIdx=0,started=false,aTimer=null;
-function updateLabels(yr,stats){
-  var yrEl=document.getElementById('wmd-yr');
-  if(yrEl){yrEl.style.opacity='0';setTimeout(function(){yrEl.textContent=yr;yrEl.style.opacity='1';},180);}
-  var pEl=document.getElementById('wmd-pct');
-  if(pEl)pEl.textContent=(stats.pct*100).toFixed(0)+'%';
-  var tEl=document.getElementById('wmd-total');
-  if(tEl)tEl.innerHTML='Total market: <strong>$'+stats.total.toFixed(0)+'B</strong>';
-  var prEl=document.getElementById('wmd-prog');
-  if(prEl){var idx=YEARS.indexOf(yr);var pct=YEARS.length>1?idx/(YEARS.length-1)*100:100;prEl.style.width=pct+'%';}
-}
-function runStep(){
-  if(stepIdx>=YEARS.length){stepIdx=0;aTimer=setTimeout(runStep,3500);return;}
-  var yr=YEARS[stepIdx];
-  var stats=getYearStats(yr);
-  var isLast=stepIdx===YEARS.length-1;
-  stepIdx++;
-  updateLabels(yr,stats);
-  animateTo(stats.pct,function(){aTimer=setTimeout(runStep,isLast?3500:1300);});
-}
-var obs=new IntersectionObserver(function(entries){
-  entries.forEach(function(e){
-    if(e.isIntersecting&&!started){
-      started=true;obs.disconnect();
-      var s0=getYearStats(YEARS[0]);
-      drawDonut(s0.pct);current.pct=s0.pct;
-      updateLabels(YEARS[0],s0);
-      stepIdx=1;aTimer=setTimeout(runStep,1500);
-    }
-  });
-},{threshold:0.3});
-var root=document.getElementById('wm-duo-root');
-if(root)obs.observe(root);
-})();
-</script>
-</div>
-"""
-)
-st.components.v1.html(_duo_donut_html, height=400)
-_separator()
-
 # Beat 6 — M2 vs ad spend
 _section(
     "The Money Printer",
@@ -3350,6 +3082,8 @@ try:
     else:
         all_rows = []
         for yr_val in sorted(metrics["year"].dropna().astype(int).unique().tolist()):
+            if yr_val < 2018:
+                continue
             m = metrics[metrics["year"] == yr_val]
             p = metrics[metrics["year"] == (yr_val - 1)]
             ad_lookup_year = _load_ad_revenue_by_company(excel_path, source_stamp, yr_val) if excel_path else {}
@@ -3364,6 +3098,7 @@ try:
                 if rev_yoy is not None and abs(rev_yoy) < 5:
                     rev_yoy = rev_yoy * 100
                 mcap = float(pd.to_numeric(pd.Series([row.get(mcap_col, np.nan)]), errors="coerce").iloc[0] or 0.0)
+                mcap_b = mcap / 1e3
                 ad_rev = float(ad_lookup_year.get(company, {}).get("ad_revenue_musd", 0.0))
                 ad_pct = min((ad_rev / rev * 100) if rev > 0 else 0.0, 100.0)
                 all_rows.append(
@@ -3371,7 +3106,8 @@ try:
                         "year": str(yr_val),
                         "company": company,
                         "rev_yoy": rev_yoy,
-                        "market_cap_b": mcap / 1e3,
+                        "market_cap_b": mcap_b,
+                        "sqrt_mcap": float(np.sqrt(max(mcap_b, 0))),
                         "ad_pct": max(ad_pct, 1.0),
                         "revenue_b": rev / 1e3,
                         "ad_rev_b": ad_rev / 1e3,
@@ -3381,33 +3117,41 @@ try:
         if bubble_df.empty:
             st.info("Bubble chart unavailable.")
         else:
+            max_sqrt = float(bubble_df["sqrt_mcap"].max()) if not bubble_df.empty else 1.0
+            sizeref = 2.0 * max_sqrt / (40 ** 2)
             company_colors = {c: _company_color(c) for c in bubble_df["company"].unique()}
             b_fig = px.scatter(
                 bubble_df,
                 x="rev_yoy",
                 y="market_cap_b",
-                size="ad_pct",
+                size="sqrt_mcap",
                 color="company",
                 color_discrete_map=company_colors,
                 animation_frame="year",
                 animation_group="company",
                 hover_name="company",
                 custom_data=["revenue_b", "ad_pct", "ad_rev_b"],
-                size_max=65,
+                size_max=60,
                 log_y=True,
                 labels={"rev_yoy": "Revenue YoY Growth (%)", "market_cap_b": "Market Cap ($B)"},
             )
             b_fig.update_traces(
+                marker=dict(sizeref=sizeref, sizemode="area"),
                 hovertemplate="<b>%{hovertext}</b><br>Market Cap: $%{y:.0f}B<br>Rev YoY: %{x:+.1f}%<br>Ad Dependency: %{customdata[1]:.1f}%<br>Ad Revenue: $%{customdata[2]:.1f}B<extra></extra>"
             )
             _apply_dark_chart_layout(
                 b_fig,
                 height=590,
                 extra_layout=dict(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    xaxis=dict(ticksuffix="%", color="rgba(255,255,255,0.35)", gridcolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.08)", zeroline=True, zerolinecolor="rgba(255,255,255,0.15)"),
-                    yaxis=dict(color="rgba(255,255,255,0.35)", gridcolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.08)"),
+                    xaxis=dict(ticksuffix="%", zeroline=True, zerolinecolor="rgba(255,255,255,0.15)"),
+                    updatemenus=[dict(
+                        type="buttons", showactive=False, y=1.08, x=0.1, xanchor="right",
+                        buttons=[
+                            dict(label="▶ Play", method="animate", args=[None, {"frame": {"duration": 900, "redraw": True}, "fromcurrent": True, "transition": {"duration": 400, "easing": "cubic-in-out"}}]),
+                            dict(label="⏸ Pause", method="animate", args=[[None], {"frame": {"duration": 0}, "mode": "immediate", "transition": {"duration": 0}}]),
+                        ],
+                        font=dict(color="#e6edf3"), bgcolor="rgba(255,255,255,0.07)", bordercolor="rgba(255,255,255,0.15)",
+                    )],
                 ),
             )
             st.plotly_chart(b_fig, use_container_width=True)
@@ -3416,7 +3160,7 @@ try:
                 top_mcap = latest.nlargest(1, "market_cap_b").iloc[0]
                 most_ad = latest.nlargest(1, "ad_pct").iloc[0]
                 st.caption(
-                    f"Bubble size = ad revenue dependency. {top_mcap['company']} leads on market cap at ${top_mcap['market_cap_b']:.0f}B. "
+                    f"Bubble size = market cap (√-scaled). {top_mcap['company']} leads on market cap at ${top_mcap['market_cap_b']:.0f}B. "
                     f"{most_ad['company']} is most ad-dependent at {most_ad['ad_pct']:.1f}% of total revenue."
                 )
 except Exception:
@@ -3544,61 +3288,83 @@ except Exception:
     st.info("Market cap history unavailable.")
 _separator()
 
-# Beat 12 — Human side bars
+# Beat 12 — Human side bars (loaded from Company_minute&dollar_earned sheet)
+_human_df = _read_excel_sheet_cached(excel_path, "Company_minute&dollar_earned", source_stamp) if excel_path else pd.DataFrame()
+_human_companies: list[dict] = []
+if not _human_df.empty:
+    _human_df.columns = [str(c).strip() for c in _human_df.columns]
+    _h_plat = _find_col(_human_df, ["platform"]) or _find_col(_human_df, ["company"]) or _find_col(_human_df, ["name"])
+    _h_usr = (_find_col(_human_df, ["user"]) or _find_col(_human_df, ["subscrib"])
+              or _find_col(_human_df, ["mau"]) or _find_col(_human_df, ["active"]))
+    _h_lbl = _find_col(_human_df, ["label"]) or _find_col(_human_df, ["note"])
+    if _h_plat and _h_usr:
+        _human_df[_h_usr] = pd.to_numeric(_human_df[_h_usr], errors="coerce")
+        _human_df = _human_df.dropna(subset=[_h_plat, _h_usr])
+        _human_df = _human_df[_human_df[_h_usr] > 0].sort_values(_h_usr, ascending=False)
+        for _, _hr in _human_df.iterrows():
+            _hname = str(_hr[_h_plat]).strip()
+            _hval = float(_hr[_h_usr])
+            _hlbl = (str(_hr[_h_lbl]).strip() if _h_lbl and not pd.isna(_hr.get(_h_lbl, np.nan)) else
+                     (f"{_hval/1000:.1f}B" if _hval >= 1000 else f"{_hval:.0f}M"))
+            _human_companies.append({"name": _hname, "val": _hval, "color": _company_color(_hname), "label": _hlbl})
+if not _human_companies:
+    _human_companies = [
+        {"name": "YouTube", "val": 2500, "color": "#ff0000", "label": "2.5B users"},
+        {"name": "Spotify", "val": 675, "color": "#1db954", "label": "675M users"},
+        {"name": "Netflix", "val": 301, "color": "#e50914", "label": "301M subs"},
+        {"name": "Disney+", "val": 174, "color": "#113ccf", "label": "174M subs"},
+        {"name": "Amazon", "val": 200, "color": "#ff9900", "label": "200M Prime"},
+        {"name": "Max (WBD)", "val": 116, "color": "#0047ab", "label": "116M subs"},
+        {"name": "Paramount+", "val": 77, "color": "#0033a0", "label": "77M subs"},
+        {"name": "Roku", "val": 89, "color": "#6f1ab1", "label": "89M accounts"},
+    ]
+_human_json = json.dumps(_human_companies)
+_human_height = int(min(720, max(320, 160 + len(_human_companies) * 50)))
 st.components.v1.html(
-    """
+    f"""
 <div id="wm-human-root">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
-html,body{margin:0;padding:0;background:#0d1117;}
-#wm-human-root{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}
-.wh-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
-.wh-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}
-.wh-sub{color:#8b949e;font-size:14px;margin:0 0 32px;}
-.wh-row{display:flex;align-items:center;gap:16px;margin-bottom:18px;}
-.wh-name{width:100px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#e6edf3;text-align:right;flex-shrink:0;}
-.wh-track{flex:1;height:28px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden;position:relative;}
-.wh-fill{height:100%;border-radius:4px;width:0%;transition:width 1.4s cubic-bezier(.34,1.1,.64,1);}
-.wh-val{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#e6edf3;}
-.wh-caption{font-size:12px;color:#8b949e;margin-top:8px;}
+html,body{{margin:0;padding:0;background:#0d1117;}}
+#wm-human-root{{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
+.wh-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
+.wh-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}}
+.wh-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
+.wh-row{{display:flex;align-items:center;gap:16px;margin-bottom:18px;}}
+.wh-name{{width:110px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#e6edf3;text-align:right;flex-shrink:0;}}
+.wh-track{{flex:1;height:28px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden;position:relative;}}
+.wh-fill{{height:100%;border-radius:4px;width:0%;transition:width 1.4s cubic-bezier(.34,1.1,.64,1);}}
+.wh-val{{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#e6edf3;}}
+.wh-caption{{font-size:12px;color:#8b949e;margin-top:8px;}}
 </style>
 <div class="wh-label">THE HUMAN SIDE</div>
 <div class="wh-headline">Behind every dollar: a human being.</div>
-<div class="wh-sub">Paid subscribers and active users across the tracked universe. 2024.</div>
+<div class="wh-sub">Paid subscribers and active users across the tracked universe.</div>
 <div id="wh-rows"></div>
 <div class="wh-caption" id="wh-caption"></div>
 <script>
-const companies=[
-  {name:"YouTube",val:2500,color:"#ff0000",label:"2.5B users"},
-  {name:"Spotify",val:675,color:"#1db954",label:"675M users"},
-  {name:"Netflix",val:301,color:"#e50914",label:"301M subs"},
-  {name:"Disney+",val:174,color:"#113ccf",label:"174M subs"},
-  {name:"Amazon",val:200,color:"#ff9900",label:"200M Prime"},
-  {name:"Max (WBD)",val:116,color:"#0047ab",label:"116M subs"},
-  {name:"Paramount+",val:77,color:"#0033a0",label:"77M subs"},
-  {name:"Roku",val:89,color:"#6f1ab1",label:"89M accounts"},
-];
-const max=Math.max(...companies.map(c=>c.val));
+const companies={_human_json};
+const maxVal=Math.max(...companies.map(c=>c.val));
 const rows=document.getElementById('wh-rows');
 const total=companies.reduce((s,c)=>s+c.val,0);
-companies.forEach(c=>{
-  const pct=Math.round((c.val/max)*100);
+companies.forEach(c=>{{
+  const pct=Math.round((c.val/maxVal)*100);
   rows.innerHTML+=`<div class="wh-row">
-    <div class="wh-name">${c.name}</div>
-    <div class="wh-track"><div class="wh-fill" style="background:${c.color}" data-w="${pct}"></div><span class="wh-val">${c.label}</span></div>
+    <div class="wh-name">${{c.name}}</div>
+    <div class="wh-track"><div class="wh-fill" style="background:${{c.color}}" data-w="${{pct}}"></div><span class="wh-val">${{c.label}}</span></div>
   </div>`;
-});
-document.getElementById('wh-caption').textContent=`Combined: ${(total/1000).toFixed(1)}B people — nearly half the world's population uses at least one of these platforms daily.`;
-const io=new IntersectionObserver(entries=>{
+}});
+document.getElementById('wh-caption').textContent=`Combined: ${{(total/1000).toFixed(1)}}B people — nearly half the world's population uses at least one of these platforms daily.`;
+const io=new IntersectionObserver(entries=>{{
   if(!entries[0].isIntersecting)return;
   document.querySelectorAll('.wh-fill').forEach(el=>el.style.width=el.dataset.w+'%');
   io.unobserve(entries[0].target);
-},{threshold:0.2});
+}},{{threshold:0.2}});
 io.observe(rows);
 </script>
 </div>
 """,
-    height=420,
+    height=_human_height,
 )
 _separator()
 
