@@ -2143,7 +2143,7 @@ st.components.v1.html(
 
 # Beat 1 — Map
 map_body = (
-    f"In {effective_year_groupm}, global advertising reached <strong style='color:white;'>${groupm_b:.0f}B</strong>. "
+    f"In {effective_year_groupm}, global advertising reached <span style='color:#e6edf3;font-weight:700;'>${groupm_b:.0f}B</span>. "
     f"The map below shows how that spend is distributed — colored by advertising intensity as a share of each country's GDP."
     if groupm_b
     else "Global advertising data for this year is unavailable."
@@ -2463,14 +2463,66 @@ if(s2)obs2.observe(s2);
 st.components.v1.html(_attn_html, height=1500)
 
 _separator()
-# --- Concentration: segments from Global_Adv_Aggregates + Company_advertising_revenue ---
+# --- Concentration: animated stacked bar 2010→latest ---
+_CONC_SEG_ORDER = ["Alphabet", "Meta", "Amazon", "Apple + MSFT", "Other Digital",
+                   "TV (Free + Pay)", "Print", "Radio", "OOH", "Cinema"]
+_CONC_SEG_COLORS = {
+    "Alphabet": "#1a73e8", "Meta": "#0866ff", "Amazon": "#ff9900",
+    "Apple + MSFT": "#ff4202", "Other Digital": "#4a4a4a",
+    "TV (Free + Pay)": "#444444", "Print": "#333333",
+    "Radio": "#282828", "OOH": "#1e1e1e", "Cinema": "#141414",
+}
+_CONC_DIG_PATTERNS = ["Search", "Social", "Display", "Video", "Digital OOH", "Other Desktop", "Other Mobile"]
+
+def _safe_float(v) -> float:
+    import math
+    try:
+        r = float(pd.to_numeric(pd.Series([v]), errors="coerce").iloc[0])
+        return 0.0 if math.isnan(r) else r
+    except Exception:
+        return 0.0
+
+_conc_all_years: dict = {}
+_conc_anim_start = 2010
+for _ay in range(_conc_anim_start, (effective_year or 2024) + 1):
+    if _ay not in _global_adv_totals.index:
+        continue
+    _ay_total = float(_global_adv_totals[_ay])
+    if _ay_total <= 0:
+        continue
+    _ay_ar = _ad_by_year.get(_ay, {})
+    _ay_alpha = _safe_float(_ay_ar.get("Alphabet", 0))
+    _ay_meta  = _safe_float(_ay_ar.get("Meta", 0))
+    _ay_amzn  = _safe_float(_ay_ar.get("Amazon", 0))
+    _ay_apple = _safe_float(_ay_ar.get("Apple", 0))
+    _ay_msft  = _safe_float(_ay_ar.get("Microsoft", 0))
+    _ay_named = _ay_alpha + _ay_meta + _ay_amzn + _ay_apple + _ay_msft
+    _ay_df = global_adv_df[global_adv_df["year"] == _ay] if not global_adv_df.empty else pd.DataFrame()
+    _ay_by_type = (_ay_df.groupby("metric_type")["value"].sum() / 1_000.0).to_dict() if not _ay_df.empty else {}
+    _ay_dig_total = sum(_ay_by_type.get(k, 0) for k in _ay_by_type if any(x in k for x in _CONC_DIG_PATTERNS))
+    _ay_dig_other = max(0.0, _ay_dig_total - _ay_named)
+    _ay_vals: dict = {
+        "Alphabet": _ay_alpha, "Meta": _ay_meta, "Amazon": _ay_amzn,
+        "Apple + MSFT": _ay_apple + _ay_msft,
+        "Other Digital": _ay_dig_other if _ay_dig_other > 0.5 else 0.0,
+        "TV (Free + Pay)": sum(_ay_by_type.get(k, 0) for k in ["Free TV Worldwide", "Pay TV Worldwide"]),
+        "Print":  sum(_ay_by_type.get(k, 0) for k in ["Newspaper Worldwide", "Magazine Worldwide"]),
+        "Radio":  _ay_by_type.get("Radio Worldwide", 0.0),
+        "OOH":    _ay_by_type.get("Traditional OOH Worldwide", 0.0),
+        "Cinema": _ay_by_type.get("Cinema Worldwide", 0.0),
+    }
+    _conc_all_years[_ay] = {
+        "total": round(_ay_total, 1),
+        "vals": {c: round(_ay_vals[c], 1) for c in _CONC_SEG_ORDER},
+    }
+
 _conc_yr = effective_year
 _conc_ad = _ad_by_year.get(_conc_yr, {})
-_conc_alpha    = _conc_ad.get("Alphabet", 0.0)
-_conc_meta     = _conc_ad.get("Meta", 0.0)
-_conc_amzn     = _conc_ad.get("Amazon", 0.0)
-_conc_apple    = _conc_ad.get("Apple", 0.0)
-_conc_msft     = _conc_ad.get("Microsoft", 0.0)
+_conc_alpha    = _safe_float(_conc_ad.get("Alphabet", 0))
+_conc_meta     = _safe_float(_conc_ad.get("Meta", 0))
+_conc_amzn     = _safe_float(_conc_ad.get("Amazon", 0))
+_conc_apple    = _safe_float(_conc_ad.get("Apple", 0))
+_conc_msft     = _safe_float(_conc_ad.get("Microsoft", 0))
 _conc_apple_msft = _conc_apple + _conc_msft
 _conc_named    = _conc_alpha + _conc_meta + _conc_amzn + _conc_apple_msft
 # Total from Global_Adv_Aggregates (best available whole-market figure)
@@ -2498,20 +2550,10 @@ _trad_cats = [
     ("Cinema",          ["Cinema Worldwide"],                             "#161616"),
 ]
 
-# Build ordered segments — brand colors for named companies, grey tones for rest
-_conc_segments = []
-if _conc_alpha    > 0: _conc_segments.append({"category": "Alphabet",      "amount": round(_conc_alpha, 1),     "percent": _conc_alpha     / _conc_total * 100, "color": "#1a73e8"})
-if _conc_meta     > 0: _conc_segments.append({"category": "Meta",          "amount": round(_conc_meta, 1),      "percent": _conc_meta      / _conc_total * 100, "color": "#0866ff"})
-if _conc_amzn     > 0: _conc_segments.append({"category": "Amazon",        "amount": round(_conc_amzn, 1),      "percent": _conc_amzn      / _conc_total * 100, "color": "#ff9900"})
-if _conc_apple_msft > 0: _conc_segments.append({"category": "Apple + MSFT", "amount": round(_conc_apple_msft, 1), "percent": _conc_apple_msft / _conc_total * 100, "color": "#0078d4"})
-if _digital_other > 0.5: _conc_segments.append({"category": "Other Digital", "amount": round(_digital_other, 1), "percent": _digital_other  / _conc_total * 100, "color": "#4a4a4a"})
-for _cat_name, _cat_keys, _cat_color in _trad_cats:
-    _cat_val = sum(_conc_by_type.get(k, 0.0) for k in _cat_keys)
-    if _cat_val > 0.5:
-        _conc_segments.append({"category": _cat_name, "amount": round(_cat_val, 1), "percent": _cat_val / _conc_total * 100, "color": _cat_color})
-
-_conc_top_share = sum(s["percent"] for s in _conc_segments if s["category"] in ["Alphabet", "Meta", "Amazon", "Apple + MSFT"])
-_conc_segments_json = json.dumps(_conc_segments)
+_conc_top_share = (_conc_named / _conc_total * 100) if _conc_total > 0 else 0
+_conc_all_years_json = json.dumps(_conc_all_years)
+_conc_seg_colors_json = json.dumps(_CONC_SEG_COLORS)
+_conc_seg_order_json = json.dumps(_CONC_SEG_ORDER)
 
 st.components.v1.html(f"""
 <style>
@@ -2521,136 +2563,196 @@ html,body{{margin:0;padding:0;background:#0d1117;}}
 #conc-root{{background:#0d1117;padding:32px 24px 40px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
 .wc-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
 .wc-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#e6edf3;margin:0 0 6px;}}
-.wc-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
-.bar-wrap{{position:relative;width:100%;}}
-.bar-container{{width:100%;height:130px;display:flex;position:relative;z-index:2;border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;}}
-.bar-segment{{height:100%;transition:opacity .2s;cursor:pointer;position:relative;border-right:2px solid rgba(255,255,255,0.18);flex-shrink:0;}}
+.wc-sub{{color:#8b949e;font-size:14px;margin:0 0 20px;}}
+/* controls */
+.conc-controls{{display:flex;align-items:center;gap:14px;margin-bottom:14px;}}
+.conc-year{{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#e6edf3;min-width:52px;}}
+.conc-total{{font-size:13px;color:#8b949e;}}
+.conc-total span{{color:#c9d1d9;font-weight:600;}}
+#conc-play{{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);color:#e6edf3;
+  border-radius:6px;padding:5px 16px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.05em;}}
+#conc-play:hover{{background:rgba(255,255,255,0.14);}}
+#conc-slider{{flex:1;accent-color:#ff5b1f;cursor:pointer;height:3px;}}
+/* above-bar callout area */
+#conc-above{{position:relative;width:100%;height:0;overflow:visible;}}
+.cab{{position:absolute;border-radius:6px;padding:6px 10px;white-space:nowrap;pointer-events:none;
+  box-shadow:0 2px 8px rgba(0,0,0,.5);transform:translateX(-50%);transition:left 0.5s ease,opacity 0.3s;}}
+.cab-cat{{font-size:9px;font-weight:700;color:rgba(255,255,255,.82);text-transform:uppercase;letter-spacing:.04em;}}
+.cab-amt{{font-size:13px;font-weight:800;color:#fff;margin-top:1px;}}
+.cab-pct{{font-size:10px;color:rgba(255,255,255,.68);margin-top:1px;}}
+.cab-line{{position:absolute;bottom:0;width:1px;opacity:0.5;transform:translateX(-50%);}}
+/* bar */
+.bar-container{{width:100%;height:130px;display:flex;position:relative;z-index:2;
+  border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;}}
+.bar-segment{{height:100%;position:relative;border-right:2px solid rgba(255,255,255,0.18);
+  flex-shrink:0;overflow:hidden;transition:width 0.7s cubic-bezier(.4,0,.2,1);}}
 .bar-segment:first-child{{border-radius:8px 0 0 8px;}}
 .bar-segment:last-child{{border-right:none;border-radius:0 8px 8px 0;}}
 .bar-segment:hover{{filter:brightness(1.12);}}
-.seg-label{{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 12px;pointer-events:none;overflow:hidden;}}
-.seg-label-cat{{font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.05em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
-.seg-label-amt{{font-size:15px;font-weight:800;color:#fff;line-height:1.25;margin-top:3px;white-space:nowrap;}}
-.seg-label-pct{{font-size:11px;font-weight:400;color:rgba(255,255,255,.72);line-height:1.2;margin-top:1px;white-space:nowrap;}}
-/* Below-bar callouts for narrow segments */
-#callouts-below{{position:relative;width:100%;height:130px;margin-top:0;}}
-.callout-line{{position:absolute;top:0;width:1px;opacity:0.5;transform:translateX(-50%);}}
-.callout-card{{position:absolute;border-radius:6px;padding:7px 10px;white-space:nowrap;pointer-events:none;transform:translateX(-50%);box-shadow:0 2px 8px rgba(0,0,0,.4);}}
-.callout-card-cat{{font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.04em;}}
-.callout-card-amt{{font-size:13px;font-weight:800;color:#fff;margin-top:2px;}}
-.callout-card-pct{{font-size:10px;color:rgba(255,255,255,.7);margin-top:1px;}}
+.seg-label{{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+  padding:0 11px;pointer-events:none;overflow:hidden;}}
+.seg-label-cat{{font-size:9px;font-weight:700;color:rgba(255,255,255,.82);text-transform:uppercase;
+  letter-spacing:.05em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
+.seg-label-amt{{font-size:14px;font-weight:800;color:#fff;line-height:1.25;margin-top:2px;white-space:nowrap;}}
+.seg-label-pct{{font-size:10px;color:rgba(255,255,255,.68);line-height:1.2;margin-top:1px;white-space:nowrap;}}
+/* mini label for tight segments (2-5.5%) */
+.seg-label-mini{{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:0 4px;pointer-events:none;overflow:hidden;}}
+.seg-label-mini-amt{{font-size:10px;font-weight:800;color:#fff;white-space:nowrap;
+  writing-mode:vertical-rl;transform:rotate(180deg);}}
 </style>
 <div id="conc-root">
   <div class="wc-label">THE CONCENTRATION</div>
   <div class="wc-headline">Most of it went to very few hands.</div>
-  <div class="wc-sub">Of ${_conc_total:.0f}B spent globally on advertising in {_conc_yr}, 4 companies captured {_conc_top_share:.0f}% of the market.</div>
-  <div class="bar-wrap">
-    <div class="bar-container" id="barContainer"></div>
-    <div id="callouts-below"></div>
+  <div class="wc-sub">Of <span id="conc-sub-total">${_conc_total:.0f}B</span> spent globally on advertising in <span id="conc-sub-yr">{_conc_yr}</span>, 4 companies captured <span id="conc-sub-pct">{_conc_top_share:.0f}%</span> of the market.</div>
+  <div class="conc-controls">
+    <button id="conc-play">&#9654; Play</button>
+    <span class="conc-year" id="conc-yr-label">{_conc_yr}</span>
+    <input type="range" id="conc-slider" min="0" value="0" />
+    <span class="conc-total">Total: <span id="conc-total-label">${_conc_total:.0f}B</span></span>
   </div>
+  <div id="conc-above"></div>
+  <div class="bar-container" id="conc-bar"></div>
 </div>
 <script>
-const SEGMENTS = {_conc_segments_json};
-const INLINE_THRESHOLD = 5.5;
+const ALL_YEARS = {_conc_all_years_json};
+const SEG_COLORS = {_conc_seg_colors_json};
+const SEG_ORDER = {_conc_seg_order_json};
+const START_YR = {_conc_yr};
+const years = Object.keys(ALL_YEARS).map(Number).sort((a,b)=>a-b);
 
-function fmtAmt(b) {{ return '$' + (b >= 1000 ? (b/1000).toFixed(1) + 'T' : Math.round(b) + 'B'); }}
-function fmtPct(p) {{ return p.toFixed(1) + '%'; }}
+const slider = document.getElementById('conc-slider');
+const playBtn = document.getElementById('conc-play');
+const yrLabel = document.getElementById('conc-yr-label');
+const totalLabel = document.getElementById('conc-total-label');
+const subTotal = document.getElementById('conc-sub-total');
+const subYr = document.getElementById('conc-sub-yr');
+const subPct = document.getElementById('conc-sub-pct');
+const barEl = document.getElementById('conc-bar');
+const aboveEl = document.getElementById('conc-above');
 
-const barContainer = document.getElementById('barContainer');
-const calloutsBelow = document.getElementById('callouts-below');
+slider.max = years.length - 1;
+let currentIdx = Math.max(0, years.indexOf(START_YR));
+slider.value = currentIdx;
 
-let cumPct = 0;
-const smallItems = [];
+function fmtAmt(b) {{ return '$' + (b >= 1000 ? (b/1000).toFixed(1)+'T' : Math.round(b)+'B'); }}
+function fmtPct(p) {{ return p.toFixed(1)+'%'; }}
 
-for (const segment of SEGMENTS) {{
-  const pct = Math.max(0, Number(segment.percent) || 0);
-  const seg = document.createElement('div');
-  seg.className = 'bar-segment';
-  seg.style.width = pct + '%';
-  seg.style.background = segment.color;
+/* Create one segment div per category (fixed order) */
+const segEls = {{}};
+SEG_ORDER.forEach(cat => {{
+  const s = document.createElement('div');
+  s.className = 'bar-segment';
+  s.style.background = SEG_COLORS[cat] || '#333';
+  s.style.width = '0%';
+  s.dataset.cat = cat;
+  barEl.appendChild(s);
+  segEls[cat] = s;
+}});
 
-  if (pct >= INLINE_THRESHOLD) {{
-    const lbl = document.createElement('div'); lbl.className = 'seg-label';
-    const c = document.createElement('div'); c.className = 'seg-label-cat'; c.textContent = segment.category;
-    const a = document.createElement('div'); a.className = 'seg-label-amt'; a.textContent = fmtAmt(segment.amount);
-    const p = document.createElement('div'); p.className = 'seg-label-pct'; p.textContent = fmtPct(segment.percent);
-    lbl.appendChild(c); lbl.appendChild(a); lbl.appendChild(p);
-    seg.appendChild(lbl);
-  }} else {{
-    const cx_pct = (cumPct + pct / 2) / 100;
-    smallItems.push({{ cx_pct, segment }});
-  }}
-  cumPct += pct;
-  barContainer.appendChild(seg);
-}}
+function updateYear(idx) {{
+  currentIdx = Math.max(0, Math.min(years.length - 1, idx));
+  slider.value = currentIdx;
+  const yr = years[currentIdx];
+  const data = ALL_YEARS[yr];
+  if (!data) return;
+  yrLabel.textContent = yr;
+  totalLabel.textContent = fmtAmt(data.total);
+  subTotal.textContent = fmtAmt(data.total);
+  subYr.textContent = yr;
 
-/* Layout callouts below the bar with collision resolution */
-if (smallItems.length > 0) {{
-  requestAnimationFrame(function() {{
-    const barW = barContainer.getBoundingClientRect().width || 800;
-    const CARD_H = 68;
-    const ROW_H = CARD_H + 18;  /* card + gap between rows */
-    const LINE_BASE = 8;        /* gap between bar bottom and first card row */
+  const total = data.total;
+  const vals = data.vals || {{}};
+  const named4 = ['Alphabet','Meta','Amazon','Apple + MSFT'];
+  const namedSum = named4.reduce((s,c) => s + (vals[c]||0), 0);
+  subPct.textContent = total > 0 ? (namedSum/total*100).toFixed(0)+'%' : '—';
 
-    /* Assign rows to avoid overlaps — items sorted left→right */
-    smallItems.sort((a, b) => a.cx_pct - b.cx_pct);
-    /* Use pixel widths after render — estimate 110px per card as default */
-    const CARD_W_EST = 112;
-    const GAP = 12;
-    const rows = [];           /* rows[i] = rightmost pixel used */
-
-    smallItems.forEach(item => {{
-      const leftPx = item.cx_pct * barW - CARD_W_EST / 2;
-      let row = 0;
-      while (rows[row] !== undefined && leftPx < rows[row] + GAP) row++;
-      rows[row] = leftPx + CARD_W_EST;
-      item.row = row;
-    }});
-
-    const maxRow = Math.max(...smallItems.map(i => i.row));
-    calloutsBelow.style.height = ((maxRow + 1) * ROW_H + LINE_BASE + 16) + 'px';
-
-    smallItems.forEach(item => {{
-      const {{ cx_pct, segment, row }} = item;
-      const lineH = LINE_BASE + row * ROW_H;
-      const cardTop = lineH + 8;
-
-      /* connector line from bar bottom downward */
-      const line = document.createElement('div');
-      line.className = 'callout-line';
-      line.style.left = (cx_pct * 100) + '%';
-      line.style.top = LINE_BASE + 'px';
-      line.style.height = lineH + 'px';
-      line.style.background = segment.color;
-      calloutsBelow.appendChild(line);
-
-      /* callout card */
-      const card = document.createElement('div');
-      card.className = 'callout-card';
-      card.style.background = segment.color;
-      card.style.top = cardTop + 'px';
-      card.style.left = (cx_pct * 100) + '%';
-      const c = document.createElement('div'); c.className = 'callout-card-cat'; c.textContent = segment.category;
-      const a = document.createElement('div'); a.className = 'callout-card-amt'; a.textContent = fmtAmt(segment.amount);
-      const p = document.createElement('div'); p.className = 'callout-card-pct'; p.textContent = fmtPct(segment.percent);
-      card.appendChild(c); card.appendChild(a); card.appendChild(p);
-      calloutsBelow.appendChild(card);
-
-      /* clamp card to bar bounds */
-      requestAnimationFrame(() => {{
-        const cw = card.getBoundingClientRect().width || CARD_W_EST;
-        const half = cw / 2 + 8;
-        const rawLeft = cx_pct * barW;
-        const clampedLeft = Math.max(half, Math.min(barW - half, rawLeft));
-        card.style.left = clampedLeft + 'px';
-        card.style.transform = 'none';
-        line.style.left = clampedLeft + 'px';
-      }});
-    }});
+  /* Update bar widths */
+  SEG_ORDER.forEach(cat => {{
+    const v = vals[cat] || 0;
+    const pct = total > 0 ? v / total * 100 : 0;
+    const seg = segEls[cat];
+    seg.style.width = pct + '%';
+    /* Clear previous label */
+    seg.innerHTML = '';
+    if (pct <= 0) return;
+    if (pct >= 5.5) {{
+      const lbl = document.createElement('div'); lbl.className = 'seg-label';
+      const c = document.createElement('div'); c.className = 'seg-label-cat'; c.textContent = cat;
+      const a = document.createElement('div'); a.className = 'seg-label-amt'; a.textContent = fmtAmt(v);
+      const p = document.createElement('div'); p.className = 'seg-label-pct'; p.textContent = fmtPct(pct);
+      lbl.appendChild(c); lbl.appendChild(a); lbl.appendChild(p);
+      seg.appendChild(lbl);
+    }} else if (pct >= 1.8) {{
+      const ml = document.createElement('div'); ml.className = 'seg-label-mini';
+      const ma = document.createElement('div'); ma.className = 'seg-label-mini-amt'; ma.textContent = fmtAmt(v);
+      ml.appendChild(ma); seg.appendChild(ml);
+    }}
   }});
+
+  /* Above-bar callouts for segments < 1.8% — only Cinema in late years */
+  aboveEl.innerHTML = '';
+  let aboveH = 0;
+  const smallSegs = SEG_ORDER.map(cat => {{
+    const v = vals[cat] || 0;
+    const pct = total > 0 ? v / total * 100 : 0;
+    return {{cat, v, pct}};
+  }}).filter(x => x.pct > 0 && x.pct < 1.8);
+
+  if (smallSegs.length > 0) {{
+    aboveH = 90;
+    aboveEl.style.height = aboveH + 'px';
+    /* compute cumulative positions */
+    let cum = 0;
+    const positions = {{}};
+    SEG_ORDER.forEach(cat => {{
+      const v = vals[cat] || 0;
+      const pct = total > 0 ? v / total * 100 : 0;
+      positions[cat] = cum + pct / 2;
+      cum += pct;
+    }});
+    smallSegs.forEach(item => {{
+      const cx = positions[item.cat] / 100;
+      const line = document.createElement('div'); line.className = 'cab-line';
+      line.style.left = (cx*100)+'%'; line.style.height = aboveH+'px';
+      line.style.background = SEG_COLORS[item.cat];
+      aboveEl.appendChild(line);
+      const card = document.createElement('div'); card.className = 'cab';
+      card.style.background = SEG_COLORS[item.cat];
+      card.style.bottom = '8px'; card.style.left = (cx*100)+'%';
+      const cc = document.createElement('div'); cc.className = 'cab-cat'; cc.textContent = item.cat;
+      const ca = document.createElement('div'); ca.className = 'cab-amt'; ca.textContent = fmtAmt(item.v);
+      const cp = document.createElement('div'); cp.className = 'cab-pct'; cp.textContent = fmtPct(item.pct);
+      card.appendChild(cc); card.appendChild(ca); card.appendChild(cp);
+      aboveEl.appendChild(card);
+    }});
+  }} else {{
+    aboveEl.style.height = '0px';
+  }}
 }}
+
+/* Animation */
+let timer = null;
+let playing = false;
+function tick() {{
+  if (currentIdx >= years.length - 1) {{ stopPlay(); return; }}
+  updateYear(currentIdx + 1);
+}}
+function startPlay() {{
+  playing = true; playBtn.textContent = '⏸ Pause';
+  if (currentIdx >= years.length - 1) updateYear(0);
+  timer = setInterval(tick, 1100);
+}}
+function stopPlay() {{
+  playing = false; playBtn.textContent = '▶ Play';
+  clearInterval(timer); timer = null;
+}}
+playBtn.addEventListener('click', () => playing ? stopPlay() : startPlay());
+slider.addEventListener('input', () => {{ stopPlay(); updateYear(Number(slider.value)); }});
+
+updateYear(currentIdx);
 </script>
-""", height=560)
+""", height=500)
 _separator()
 st.components.v1.html(
     """
