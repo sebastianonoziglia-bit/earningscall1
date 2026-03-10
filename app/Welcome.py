@@ -1421,6 +1421,20 @@ if not ad_sheet_df.empty:
                 except (TypeError, ValueError):
                     pass
 _ad_json_str = json.dumps(_ad_by_year)
+
+# Build per-year GroupM total for use as duopoly denominator in JS
+_groupm_by_year: dict = {}
+if not groupm_df.empty and groupm_year_col and groupm_total_col:
+    for _, _grow in groupm_df.iterrows():
+        try:
+            _gy = int(pd.to_numeric(_grow[groupm_year_col], errors="coerce"))
+            _gv = _normalize_groupm_to_billions(_grow[groupm_total_col])
+            if _gv and _gv > 0:
+                _groupm_by_year[_gy] = round(_gv, 1)
+        except (TypeError, ValueError):
+            pass
+_groupm_json_str = json.dumps(_groupm_by_year)
+
 db_path = ROOT_DIR / "earningscall_intelligence.db"
 
 
@@ -2366,6 +2380,9 @@ document.querySelectorAll('.wa-row').forEach(el=>_io.observe(el));
 var AD_DATA="""
     + _ad_json_str
     + """;
+var GROUPM_DATA="""
+    + _groupm_json_str
+    + """;
 var COMPANIES=[
   {id:'Alphabet',  cx:24, cy:38, bg:'rgba(66,133,244,0.18)',  br:'rgba(66,133,244,0.6)'},
   {id:'Meta',      cx:52, cy:44, bg:'rgba(24,119,242,0.14)',  br:'rgba(24,119,242,0.55)'},
@@ -2409,8 +2426,9 @@ function updateYear(yr){
   var data=AD_DATA[yr]||{};
   var yrEl=document.getElementById('wa-dup-yr');
   if(yrEl){yrEl.style.opacity='0';setTimeout(function(){yrEl.textContent=yr;yrEl.style.opacity='1';},200);}
-  var total=0,duo=0;
-  Object.keys(data).forEach(function(k){if(data[k]>0)total+=data[k];});
+  var total=GROUPM_DATA[yr]||0;
+  if(!total){Object.keys(data).forEach(function(k){if(data[k]>0)total+=data[k];});}
+  var duo=0;
   if(data['Alphabet'])duo+=data['Alphabet'];
   if(data['Meta'])duo+=data['Meta'];
   var tEl=document.getElementById('wa-dup-tot');
@@ -2459,82 +2477,68 @@ if(s2)obs2.observe(s2);
 st.components.v1.html(_attn_html, height=1500)
 
 _separator()
+# --- Concentration bar: dynamic values from GroupM + ad revenue sheet ---
+_conc_yr = effective_year
+_conc_ad = _ad_by_year.get(_conc_yr, {})
+_conc_alpha = _conc_ad.get("Alphabet", 0.0)
+_conc_meta = _conc_ad.get("Meta", 0.0)
+_conc_amzn = _conc_ad.get("Amazon", 0.0)
+_conc_apple = _conc_ad.get("Apple", 0.0)
+_conc_msft = _conc_ad.get("Microsoft", 0.0)
+_conc_apple_msft = _conc_apple + _conc_msft
+_conc_total = groupm_b if groupm_b and groupm_b > 0 else (_conc_alpha + _conc_meta + _conc_amzn + _conc_apple_msft) * 2
+_conc_known = _conc_alpha + _conc_meta + _conc_amzn + _conc_apple_msft
+_conc_rest = max(0.0, _conc_total - _conc_known)
+def _pct(v): return f"{v/_conc_total*100:.1f}" if _conc_total > 0 else "0.0"
+def _amt(v): return f"${v:.0f}B"
+_conc_n_companies = sum(1 for x in [_conc_alpha, _conc_meta, _conc_amzn, _conc_apple_msft] if x > 0)
+_conc_top_share = (_conc_known / _conc_total * 100) if _conc_total > 0 else 0
 st.components.v1.html(
-    """
-<div id="wm-conc-root">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
-html,body{margin:0;padding:0;background:#0d1117;}
-iframe{border:none!important;}
-#wm-conc-root{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}
-#wm-conc-root *{box-sizing:border-box;}
-.wc-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
-.wc-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;}
-.wc-sub{color:#8b949e;font-size:14px;margin:0 0 32px;}
-.wc-bar-container{width:100%;height:110px;display:flex;border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;opacity:0;transform:translateY(12px);transition:opacity .8s ease,transform .8s ease;}
-.wc-bar-container.vis{opacity:1;transform:translateY(0);}
-.wc-seg{height:100%;transition:flex 1.6s cubic-bezier(.34,1.1,.64,1);flex:0;position:relative;border-right:2px solid rgba(255,255,255,0.15);overflow:hidden;cursor:default;}
-.wc-seg:last-child{border-right:none;}
-.wc-seg:hover{filter:brightness(1.08);}
-.wc-seg-inner{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 14px;pointer-events:none;}
-.wc-seg-cat{font-size:10px;font-weight:700;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
-.wc-seg-amt{font-size:16px;font-weight:800;color:#fff;margin-top:3px;white-space:nowrap;}
-.wc-seg-pct{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;white-space:nowrap;}
-.wc-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;}
-.wc-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
-.wc-leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
-</style>
-<div class="wc-label">THE CONCENTRATION</div>
-<div class="wc-headline">Most of it went to very few hands.</div>
-<div class="wc-sub">Of $1,056B spent globally on advertising in 2024, just 5 companies captured more than half.</div>
-<div class="wc-bar-container" id="wc-bar">
-  <div class="wc-seg" id="wcs-alpha" style="background:linear-gradient(135deg,#1a3a6b,#0d2040);">
-    <div class="wc-seg-inner"><div class="wc-seg-cat">Alphabet</div><div class="wc-seg-amt">$237B</div><div class="wc-seg-pct">22.4%</div></div>
-  </div>
-  <div class="wc-seg" id="wcs-meta" style="background:linear-gradient(135deg,#1a2a5e,#0d1a40);">
-    <div class="wc-seg-inner"><div class="wc-seg-cat">Meta</div><div class="wc-seg-amt">$164B</div><div class="wc-seg-pct">15.5%</div></div>
-  </div>
-  <div class="wc-seg" id="wcs-amzn" style="background:linear-gradient(135deg,#3d2800,#2a1800);">
-    <div class="wc-seg-inner"><div class="wc-seg-cat">Amazon</div><div class="wc-seg-amt">$56B</div><div class="wc-seg-pct">5.3%</div></div>
-  </div>
-  <div class="wc-seg" id="wcs-other-bt" style="background:linear-gradient(135deg,#1a2a1a,#0d1a0d);">
-    <div class="wc-seg-inner"><div class="wc-seg-cat">Apple+MSFT</div><div class="wc-seg-amt">$36B</div><div class="wc-seg-pct">3.4%</div></div>
-  </div>
-  <div class="wc-seg" id="wcs-media" style="background:linear-gradient(135deg,#1a1a3a,#0d0d2a);">
-    <div class="wc-seg-inner"><div class="wc-seg-cat">Streaming</div><div class="wc-seg-amt">$37B</div><div class="wc-seg-pct">3.5%</div></div>
-  </div>
-  <div class="wc-seg" id="wcs-rest" style="background:rgba(255,255,255,.04);border:none;">
-    <div class="wc-seg-inner"><div class="wc-seg-cat" style="color:rgba(255,255,255,.4)">Rest of World</div><div class="wc-seg-amt" style="color:rgba(255,255,255,.35)">$526B</div><div class="wc-seg-pct" style="color:rgba(255,255,255,.3)">49.8%</div></div>
-  </div>
-</div>
-<div class="wc-legend">
-  <div class="wc-leg"><div class="wc-leg-dot" style="background:#1a3a6b;"></div>Alphabet $237B</div>
-  <div class="wc-leg"><div class="wc-leg-dot" style="background:#1a2a5e;"></div>Meta $164B</div>
-  <div class="wc-leg"><div class="wc-leg-dot" style="background:#3d2800;"></div>Amazon $56B</div>
-  <div class="wc-leg"><div class="wc-leg-dot" style="background:#1a2a1a;"></div>Apple + Microsoft $36B</div>
-  <div class="wc-leg"><div class="wc-leg-dot" style="background:#1a1a3a;"></div>Streaming & Media $37B</div>
-  <div class="wc-leg"><div class="wc-leg-dot" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);"></div>Rest of World $526B</div>
-</div>
-<script>
-const bar=document.getElementById('wc-bar');
-const io=new IntersectionObserver(entries=>{
-  if(!entries[0].isIntersecting)return;
-  bar.classList.add('vis');
-  setTimeout(()=>{
-    document.getElementById('wcs-alpha').style.flex='22.4';
-    document.getElementById('wcs-meta').style.flex='15.5';
-    document.getElementById('wcs-amzn').style.flex='5.3';
-    document.getElementById('wcs-other-bt').style.flex='3.4';
-    document.getElementById('wcs-media').style.flex='3.5';
-    document.getElementById('wcs-rest').style.flex='49.8';
-  },200);
-  io.unobserve(bar);
-},{threshold:0.2});
-io.observe(bar);
-</script>
-</div>
-""",
-    height=520,
+    "<style>@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');"
+    "html,body{margin:0;padding:0;background:#0d1117;}*{box-sizing:border-box;}"
+    "#wm-conc-root{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}"
+    ".wc-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}"
+    ".wc-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#e6edf3;margin:0 0 6px;}"
+    ".wc-sub{color:#8b949e;font-size:14px;margin:0 0 32px;}"
+    ".wc-bar-container{width:100%;height:110px;display:flex;border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;opacity:0;transform:translateY(12px);transition:opacity .8s ease,transform .8s ease;}"
+    ".wc-bar-container.vis{opacity:1;transform:translateY(0);}"
+    ".wc-seg{height:100%;transition:flex 1.6s cubic-bezier(.34,1.1,.64,1);flex:0;position:relative;border-right:2px solid rgba(255,255,255,0.15);overflow:hidden;}"
+    ".wc-seg:last-child{border-right:none;}.wc-seg:hover{filter:brightness(1.08);}"
+    ".wc-seg-inner{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 14px;}"
+    ".wc-seg-cat{font-size:10px;font-weight:700;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}"
+    ".wc-seg-amt{font-size:16px;font-weight:800;color:#fff;margin-top:3px;white-space:nowrap;}"
+    ".wc-seg-pct{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;white-space:nowrap;}"
+    ".wc-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;}"
+    ".wc-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}"
+    ".wc-leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}"
+    "</style>"
+    f"<div id='wm-conc-root'>"
+    f"<div class='wc-label'>THE CONCENTRATION</div>"
+    f"<div class='wc-headline'>Most of it went to very few hands.</div>"
+    f"<div class='wc-sub'>Of {_amt(_conc_total)} spent globally on advertising in {_conc_yr}, just {_conc_n_companies} companies captured {_conc_top_share:.0f}% of the market.</div>"
+    f"<div class='wc-bar-container' id='wc-bar'>"
+    + (f"<div class='wc-seg' id='wcs-alpha' style='background:linear-gradient(135deg,#1a3a6b,#0d2040);'><div class='wc-seg-inner'><div class='wc-seg-cat'>Alphabet</div><div class='wc-seg-amt'>{_amt(_conc_alpha)}</div><div class='wc-seg-pct'>{_pct(_conc_alpha)}%</div></div></div>" if _conc_alpha > 0 else "")
+    + (f"<div class='wc-seg' id='wcs-meta' style='background:linear-gradient(135deg,#1a2a5e,#0d1a40);'><div class='wc-seg-inner'><div class='wc-seg-cat'>Meta</div><div class='wc-seg-amt'>{_amt(_conc_meta)}</div><div class='wc-seg-pct'>{_pct(_conc_meta)}%</div></div></div>" if _conc_meta > 0 else "")
+    + (f"<div class='wc-seg' id='wcs-amzn' style='background:linear-gradient(135deg,#3d2800,#2a1800);'><div class='wc-seg-inner'><div class='wc-seg-cat'>Amazon</div><div class='wc-seg-amt'>{_amt(_conc_amzn)}</div><div class='wc-seg-pct'>{_pct(_conc_amzn)}%</div></div></div>" if _conc_amzn > 0 else "")
+    + (f"<div class='wc-seg' id='wcs-other-bt' style='background:linear-gradient(135deg,#1a2a1a,#0d1a0d);'><div class='wc-seg-inner'><div class='wc-seg-cat'>Apple+MSFT</div><div class='wc-seg-amt'>{_amt(_conc_apple_msft)}</div><div class='wc-seg-pct'>{_pct(_conc_apple_msft)}%</div></div></div>" if _conc_apple_msft > 0 else "")
+    + f"<div class='wc-seg' id='wcs-rest' style='background:rgba(255,255,255,.04);border:none;'><div class='wc-seg-inner'><div class='wc-seg-cat' style='color:rgba(255,255,255,.4)'>Rest of Market</div><div class='wc-seg-amt' style='color:rgba(255,255,255,.35)'>{_amt(_conc_rest)}</div><div class='wc-seg-pct' style='color:rgba(255,255,255,.3)'>{_pct(_conc_rest)}%</div></div></div>"
+    + "</div>"
+    + "<div class='wc-legend'>"
+    + (f"<div class='wc-leg'><div class='wc-leg-dot' style='background:#1a3a6b;'></div>Alphabet {_amt(_conc_alpha)}</div>" if _conc_alpha > 0 else "")
+    + (f"<div class='wc-leg'><div class='wc-leg-dot' style='background:#1a2a5e;'></div>Meta {_amt(_conc_meta)}</div>" if _conc_meta > 0 else "")
+    + (f"<div class='wc-leg'><div class='wc-leg-dot' style='background:#3d2800;'></div>Amazon {_amt(_conc_amzn)}</div>" if _conc_amzn > 0 else "")
+    + (f"<div class='wc-leg'><div class='wc-leg-dot' style='background:#1a2a1a;'></div>Apple + Microsoft {_amt(_conc_apple_msft)}</div>" if _conc_apple_msft > 0 else "")
+    + f"<div class='wc-leg'><div class='wc-leg-dot' style='background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);'></div>Rest of Market {_amt(_conc_rest)}</div>"
+    + "</div>"
+    + "<script>const bar=document.getElementById('wc-bar');const io=new IntersectionObserver(entries=>{"
+    + "if(!entries[0].isIntersecting)return;bar.classList.add('vis');setTimeout(()=>{"
+    + (f"document.getElementById('wcs-alpha').style.flex='{_pct(_conc_alpha)}';" if _conc_alpha > 0 else "")
+    + (f"document.getElementById('wcs-meta').style.flex='{_pct(_conc_meta)}';" if _conc_meta > 0 else "")
+    + (f"document.getElementById('wcs-amzn').style.flex='{_pct(_conc_amzn)}';" if _conc_amzn > 0 else "")
+    + (f"document.getElementById('wcs-other-bt').style.flex='{_pct(_conc_apple_msft)}';" if _conc_apple_msft > 0 else "")
+    + f"document.getElementById('wcs-rest').style.flex='{_pct(_conc_rest)}';"
+    + "},200);io.unobserve(bar);},{threshold:0.2});io.observe(bar);</script></div>",
+    height=480,
 )
 _separator()
 st.components.v1.html(
@@ -2738,8 +2742,8 @@ st.components.v1.html(
     """
 <div style="margin:0;padding:56px 0 20px;background:transparent;font-family:'DM Sans',sans-serif;">
 <style>
-html,body{margin:0;padding:0;background:transparent;}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+html,body{margin:0;padding:0;background:#0d1117;}
 </style>
 <div style="color:#ff5b1f;font-size:0.7rem;letter-spacing:0.28em;text-transform:uppercase;margin-bottom:10px;font-family:'DM Sans',sans-serif;">The Duopoly</div>
 <div style="color:#ffffff;font-size:1.45rem;font-weight:700;line-height:1.25;margin-bottom:16px;font-family:'Syne',sans-serif;">Two companies. One grip.</div>
@@ -2791,6 +2795,9 @@ html,body{margin:0;padding:0;background:#0d1117;}
 var AD="""
     + _ad_json_str
     + """;
+var GROUPM="""
+    + _groupm_json_str
+    + """;
 var canvas=document.getElementById('wmd-canvas');
 var ctx=canvas.getContext('2d');
 var cx=130,cy=130,r=110,ir=66;
@@ -2809,8 +2816,9 @@ function drawDonut(duoPct){
 var YEARS=Object.keys(AD).map(Number).sort(function(a,b){return a-b;});
 function getYearStats(yr){
   var data=AD[yr]||{};
-  var total=0,duo=0;
-  Object.keys(data).forEach(function(k){if(data[k]>0)total+=data[k];});
+  var total=GROUPM[yr]||0;
+  if(!total){Object.keys(data).forEach(function(k){if(data[k]>0)total+=data[k];});}
+  var duo=0;
   if(data['Alphabet'])duo+=data['Alphabet'];
   if(data['Meta'])duo+=data['Meta'];
   return{total:total,duo:duo,pct:total>0?duo/total:0};

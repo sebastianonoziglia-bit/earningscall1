@@ -3764,14 +3764,13 @@ def main():
         value_mode = st.radio("View mode", ["Absolute", "% of total"], horizontal=True)
     with segment_controls_row[3]:
         # Prefer quarterly sheets (per-company) when available.
-        if has_quarterly_segments and "segment_evolution_freq" not in st.session_state:
-            st.session_state["segment_evolution_freq"] = "Quarterly"
+        if "segment_evolution_freq" not in st.session_state:
+            st.session_state["segment_evolution_freq"] = "Quarterly" if has_quarterly_segments else "Yearly"
         segment_freq = st.radio(
             "Frequency",
             ["Yearly", "Quarterly"],
             horizontal=True,
             key="segment_evolution_freq",
-            index=1 if has_quarterly_segments else 0,
         )
 
     df_segments = data_processor.df_segments
