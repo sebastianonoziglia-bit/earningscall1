@@ -2414,15 +2414,38 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
   <div class="wa-label">THE AD DUOPOLY</div>
   <div class="wa-headline">Two companies. Most of the money.</div>
   <div class="wa-body">Watch how Alphabet and Meta came to dominate digital advertising &#8212; from 2010 to today.</div>
-  <div style="display:flex;width:100%;height:440px;align-items:stretch;margin-top:8px;">
-    <div style="width:26%;display:flex;flex-direction:column;justify-content:center;padding:0 20px 0 4px;border-right:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
-      <div style="color:#8b949e;font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:4px;">Year</div>
-      <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:68px;font-weight:800;color:#e6edf3;line-height:1;transition:opacity .2s ease;">2010</div>
-      <div style="height:3px;width:100%;background:rgba(255,255,255,0.08);border-radius:2px;margin:14px 0 20px;"><div id="wa-dup-prog" style="height:100%;background:#ff5b1f;border-radius:2px;width:0%;transition:width 1s ease;"></div></div>
-      <div style="color:#8b949e;font-size:11px;margin-bottom:4px;">Total digital ad market</div>
-      <div id="wa-dup-tot" style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#ff5b1f;line-height:1.1;margin-bottom:18px;">&#8212;</div>
-      <div style="color:#8b949e;font-size:11px;margin-bottom:4px;">Alphabet + Meta share</div>
-      <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#4285f4;line-height:1.1;">&#8212;%</div>
+  <div style="display:flex;width:100%;height:460px;align-items:stretch;margin-top:8px;">
+    <div style="width:30%;display:flex;flex-direction:column;padding:16px 20px 16px 4px;border-right:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
+      <div style="color:#8b949e;font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:2px;">Year</div>
+      <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:64px;font-weight:800;color:#e6edf3;line-height:1;transition:opacity .2s ease;">—</div>
+      <div style="height:2px;width:100%;background:rgba(255,255,255,0.08);border-radius:2px;margin:10px 0 18px;"><div id="wa-dup-prog" style="height:100%;background:#ff5b1f;border-radius:2px;width:0%;transition:width 1s ease;"></div></div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;background:#4285f4;border-radius:2px;flex-shrink:0;"></div><span style="font-size:11px;color:#8b949e;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Alphabet</span></div>
+            <span id="wa-alp-val" style="font-size:13px;font-weight:800;color:#e6edf3;font-family:'Syne',sans-serif;"></span>
+          </div>
+          <div style="height:14px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div id="wa-alp-bar" style="height:100%;width:0%;background:#4285f4;border-radius:4px;transition:width 1.2s cubic-bezier(.22,1,.36,1);"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;background:#0866ff;border-radius:2px;flex-shrink:0;"></div><span style="font-size:11px;color:#8b949e;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Meta</span></div>
+            <span id="wa-meta-val" style="font-size:13px;font-weight:800;color:#e6edf3;font-family:'Syne',sans-serif;"></span>
+          </div>
+          <div style="height:14px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div id="wa-meta-bar" style="height:100%;width:0%;background:#0866ff;border-radius:4px;transition:width 1.2s cubic-bezier(.22,1,.36,1);"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;background:#4a4a4a;border-radius:2px;flex-shrink:0;"></div><span style="font-size:11px;color:#8b949e;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Rest of Digital</span></div>
+            <span id="wa-rest-val" style="font-size:13px;font-weight:800;color:#8b949e;font-family:'Syne',sans-serif;"></span>
+          </div>
+          <div style="height:14px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div id="wa-rest-bar" style="height:100%;width:0%;background:#4a4a4a;border-radius:4px;transition:width 1.2s cubic-bezier(.22,1,.36,1);"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:flex-end;">
+        <div><div style="color:#8b949e;font-size:10px;margin-bottom:2px;">Total market</div><div id="wa-dup-tot" style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#ff5b1f;line-height:1.1;">&#8212;</div></div>
+        <div style="text-align:right;"><div style="color:#8b949e;font-size:10px;margin-bottom:2px;">Duo share</div><div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#4285f4;line-height:1.1;">&#8212;%</div></div>
+      </div>
     </div>
     <div id="wa-dup-field" style="flex:1;position:relative;height:100%;overflow:hidden;min-width:0;"></div>
   </div>
@@ -2469,7 +2492,7 @@ var COMPANIES=[
 ];
 var MAX_R=90,MIN_R=10;
 var ALL_VALS=[];
-Object.keys(AD_DATA).forEach(function(y){var yr=AD_DATA[y];Object.keys(yr).forEach(function(k){ALL_VALS.push(yr[k]);});});
+Object.keys(USE_DATA).forEach(function(y){var yr=USE_DATA[y];Object.keys(yr).forEach(function(k){ALL_VALS.push(yr[k]);});});
 var MAX_VAL=ALL_VALS.length?Math.max.apply(null,ALL_VALS):1;
 function logR(v){if(!v||v<=0)return 0;return MIN_R+(MAX_R-MIN_R)*Math.log(v+1)/Math.log(MAX_VAL+1);}
 var field=document.getElementById('wa-dup-field');
@@ -2488,23 +2511,51 @@ if(field){
     bubs[c.id]={el:el,cid:cid};
   });
 }
-var YEARS=Object.keys(AD_DATA).map(Number).sort(function(a,b){return a-b;});
-var stepIdx=0,started=false,aTimer=null;
+// Fallback dataset so bubbles always display even when live data is unavailable
+var FALLBACK_DATA={
+  2010:{"Alphabet":29,"Meta":2,"Amazon":0.8,"Microsoft":2.5},
+  2012:{"Alphabet":43,"Meta":5,"Amazon":1.5,"Microsoft":3.5,"Twitter/X":0.5},
+  2014:{"Alphabet":59,"Meta":12,"Amazon":2.5,"Microsoft":4,"Twitter/X":1.3,"Snapchat":0.1},
+  2016:{"Alphabet":79,"Meta":27,"Amazon":4,"Microsoft":5,"Twitter/X":2.5,"Snapchat":0.8},
+  2018:{"Alphabet":117,"Meta":55,"Amazon":10,"Microsoft":7,"Twitter/X":3,"Snapchat":1.2},
+  2020:{"Alphabet":147,"Meta":86,"Amazon":21,"Microsoft":8,"Twitter/X":3.5,"Snapchat":2.5},
+  2022:{"Alphabet":225,"Meta":116,"Amazon":38,"Microsoft":12,"TikTok":10,"Twitter/X":4.5,"Snapchat":4.6},
+  2024:{"Alphabet":265,"Meta":160,"Amazon":57,"Microsoft":18,"TikTok":22,"Netflix":3.9,"Snapchat":5,"Twitter/X":3.4}
+};
+// Merge: live data takes priority, fallback fills gaps
+var MERGED_DATA={};
+Object.keys(FALLBACK_DATA).forEach(function(y){MERGED_DATA[y]=FALLBACK_DATA[y];});
+Object.keys(AD_DATA).forEach(function(y){if(Object.keys(AD_DATA[y]).length>0)MERGED_DATA[y]=AD_DATA[y];});
+var USE_DATA=MERGED_DATA;
+var YEARS=Object.keys(USE_DATA).map(Number).sort(function(a,b){return a-b;});
+var stepIdx=0,aTimer=null;
 function updateYear(yr){
-  var data=AD_DATA[yr]||{};
+  var data=USE_DATA[yr]||{};
   var yrEl=document.getElementById('wa-dup-yr');
   if(yrEl){yrEl.style.opacity='0';setTimeout(function(){yrEl.textContent=yr;yrEl.style.opacity='1';},200);}
   var total=GROUPM_DATA[yr]||0;
   if(!total){Object.keys(data).forEach(function(k){if(data[k]>0)total+=data[k];});}
-  var duo=0;
-  if(data['Alphabet'])duo+=data['Alphabet'];
-  if(data['Meta'])duo+=data['Meta'];
+  var alpVal=data['Alphabet']||0;
+  var metaVal=data['Meta']||0;
+  var duo=alpVal+metaVal;
   var tEl=document.getElementById('wa-dup-tot');
   var pEl=document.getElementById('wa-dup-pct');
   var prEl=document.getElementById('wa-dup-prog');
-  if(tEl)tEl.textContent='$'+(total>=1000?(total/1000).toFixed(1)+'T':total.toFixed(0)+'B');
+  if(tEl)tEl.textContent=total>0?'$'+(total>=1000?(total/1000).toFixed(1)+'T':total.toFixed(0)+'B'):'—';
   if(pEl)pEl.textContent=total>0?(duo/total*100).toFixed(0)+'%':'—%';
   if(prEl){var idx=YEARS.indexOf(yr);var pct=YEARS.length>1?idx/(YEARS.length-1)*100:100;prEl.style.width=pct+'%';}
+  // Update mini bar chart in left panel
+  var alpPct=total>0?Math.min(alpVal/total*100,100):0;
+  var metaPct=total>0?Math.min(metaVal/total*100,100):0;
+  var restPct=Math.max(0,100-alpPct-metaPct);
+  var alpBar=document.getElementById('wa-alp-bar'),metaBar=document.getElementById('wa-meta-bar'),restBar=document.getElementById('wa-rest-bar');
+  var alpValEl=document.getElementById('wa-alp-val'),metaValEl=document.getElementById('wa-meta-val'),restValEl=document.getElementById('wa-rest-val');
+  if(alpBar)alpBar.style.width=alpPct+'%';
+  if(metaBar)metaBar.style.width=metaPct+'%';
+  if(restBar)restBar.style.width=restPct+'%';
+  if(alpValEl)alpValEl.textContent=alpVal>0?'$'+alpVal.toFixed(0)+'B':'—';
+  if(metaValEl)metaValEl.textContent=metaVal>0?'$'+metaVal.toFixed(0)+'B':'—';
+  if(restValEl){var restAbs=total-duo;restValEl.textContent=restAbs>0?'$'+restAbs.toFixed(0)+'B':'—';}
   COMPANIES.forEach(function(c){
     var val=data[c.id]||0;
     var b=bubs[c.id];
