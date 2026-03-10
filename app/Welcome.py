@@ -1408,6 +1408,29 @@ _global_adv_totals: "pd.Series" = (
     global_adv_df.groupby("year")["value"].sum() / 1_000.0
 ).round(1) if not global_adv_df.empty else pd.Series(dtype=float)
 
+# Build structural-shift donut data from real channel-level data ($M values)
+_ss_mt_to_ch = {
+    "Free TV": "Free TV", "Pay TV": "Free TV",
+    "Magazine": "Print", "Newspaper": "Print",
+    "Search Desktop": "Digital Search", "Search Mobile": "Digital Search",
+    "Social Desktop": "Digital Social", "Social Mobile": "Digital Social",
+    "Video Desktop": "Digital Video", "Video Mobile": "Digital Video",
+}
+_ss_data: dict = {}
+if not global_adv_df.empty:
+    _ss_keys = ["Free TV", "Print", "Digital Search", "Digital Social", "Digital Video", "Everything Else"]
+    for _ss_yr, _ss_grp in global_adv_df.groupby("year"):
+        _yr_dict: dict = {k: 0.0 for k in _ss_keys}
+        for _, _ss_row in _ss_grp.iterrows():
+            _mt = str(_ss_row.get("metric_type", "")).strip()
+            # Strip trailing " Worldwide" suffix if present
+            _mt = _mt.replace(" Worldwide", "").strip()
+            _ch = _ss_mt_to_ch.get(_mt, "Everything Else")
+            _yr_dict[_ch] += float(_ss_row["value"])
+        if sum(_yr_dict.values()) > 0:
+            _ss_data[int(_ss_yr)] = {k: round(v) for k, v in _yr_dict.items()}
+_ss_data_json = json.dumps(_ss_data)
+
 # Serialize ad revenue data for animated bubble chart JS
 _ad_col_map = {
     "Google_Ads": "Alphabet", "Meta_Ads": "Meta", "Amazon_Ads": "Amazon",
@@ -2220,35 +2243,36 @@ st.caption("Map shows advertising spend by country as a % of GDP. Darker = highe
 _separator()
 
 # Beat 1.5 — Structural Shift donut animation
-st.components.v1.html(
-    """
+@st.cache_data(show_spinner=False)
+def _build_ss_html(ss_data_json: str) -> str:
+    return f"""
 <div id="wm-ss-root">
 <style>
-html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
+html,body{{margin:0;padding:0;background:#0d1117;border:none;outline:none;}}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-ss-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
-#wm-ss-root *{box-sizing:border-box;}
-.wm-ss-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
-.wm-ss-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;line-height:1.14;margin:0 0 8px;font-weight:800;}
-.wm-ss-body{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 20px;}
-.wm-ss-main{display:flex;gap:24px;align-items:center;min-height:280px;}
-.wm-ss-left{width:55%;display:flex;justify-content:center;align-items:center;}
-.wm-ss-right{width:45%;padding:0 8px;}
-.wm-ss-year{font-family:'Syne',sans-serif;font-size:72px;font-weight:800;color:#e6edf3;line-height:1;}
-.wm-ss-yearlabel{color:#8b949e;font-size:13px;margin-top:8px;line-height:1.4;}
-.wm-ss-total{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-top:12px;}
-.wm-ss-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
-.wm-ss-leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
-.wm-ss-leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+#wm-ss-root{{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}}
+#wm-ss-root *{{box-sizing:border-box;}}
+.wm-ss-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}}
+.wm-ss-headline{{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;line-height:1.14;margin:0 0 8px;font-weight:800;}}
+.wm-ss-body{{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 20px;}}
+.wm-ss-main{{display:flex;gap:24px;align-items:center;min-height:280px;}}
+.wm-ss-left{{width:55%;display:flex;justify-content:center;align-items:center;}}
+.wm-ss-right{{width:45%;padding:0 8px;}}
+.wm-ss-year{{font-family:'Syne',sans-serif;font-size:72px;font-weight:800;color:#e6edf3;line-height:1;}}
+.wm-ss-yearlabel{{color:#8b949e;font-size:13px;margin-top:8px;line-height:1.4;}}
+.wm-ss-total{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-top:12px;}}
+.wm-ss-legend{{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}}
+.wm-ss-leg-item{{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}}
+.wm-ss-leg-dot{{width:10px;height:10px;border-radius:3px;flex-shrink:0;}}
 </style>
 <div class="wm-ss-label">THE STRUCTURAL SHIFT</div>
 <div class="wm-ss-headline">Television had the world's attention.<br>Then the internet took it.</div>
-<div class="wm-ss-body">Global advertising by medium, 1999–2024. Watch where the money moved.</div>
+<div class="wm-ss-body">Global advertising by channel. Watch where the money moved.</div>
 <div class="wm-ss-main">
   <div class="wm-ss-left"><canvas id="wm-ss-canvas" width="280" height="280"></canvas></div>
   <div class="wm-ss-right">
-    <div class="wm-ss-year" id="wm-ss-yr">1999</div>
-    <div class="wm-ss-yearlabel" id="wm-ss-lbl">TV dominates. Internet is a rounding error.</div>
+    <div class="wm-ss-year" id="wm-ss-yr">—</div>
+    <div class="wm-ss-yearlabel" id="wm-ss-lbl"></div>
     <div class="wm-ss-total" id="wm-ss-tot"></div>
   </div>
 </div>
@@ -2262,34 +2286,52 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 </div>
 <script>
 const KEYS=["Free TV","Print","Digital Search","Digital Social","Digital Video","Everything Else"];
-const COLORS={"Free TV":"#3a5a8c","Print":"#6b7280","Digital Search":"#ff5b1f","Digital Social":"#f59e0b","Digital Video":"#10b981","Everything Else":"#374151"};
-const DATA={
-  1999:{"Free TV":72456,"Print":60771,"Digital Search":505,"Digital Social":0,"Digital Video":0,"Everything Else":136083},
-  2004:{"Free TV":98000,"Print":80000,"Digital Search":8000,"Digital Social":0,"Digital Video":0,"Everything Else":110000},
-  2008:{"Free TV":138000,"Print":95000,"Digital Search":65000,"Digital Social":500,"Digital Video":800,"Everything Else":115000},
-  2012:{"Free TV":175000,"Print":68000,"Digital Search":142000,"Digital Social":18000,"Digital Video":4000,"Everything Else":98000},
-  2016:{"Free TV":192000,"Print":52000,"Digital Search":235000,"Digital Social":95000,"Digital Video":18000,"Everything Else":108000},
-  2019:{"Free TV":185000,"Print":38000,"Digital Search":298000,"Digital Social":178000,"Digital Video":38000,"Everything Else":119000},
-  2021:{"Free TV":178000,"Print":33000,"Digital Search":368000,"Digital Social":284000,"Digital Video":58000,"Everything Else":128000},
-  2024:{"Free TV":167000,"Print":44000,"Digital Search":331000,"Digital Social":218000,"Digital Video":77000,"Everything Else":219000}
-};
-const LABELS={1999:"TV dominates. Internet is a rounding error.",2004:"Search starts to matter.",2008:"Mobile arrives. Print begins its decline.",2012:"Social explodes on mobile.",2016:"Digital overtakes TV for the first time.",2019:"Mobile search surpasses all of TV.",2021:"Pandemic accelerates everything digital.",2024:"Search + Social = 60% of all ad spend."};
-const YEARS=Object.keys(DATA).map(Number);
+const COLORS={{"Free TV":"#3a5a8c","Print":"#6b7280","Digital Search":"#ff5b1f","Digital Social":"#f59e0b","Digital Video":"#10b981","Everything Else":"#374151"}};
+const DATA={ss_data_json};
+const LABELS={{
+  1999:"TV dominates. Internet is a rounding error.",
+  2000:"The dot-com bubble. Digital spend is minimal.",
+  2001:"Dot-com bust. Traditional media holds firm.",
+  2002:"Recovery. Print still leads all digital combined.",
+  2003:"Search advertising takes root.",
+  2004:"Search starts to matter.",
+  2005:"Google goes public. Search accelerates.",
+  2006:"YouTube launches. Video is coming.",
+  2007:"iPhone arrives. The mobile era begins.",
+  2008:"Mobile arrives. Print begins its long decline.",
+  2009:"Financial crisis. Ad budgets contract sharply.",
+  2010:"Recovery. Digital now rivals radio spend.",
+  2011:"Social explodes as Facebook hits 500M users.",
+  2012:"Social explodes on mobile.",
+  2013:"Mobile search surpasses desktop search.",
+  2014:"Programmatic display transforms ad buying.",
+  2015:"Digital overtakes TV in the largest markets.",
+  2016:"Digital overtakes TV globally for the first time.",
+  2017:"Duopoly: Google + Meta capture most digital spend.",
+  2018:"GDPR reshapes data and targeting.",
+  2019:"Mobile search surpasses all of TV.",
+  2020:"Pandemic. Streaming surges. OOH collapses.",
+  2021:"Pandemic accelerates everything digital.",
+  2022:"Retail media rises. Privacy changes hit targeting.",
+  2023:"AI reshapes search. Retail media surpasses $100B.",
+  2024:"Search + Social = 60% of all ad spend."
+}};
+const YEARS=Object.keys(DATA).map(Number).sort((a,b)=>a-b);
 const canvas=document.getElementById('wm-ss-canvas');
 const ctx=canvas.getContext('2d');
-let currentFrame=0,animating=false,currentAngles=null,targetAngles=null,rafId=null,stepIdx=0,pauseTimer=null;
-function getAngles(yr){const d=DATA[yr];const total=KEYS.reduce((s,k)=>s+d[k],0);let a=-Math.PI/2;return KEYS.map(k=>{const slice=(d[k]/total)*Math.PI*2;const start=a;a+=slice;return{start,end:a,color:COLORS[k]};});}
-function lerp(a,b,t){return a+(b-a)*t;}
-function drawDonut(angles){ctx.clearRect(0,0,280,280);const cx=140,cy=140,r=120,ir=72;angles.forEach(s=>{ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,s.start,s.end);ctx.closePath();ctx.fillStyle=s.color;ctx.fill();});ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='#0d1117';ctx.fill();}
-function animateTo(from,to,onDone){let t=0;function step(){t=Math.min(t+0.04,1);const interp=from.map((s,i)=>({start:lerp(s.start,to[i].start,t),end:lerp(s.end,to[i].end,t),color:to[i].color}));drawDonut(interp);if(t<1){rafId=requestAnimationFrame(step);}else{onDone();}}rafId=requestAnimationFrame(step);}
-function formatB(yr){const total=KEYS.reduce((s,k)=>s+DATA[yr][k],0);return'$'+(total/1000).toFixed(0)+'B total';}
-function runStep(){if(stepIdx>=YEARS.length){stepIdx=0;}const yr=YEARS[stepIdx];const to=getAngles(yr);document.getElementById('wm-ss-yr').textContent=yr;document.getElementById('wm-ss-lbl').textContent=LABELS[yr];document.getElementById('wm-ss-tot').textContent=formatB(yr);const pause=yr===2024?2000:700;animateTo(currentAngles||to,to,()=>{currentAngles=to;stepIdx++;pauseTimer=setTimeout(runStep,pause);});};
-currentAngles=getAngles(1999);drawDonut(currentAngles);stepIdx=1;pauseTimer=setTimeout(runStep,800);
+let currentAngles=null,rafId=null,stepIdx=0,pauseTimer=null;
+function getAngles(yr){{const d=DATA[yr];const total=KEYS.reduce((s,k)=>s+d[k],0);let a=-Math.PI/2;return KEYS.map(k=>{{const slice=total>0?(d[k]/total)*Math.PI*2:0;const start=a;a+=slice;return{{start,end:a,color:COLORS[k]}};}}); }}
+function lerp(a,b,t){{return a+(b-a)*t;}}
+function drawDonut(angles){{ctx.clearRect(0,0,280,280);const cx=140,cy=140,r=120,ir=72;angles.forEach(s=>{{ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,s.start,s.end);ctx.closePath();ctx.fillStyle=s.color;ctx.fill();}});ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='#0d1117';ctx.fill();}}
+function animateTo(from,to,onDone){{let t=0;function step(){{t=Math.min(t+0.04,1);const interp=from.map((s,i)=>(({{start:lerp(s.start,to[i].start,t),end:lerp(s.end,to[i].end,t),color:to[i].color}})));drawDonut(interp);if(t<1){{rafId=requestAnimationFrame(step);}}else{{onDone();}}}}rafId=requestAnimationFrame(step);}}
+function formatB(yr){{const total=KEYS.reduce((s,k)=>s+DATA[yr][k],0);return'$'+(total/1000).toFixed(0)+'B total';}}
+function runStep(){{if(stepIdx>=YEARS.length){{stepIdx=0;}}const yr=YEARS[stepIdx];const to=getAngles(yr);document.getElementById('wm-ss-yr').textContent=yr;document.getElementById('wm-ss-lbl').textContent=LABELS[yr]||'';document.getElementById('wm-ss-tot').textContent=formatB(yr);const lastYr=YEARS[YEARS.length-1];const pause=yr===lastYr?2000:700;animateTo(currentAngles||to,to,()=>{{currentAngles=to;stepIdx++;pauseTimer=setTimeout(runStep,pause);}});}}
+if(YEARS.length>0){{currentAngles=getAngles(YEARS[0]);drawDonut(currentAngles);document.getElementById('wm-ss-yr').textContent=YEARS[0];document.getElementById('wm-ss-lbl').textContent=LABELS[YEARS[0]]||'';document.getElementById('wm-ss-tot').textContent=formatB(YEARS[0]);stepIdx=1;pauseTimer=setTimeout(runStep,800);}}
 </script>
 </div>
-""",
-    height=540,
-)
+"""
+
+st.components.v1.html(_build_ss_html(_ss_data_json), height=540)
 _separator()
 
 @st.cache_data(show_spinner=False)
