@@ -2498,13 +2498,13 @@ _trad_cats = [
     ("Cinema",          ["Cinema Worldwide"],                             "#161616"),
 ]
 
-# Build ordered segments list
+# Build ordered segments — brand colors for named companies, grey tones for rest
 _conc_segments = []
-if _conc_alpha    > 0: _conc_segments.append({"category": "Alphabet",    "amount": round(_conc_alpha, 1),    "percent": _conc_alpha    / _conc_total * 100, "color": "#ff4202"})
-if _conc_meta     > 0: _conc_segments.append({"category": "Meta",        "amount": round(_conc_meta, 1),     "percent": _conc_meta     / _conc_total * 100, "color": "#ff6b3d"})
-if _conc_amzn     > 0: _conc_segments.append({"category": "Amazon",      "amount": round(_conc_amzn, 1),     "percent": _conc_amzn     / _conc_total * 100, "color": "#ff8f5e"})
-if _conc_apple_msft > 0: _conc_segments.append({"category": "Apple + MSFT", "amount": round(_conc_apple_msft, 1), "percent": _conc_apple_msft / _conc_total * 100, "color": "#ffb380"})
-if _digital_other > 0.5: _conc_segments.append({"category": "Other Digital", "amount": round(_digital_other, 1), "percent": _digital_other / _conc_total * 100, "color": "#555555"})
+if _conc_alpha    > 0: _conc_segments.append({"category": "Alphabet",      "amount": round(_conc_alpha, 1),     "percent": _conc_alpha     / _conc_total * 100, "color": "#1a73e8"})
+if _conc_meta     > 0: _conc_segments.append({"category": "Meta",          "amount": round(_conc_meta, 1),      "percent": _conc_meta      / _conc_total * 100, "color": "#0866ff"})
+if _conc_amzn     > 0: _conc_segments.append({"category": "Amazon",        "amount": round(_conc_amzn, 1),      "percent": _conc_amzn      / _conc_total * 100, "color": "#ff9900"})
+if _conc_apple_msft > 0: _conc_segments.append({"category": "Apple + MSFT", "amount": round(_conc_apple_msft, 1), "percent": _conc_apple_msft / _conc_total * 100, "color": "#0078d4"})
+if _digital_other > 0.5: _conc_segments.append({"category": "Other Digital", "amount": round(_digital_other, 1), "percent": _digital_other  / _conc_total * 100, "color": "#4a4a4a"})
 for _cat_name, _cat_keys, _cat_color in _trad_cats:
     _cat_val = sum(_conc_by_type.get(k, 0.0) for k in _cat_keys)
     if _cat_val > 0.5:
@@ -2522,38 +2522,42 @@ html,body{{margin:0;padding:0;background:#0d1117;}}
 .wc-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
 .wc-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#e6edf3;margin:0 0 6px;}}
 .wc-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
-.bar-container{{width:100%;height:130px;display:flex;position:relative;z-index:2;border-radius:8px;overflow:visible;border:1px solid #2a2a2a;}}
-.bar-segment{{height:100%;transition:opacity .2s;cursor:pointer;position:relative;border-right:2px solid rgba(255,255,255,0.6);overflow:visible;flex-shrink:0;}}
+.bar-wrap{{position:relative;width:100%;}}
+.bar-container{{width:100%;height:130px;display:flex;position:relative;z-index:2;border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;}}
+.bar-segment{{height:100%;transition:opacity .2s;cursor:pointer;position:relative;border-right:2px solid rgba(255,255,255,0.18);flex-shrink:0;}}
 .bar-segment:first-child{{border-radius:8px 0 0 8px;}}
 .bar-segment:last-child{{border-right:none;border-radius:0 8px 8px 0;}}
-.bar-segment:hover{{filter:brightness(1.08);}}
+.bar-segment:hover{{filter:brightness(1.12);}}
 .seg-label{{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 12px;pointer-events:none;overflow:hidden;}}
-.seg-label-cat{{font-size:10px;font-weight:700;color:rgba(255,255,255,.80);text-transform:uppercase;letter-spacing:.05em;line-height:1.2;white-space:nowrap;}}
+.seg-label-cat{{font-size:10px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.05em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
 .seg-label-amt{{font-size:15px;font-weight:800;color:#fff;line-height:1.25;margin-top:3px;white-space:nowrap;}}
 .seg-label-pct{{font-size:11px;font-weight:400;color:rgba(255,255,255,.72);line-height:1.2;margin-top:1px;white-space:nowrap;}}
-#bar-above-labels{{position:relative;width:100%;}}
-.seg-above-label{{position:absolute;border-radius:6px;padding:7px 10px;white-space:nowrap;pointer-events:none;z-index:20;box-shadow:0 2px 10px rgba(0,0,0,.3);transform:translateX(-50%);}}
-.seg-above-label-cat{{font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.04em;}}
-.seg-above-label-amt{{font-size:13px;font-weight:800;color:#fff;margin-top:2px;}}
-.seg-above-label-pct{{font-size:10px;color:rgba(255,255,255,.7);margin-top:1px;}}
+/* Below-bar callouts for narrow segments */
+#callouts-below{{position:relative;width:100%;height:130px;margin-top:0;}}
+.callout-line{{position:absolute;top:0;width:1px;opacity:0.5;transform:translateX(-50%);}}
+.callout-card{{position:absolute;border-radius:6px;padding:7px 10px;white-space:nowrap;pointer-events:none;transform:translateX(-50%);box-shadow:0 2px 8px rgba(0,0,0,.4);}}
+.callout-card-cat{{font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.04em;}}
+.callout-card-amt{{font-size:13px;font-weight:800;color:#fff;margin-top:2px;}}
+.callout-card-pct{{font-size:10px;color:rgba(255,255,255,.7);margin-top:1px;}}
 </style>
 <div id="conc-root">
   <div class="wc-label">THE CONCENTRATION</div>
   <div class="wc-headline">Most of it went to very few hands.</div>
   <div class="wc-sub">Of ${_conc_total:.0f}B spent globally on advertising in {_conc_yr}, 4 companies captured {_conc_top_share:.0f}% of the market.</div>
-  <div id="bar-above-labels" style="height:0px;margin-bottom:0;"></div>
-  <div class="bar-container" id="barContainer"></div>
+  <div class="bar-wrap">
+    <div class="bar-container" id="barContainer"></div>
+    <div id="callouts-below"></div>
+  </div>
 </div>
 <script>
 const SEGMENTS = {_conc_segments_json};
-const TOTAL = {_conc_total:.1f};
-const INLINE_THRESHOLD = 6.5;
+const INLINE_THRESHOLD = 5.5;
 
-function fmtAmt(b) {{ return '$' + (b >= 1000 ? (b/1000).toFixed(1) + 'T' : b.toFixed(0) + 'B'); }}
+function fmtAmt(b) {{ return '$' + (b >= 1000 ? (b/1000).toFixed(1) + 'T' : Math.round(b) + 'B'); }}
 function fmtPct(p) {{ return p.toFixed(1) + '%'; }}
 
 const barContainer = document.getElementById('barContainer');
-const aboveLabelsEl = document.getElementById('bar-above-labels');
+const calloutsBelow = document.getElementById('callouts-below');
 
 let cumPct = 0;
 const smallItems = [];
@@ -2564,11 +2568,9 @@ for (const segment of SEGMENTS) {{
   seg.className = 'bar-segment';
   seg.style.width = pct + '%';
   seg.style.background = segment.color;
-  seg.title = segment.category + ': ' + fmtAmt(segment.amount) + ' (' + fmtPct(segment.percent) + ')';
 
   if (pct >= INLINE_THRESHOLD) {{
-    const lbl = document.createElement('div');
-    lbl.className = 'seg-label';
+    const lbl = document.createElement('div'); lbl.className = 'seg-label';
     const c = document.createElement('div'); c.className = 'seg-label-cat'; c.textContent = segment.category;
     const a = document.createElement('div'); a.className = 'seg-label-amt'; a.textContent = fmtAmt(segment.amount);
     const p = document.createElement('div'); p.className = 'seg-label-pct'; p.textContent = fmtPct(segment.percent);
@@ -2582,54 +2584,73 @@ for (const segment of SEGMENTS) {{
   barContainer.appendChild(seg);
 }}
 
+/* Layout callouts below the bar with collision resolution */
 if (smallItems.length > 0) {{
-  smallItems.sort((a, b) => a.cx_pct - b.cx_pct);
-  const LABEL_W_PCT = 0.14;
-  const ROW_H = 72;
-  const GAP_PCT = 0.005;
-  const rows = [];
-  smallItems.forEach(item => {{
-    let row = 0;
-    while (rows[row] !== undefined && item.cx_pct - LABEL_W_PCT / 2 < rows[row] + GAP_PCT) row++;
-    rows[row] = item.cx_pct + LABEL_W_PCT / 2;
-    item.row = row;
-  }});
-  const totalRows = rows.length || 1;
-  aboveLabelsEl.style.height = (totalRows * ROW_H + 12) + 'px';
-  aboveLabelsEl.style.marginBottom = '4px';
+  requestAnimationFrame(function() {{
+    const barW = barContainer.getBoundingClientRect().width || 800;
+    const CARD_H = 68;
+    const ROW_H = CARD_H + 18;  /* card + gap between rows */
+    const LINE_BASE = 8;        /* gap between bar bottom and first card row */
 
-  smallItems.forEach(item => {{
-    const {{ cx_pct, segment, row }} = item;
-    const bottomOffset = row * ROW_H + 8;
-    const lbl = document.createElement('div');
-    lbl.className = 'seg-above-label';
-    lbl.style.background = segment.color;
-    lbl.style.bottom = bottomOffset + 'px';
-    lbl.style.left = (cx_pct * 100) + '%';
-    const c = document.createElement('div'); c.className = 'seg-above-label-cat'; c.textContent = segment.category;
-    const a = document.createElement('div'); a.className = 'seg-above-label-amt'; a.textContent = fmtAmt(segment.amount);
-    const p = document.createElement('div'); p.className = 'seg-above-label-pct'; p.textContent = fmtPct(segment.percent);
-    lbl.appendChild(c); lbl.appendChild(a); lbl.appendChild(p);
-    aboveLabelsEl.appendChild(lbl);
+    /* Assign rows to avoid overlaps — items sorted left→right */
+    smallItems.sort((a, b) => a.cx_pct - b.cx_pct);
+    /* Use pixel widths after render — estimate 110px per card as default */
+    const CARD_W_EST = 112;
+    const GAP = 12;
+    const rows = [];           /* rows[i] = rightmost pixel used */
 
-    // Clamp label to bar bounds
-    requestAnimationFrame(() => {{
-      const hostW = Math.max(1, aboveLabelsEl.getBoundingClientRect().width || 1);
-      const labelW = Math.max(1, lbl.getBoundingClientRect().width || 1);
-      const edgeInset = 8;
-      const halfPct = ((labelW / 2) + edgeInset) / hostW * 100;
-      const rawPct = cx_pct * 100;
-      const clamped = Math.max(halfPct, Math.min(100 - halfPct, rawPct));
-      lbl.style.left = clamped + '%';
-      // connector line
+    smallItems.forEach(item => {{
+      const leftPx = item.cx_pct * barW - CARD_W_EST / 2;
+      let row = 0;
+      while (rows[row] !== undefined && leftPx < rows[row] + GAP) row++;
+      rows[row] = leftPx + CARD_W_EST;
+      item.row = row;
+    }});
+
+    const maxRow = Math.max(...smallItems.map(i => i.row));
+    calloutsBelow.style.height = ((maxRow + 1) * ROW_H + LINE_BASE + 16) + 'px';
+
+    smallItems.forEach(item => {{
+      const {{ cx_pct, segment, row }} = item;
+      const lineH = LINE_BASE + row * ROW_H;
+      const cardTop = lineH + 8;
+
+      /* connector line from bar bottom downward */
       const line = document.createElement('div');
-      line.style.cssText = 'position:absolute;bottom:0;left:' + clamped + '%;width:1px;background:' + segment.color + ';opacity:0.45;height:' + (bottomOffset + 8) + 'px;transform:translateX(-50%)';
-      aboveLabelsEl.insertBefore(line, lbl);
+      line.className = 'callout-line';
+      line.style.left = (cx_pct * 100) + '%';
+      line.style.top = LINE_BASE + 'px';
+      line.style.height = lineH + 'px';
+      line.style.background = segment.color;
+      calloutsBelow.appendChild(line);
+
+      /* callout card */
+      const card = document.createElement('div');
+      card.className = 'callout-card';
+      card.style.background = segment.color;
+      card.style.top = cardTop + 'px';
+      card.style.left = (cx_pct * 100) + '%';
+      const c = document.createElement('div'); c.className = 'callout-card-cat'; c.textContent = segment.category;
+      const a = document.createElement('div'); a.className = 'callout-card-amt'; a.textContent = fmtAmt(segment.amount);
+      const p = document.createElement('div'); p.className = 'callout-card-pct'; p.textContent = fmtPct(segment.percent);
+      card.appendChild(c); card.appendChild(a); card.appendChild(p);
+      calloutsBelow.appendChild(card);
+
+      /* clamp card to bar bounds */
+      requestAnimationFrame(() => {{
+        const cw = card.getBoundingClientRect().width || CARD_W_EST;
+        const half = cw / 2 + 8;
+        const rawLeft = cx_pct * barW;
+        const clampedLeft = Math.max(half, Math.min(barW - half, rawLeft));
+        card.style.left = clampedLeft + 'px';
+        card.style.transform = 'none';
+        line.style.left = clampedLeft + 'px';
+      }});
     }});
   }});
 }}
 </script>
-""", height=520)
+""", height=560)
 _separator()
 st.components.v1.html(
     """
