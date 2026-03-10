@@ -3673,61 +3673,114 @@ def main():
             )
 
     with composition_cols[1]:
-        if segment_labels and segment_values and sum(v for v in segment_values if v > 0) > 0:
-            pie_colors = [segment_colors.get(label, "#999999") for label in segment_labels]
-            hover_font_colors = [pick_contrast_color(color) for color in pie_colors]
-            pie_fig = go.Figure(
-                data=[
-                    go.Pie(
-                        labels=segment_labels,
-                        values=[max(v, 0) for v in segment_values],
-                        hole=0.55,
-                        sort=False,
-                        marker=dict(colors=pie_colors),
-                        textinfo="percent",
-                        textfont=dict(color=[pick_contrast_color(c) for c in pie_colors]),
-                        customdata=segment_yoy_labels,
-                        hoverlabel=dict(
-                            bgcolor=pie_colors,
-                            bordercolor=pie_colors,
-                            font=dict(
-                                family="Montserrat, sans-serif",
-                                size=12,
-                                color=hover_font_colors,
-                            ),
-                            align="left",
-                            namelength=-1,
-                        ),
-                        hovertemplate=(
-                            "<b>%{label}</b><br>Value: $%{value:,.0f}M<br>"
-                            "Share: %{percent}<br>YoY: %{customdata}<extra></extra>"
-                        ),
-                    )
-                ]
+        # Build animation frames through all available years or quarters
+        if has_quarterly_segments:
+            _qdf = segments_quarterly_all[
+                segments_quarterly_all["company"] == canonical_company
+            ].copy()
+            _qdf = _qdf[_qdf["segment"].notna() & (_qdf["segment"] != "Total Revenue")]
+            _qperiods = (
+                _qdf[["year", "quarter_num"]]
+                .dropna()
+                .drop_duplicates()
+                .sort_values(["year", "quarter_num"])
             )
-            employee_count = data_processor.get_employee_count(company, year)
-            if employee_count is None or pd.isna(employee_count):
-                employee_label = "Employees: —"
-            else:
-                employee_label = f"Employees: {employee_count:,.0f}"
-            center_text = f"{year}<br>{employee_label}"
-            logo_src = ""
-            if logo_base64:
-                logo_src = f"data:image/png;base64,{logo_base64}"
-            center_annotations = [
-                dict(
-                    text=center_text,
-                    x=0.5,
-                    y=0.32,
-                    font=dict(size=14, family="Montserrat, sans-serif", color="#c9d1d9"),
-                    showarrow=False,
-                )
+            _anim_periods = [
+                (f"{int(r.year)} Q{int(r.quarter_num)}", int(r.year), int(r.quarter_num))
+                for _, r in _qperiods.iterrows()
             ]
-            layout_images = []
-            if logo_src:
-                layout_images.append(
+        else:
+            _anim_periods = [(str(yr), yr, None) for yr in sorted(segment_years)]
+
+        _pie_frames = []
+        for _plabel, _pyr, _pqn in _anim_periods:
+            if _pqn is not None:
+                _dfp = segments_quarterly_all[
+                    (segments_quarterly_all["company"] == canonical_company)
+                    & (segments_quarterly_all["year"] == _pyr)
+                    & (segments_quarterly_all["quarter_num"] == _pqn)
+                ].copy()
+            else:
+                _dfp = segment_source_df[
+                    (segment_source_df["company"] == canonical_company)
+                    & (segment_source_df["year"] == _pyr)
+                ].copy()
+
+            if _dfp.empty:
+                continue
+
+            _dfp["segment"] = _dfp["segment"].apply(
+                lambda s: normalize_segment_label(canonical_company, s)
+            )
+            _dfp = _dfp[
+                _dfp["segment"].notna()
+                & (_dfp["segment"] != "")
+                & (_dfp["segment"] != "Total Revenue")
+            ]
+            _dfp = _dfp.groupby("segment", as_index=False)["revenue"].sum()
+            _dfp = _dfp.sort_values("revenue", ascending=False)
+            _fl = _dfp["segment"].tolist()
+            _fv = _dfp["revenue"].fillna(0).tolist()
+            _fc = [segment_colors.get(l, "#999999") for l in _fl]
+
+            _pie_frames.append(
+                go.Frame(
+                    data=[
+                        go.Pie(
+                            labels=_fl,
+                            values=[max(v, 0) for v in _fv],
+                            hole=0.55,
+                            sort=False,
+                            marker=dict(
+                                colors=_fc,
+                                line=dict(color="rgba(0,0,0,0.18)", width=1),
+                            ),
+                            textinfo="percent",
+                            textfont=dict(size=11, color="#ffffff"),
+                            hovertemplate=(
+                                "<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}"
+                                "<extra></extra>"
+                            ),
+                        )
+                    ],
+                    name=_plabel,
+                    layout=go.Layout(
+                        annotations=[
+                            dict(
+                                text=f"<b>{_plabel}</b>",
+                                x=0.5,
+                                y=0.5,
+                                xref="paper",
+                                yref="paper",
+                                font=dict(
+                                    size=15,
+                                    family="Montserrat, sans-serif",
+                                    color="#e6edf3",
+                                ),
+                                showarrow=False,
+                            )
+                        ]
+                    ),
+                )
+            )
+
+        if not _pie_frames:
+            st.info("Segment composition is not available for this company.")
+        else:
+            # Find frame closest to the selected `year`
+            _init_idx = len(_pie_frames) - 1
+            for _i, (_lbl, _yr, _qn) in enumerate(_anim_periods):
+                if _yr == int(year):
+                    _init_idx = _i
+                    break
+
+            _init_frame = _pie_frames[_init_idx]
+            _logo_src = f"data:image/png;base64,{logo_base64}" if logo_base64 else ""
+            _layout_images = []
+            if _logo_src:
+                _layout_images.append(
                     dict(
-                        source=logo_src,
+                        source=_logo_src,
                         xref="paper",
                         yref="paper",
                         x=0.5,
@@ -3739,27 +3792,297 @@ def main():
                         layer="above",
                     )
                 )
-            pie_fig.update_layout(
-                height=520,
-                legend_title_text="Segments",
-                legend=dict(
-                    orientation="v",
-                    x=1.02,
-                    y=0.5,
-                    yanchor="middle",
-                    bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#e6edf3"),
-                    title=dict(font=dict(color="#e6edf3")),
+
+            _mode_label = "by quarter" if has_quarterly_segments else "by year"
+            _slider_steps = [
+                {
+                    "args": [
+                        [f.name],
+                        {
+                            "frame": {"duration": 400, "redraw": True},
+                            "mode": "immediate",
+                            "transition": {"duration": 300, "easing": "cubic-in-out"},
+                        },
+                    ],
+                    "label": f.name,
+                    "method": "animate",
+                }
+                for f in _pie_frames
+            ]
+
+            _pie_anim_fig = go.Figure(
+                data=_init_frame.data,
+                frames=_pie_frames,
+                layout=go.Layout(
+                    height=580,
+                    annotations=list(_init_frame.layout.annotations or []),
+                    images=_layout_images,
+                    legend=dict(
+                        orientation="v",
+                        x=1.02,
+                        y=0.5,
+                        yanchor="middle",
+                        bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#e6edf3"),
+                        title=dict(
+                            text="Segments",
+                            font=dict(color="#e6edf3"),
+                        ),
+                    ),
+                    margin=dict(l=10, r=130, t=20, b=110),
+                    uniformtext_minsize=9,
+                    uniformtext_mode="hide",
+                    updatemenus=[
+                        {
+                            "type": "buttons",
+                            "showactive": False,
+                            "direction": "left",
+                            "x": 0.0,
+                            "y": -0.06,
+                            "xanchor": "left",
+                            "yanchor": "top",
+                            "buttons": [
+                                {
+                                    "label": "▶",
+                                    "method": "animate",
+                                    "args": [
+                                        None,
+                                        {
+                                            "frame": {"duration": 900, "redraw": True},
+                                            "fromcurrent": True,
+                                            "transition": {
+                                                "duration": 600,
+                                                "easing": "cubic-in-out",
+                                            },
+                                        },
+                                    ],
+                                },
+                                {
+                                    "label": "⏸",
+                                    "method": "animate",
+                                    "args": [
+                                        [None],
+                                        {
+                                            "frame": {"duration": 0, "redraw": False},
+                                            "mode": "immediate",
+                                            "transition": {"duration": 0},
+                                        },
+                                    ],
+                                },
+                            ],
+                            "font": {"size": 20, "color": "#e6edf3"},
+                            "bgcolor": "rgba(255,255,255,0.07)",
+                            "bordercolor": "rgba(255,255,255,0.18)",
+                            "borderwidth": 1,
+                            "pad": {"l": 10, "r": 10, "t": 5, "b": 5},
+                        }
+                    ],
+                    sliders=[
+                        {
+                            "active": _init_idx,
+                            "currentvalue": {
+                                "prefix": "",
+                                "visible": True,
+                                "xanchor": "center",
+                                "font": {"size": 11, "color": "#e6edf3"},
+                            },
+                            "pad": {"b": 8, "t": 8},
+                            "len": 0.82,
+                            "x": 0.18,
+                            "y": -0.02,
+                            "steps": _slider_steps,
+                            "font": {"color": "#8b949e", "size": 9},
+                            "bgcolor": "rgba(255,255,255,0.06)",
+                            "bordercolor": "rgba(255,255,255,0.14)",
+                            "activebgcolor": "rgba(88,166,255,0.35)",
+                            "tickcolor": "rgba(255,255,255,0.12)",
+                        }
+                    ],
                 ),
-                annotations=center_annotations,
-                images=layout_images,
-                margin=dict(l=20, r=120, t=20, b=20),
-                uniformtext_minsize=10,
-                uniformtext_mode="hide",
             )
-            render_plotly(pie_fig)
-        else:
-            st.info("Segment composition is not available for this year.")
+            render_plotly(_pie_anim_fig)
+
+    # ── Institutional Ownership ───────────────────────────────────────────
+    st.subheader("Institutional Ownership")
+
+    _h_tickers = COMPANY_TICKERS.get(company, COMPANY_TICKERS.get(canonical_company, []))
+    _h_ticker = _h_tickers[0] if _h_tickers else ""
+    _holders_df = pd.DataFrame()
+    if _h_ticker:
+        _holders_df = data_processor.get_holders(ticker=_h_ticker)
+    if _holders_df.empty:
+        _all_h = data_processor.get_holders()
+        if not _all_h.empty and _h_ticker:
+            _holders_df = _all_h[
+                _all_h["company"].str.upper() == _h_ticker.upper()
+            ].copy()
+
+    if _holders_df.empty:
+        st.info("Ownership data is not available for this company.")
+    else:
+        def _clean_hname(name: str) -> str:
+            """Shorten 'FUND FAMILY-Specific Fund Name' → 'Specific Fund Name'."""
+            if "-" in name:
+                parts = name.split("-", 1)
+                tail = parts[1].strip()
+                if len(tail) >= 6:
+                    return tail
+            return name.strip()
+
+        _holders_df = _holders_df.copy()
+        _holders_df["name_short"] = _holders_df["holder_name"].apply(_clean_hname)
+        _holders_df["pct_display"] = (_holders_df["pct_out"] * 100).round(2)
+        _holders_df["value_b"] = (_holders_df["value_usd"].fillna(0) / 1e9).round(1)
+        _holders_df["shares_m"] = (_holders_df["shares"].fillna(0) / 1e6).round(1)
+        _holders_df = _holders_df.sort_values("pct_out", ascending=False).reset_index(drop=True)
+
+        _top_h = _holders_df.iloc[0]
+        _BIG3 = ["vanguard", "blackrock", "state street"]
+        _big3_pct = (
+            _holders_df[
+                _holders_df["name_short"].str.lower().apply(
+                    lambda n: any(b in n for b in _BIG3)
+                )
+            ]["pct_out"].sum()
+            * 100
+        )
+        _n_inst = int((_holders_df["holder_type"] == "institutional").sum())
+        _n_fund = int((_holders_df["holder_type"] == "fund").sum())
+        _h_date = ""
+        try:
+            _dt = pd.to_datetime(_holders_df["date_fetched"]).max()
+            _h_date = _dt.strftime("%b %Y") if pd.notna(_dt) else ""
+        except Exception:
+            pass
+
+        # KPI strip
+        _hkpi = st.columns(3)
+        _kpi_style = (
+            "background:#0d1117;border:1px solid rgba(255,255,255,0.10);"
+            "border-radius:12px;padding:1rem 1.1rem;"
+        )
+        with _hkpi[0]:
+            st.markdown(
+                f"<div style='{_kpi_style}'>"
+                f"<div style='font-size:0.7rem;color:#8b949e;text-transform:uppercase;"
+                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Top Holder</div>"
+                f"<div style='font-size:0.95rem;font-weight:700;color:#e6edf3;"
+                f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
+                f"{html.escape(_top_h['name_short'][:30])}</div>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#58a6ff;line-height:1.1;'>"
+                f"{_top_h['pct_display']:.2f}%</div>"
+                f"<div style='font-size:0.78rem;color:#8b949e;margin-top:0.15rem;'>"
+                f"${_top_h['value_b']:.1f}B position</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with _hkpi[1]:
+            st.markdown(
+                f"<div style='{_kpi_style}'>"
+                f"<div style='font-size:0.7rem;color:#8b949e;text-transform:uppercase;"
+                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Big Three</div>"
+                f"<div style='font-size:0.8rem;color:#8b949e;'>Vanguard · BlackRock · State Street</div>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#58a6ff;line-height:1.1;'>"
+                f"{_big3_pct:.1f}%</div>"
+                f"<div style='font-size:0.78rem;color:#8b949e;margin-top:0.15rem;'>"
+                f"Passive mega-managers combined</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with _hkpi[2]:
+            st.markdown(
+                f"<div style='{_kpi_style}'>"
+                f"<div style='font-size:0.7rem;color:#8b949e;text-transform:uppercase;"
+                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Holders tracked</div>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#e6edf3;line-height:1.1;'>"
+                f"{len(_holders_df)}</div>"
+                f"<div style='font-size:0.78rem;color:#8b949e;margin-top:0.15rem;'>"
+                f"{_n_inst} institutional · {_n_fund} funds"
+                f"{(' · snapshot ' + _h_date) if _h_date else ''}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<div style='margin-top:0.75rem;'></div>", unsafe_allow_html=True)
+
+        # Horizontal bar chart — top 15 by pct_out
+        _top_n = min(15, len(_holders_df))
+        _hbar_df = _holders_df.head(_top_n).sort_values("pct_out", ascending=True)
+        _H_COLORS = {"institutional": "#1a73e8", "fund": "#00c9a7"}
+        _hbar_fig = go.Figure()
+        for _htype, _hcolor in [("institutional", "#1a73e8"), ("fund", "#00c9a7")]:
+            _m = _hbar_df["holder_type"] == _htype
+            if _m.any():
+                _sub = _hbar_df[_m]
+                _hbar_fig.add_trace(
+                    go.Bar(
+                        y=_sub["name_short"],
+                        x=_sub["pct_display"],
+                        orientation="h",
+                        name=_htype.capitalize(),
+                        marker_color=_hcolor,
+                        customdata=_sub[["value_b", "shares_m"]].values,
+                        hovertemplate=(
+                            "<b>%{y}</b><br>Stake: %{x:.2f}%<br>"
+                            "Value: $%{customdata[0]:.1f}B<br>"
+                            "Shares: %{customdata[1]:.1f}M<extra></extra>"
+                        ),
+                    )
+                )
+        _hbar_fig.update_layout(
+            height=max(300, _top_n * 30 + 70),
+            barmode="relative",
+            xaxis_title="% stake",
+            margin=dict(l=10, r=20, t=10, b=30),
+            legend=dict(
+                orientation="h",
+                x=0,
+                y=1.04,
+                yanchor="bottom",
+                bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e6edf3"),
+                title=dict(font=dict(color="#e6edf3")),
+            ),
+            hoverlabel=HOVERLABEL_STYLE,
+        )
+        render_plotly(_hbar_fig)
+
+        # Tabbed detail table
+        _tab_inst, _tab_fund = st.tabs(["📋 Institutional", "📊 Funds"])
+        with _tab_inst:
+            _inst_tbl = (
+                _holders_df[_holders_df["holder_type"] == "institutional"]
+                .reset_index(drop=True)
+            )
+            _inst_tbl.index = _inst_tbl.index + 1
+            st.dataframe(
+                _inst_tbl[["name_short", "shares_m", "value_b", "pct_display"]].rename(
+                    columns={
+                        "name_short": "Holder",
+                        "shares_m": "Shares (M)",
+                        "value_b": "Value ($B)",
+                        "pct_display": "% Stake",
+                    }
+                ),
+                use_container_width=True,
+            )
+        with _tab_fund:
+            _fund_tbl = (
+                _holders_df[_holders_df["holder_type"] == "fund"]
+                .reset_index(drop=True)
+            )
+            _fund_tbl.index = _fund_tbl.index + 1
+            st.dataframe(
+                _fund_tbl[["name_short", "shares_m", "value_b", "pct_display"]].rename(
+                    columns={
+                        "name_short": "Holder",
+                        "shares_m": "Shares (M)",
+                        "value_b": "Value ($B)",
+                        "pct_display": "% Stake",
+                    }
+                ),
+                use_container_width=True,
+            )
 
     segment_controls = st.columns([7, 3])
     with segment_controls[1]:

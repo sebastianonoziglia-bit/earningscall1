@@ -25,6 +25,10 @@ def apply_plotly_theme():
         base_template = go.layout.Template(pio.templates["plotly_white"])
     else:
         base_template = go.layout.Template()
+    base_template.layout.legend = go.layout.Legend(
+        bgcolor="rgba(0,0,0,0)",
+        font=go.layout.legend.Font(color="#e6edf3"),
+    )
     base_template.layout.update(
         hoverlabel=PLOTLY_HOVERLABEL_STYLE,
         font=dict(
