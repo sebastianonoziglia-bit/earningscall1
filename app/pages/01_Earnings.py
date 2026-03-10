@@ -1054,17 +1054,39 @@ def main():
         if light_theme:
             fig.update_layout(
                 font=dict(family="Montserrat, sans-serif", color="#111827"),
+                legend=dict(
+                    bgcolor="rgba(255,255,255,0.85)",
+                    font=dict(color="#111827"),
+                    title=dict(font=dict(color="#111827")),
+                ),
                 dragmode=False,
             )
+            fig.update_xaxes(tickfont=dict(color="#111827"), title_font=dict(color="#111827"))
+            fig.update_yaxes(tickfont=dict(color="#111827"), title_font=dict(color="#111827"))
         else:
             fig.update_layout(
                 font=dict(family="Montserrat, sans-serif", color="#e6edf3"),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(255,255,255,0.03)",
+                legend=dict(
+                    bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#e6edf3"),
+                    title=dict(font=dict(color="#e6edf3")),
+                ),
                 dragmode=False,
             )
-            fig.update_xaxes(gridcolor="rgba(255,255,255,0.07)", zerolinecolor="rgba(255,255,255,0.12)")
-            fig.update_yaxes(gridcolor="rgba(255,255,255,0.07)", zerolinecolor="rgba(255,255,255,0.12)")
+            fig.update_xaxes(
+                gridcolor="rgba(255,255,255,0.07)",
+                zerolinecolor="rgba(255,255,255,0.12)",
+                tickfont=dict(color="#e6edf3"),
+                title_font=dict(color="#e6edf3"),
+            )
+            fig.update_yaxes(
+                gridcolor="rgba(255,255,255,0.07)",
+                zerolinecolor="rgba(255,255,255,0.12)",
+                tickfont=dict(color="#e6edf3"),
+                title_font=dict(color="#e6edf3"),
+            )
         if xaxis_is_year:
             fig.update_xaxes(dtick=1, tickformat="d")
         st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
@@ -3663,6 +3685,7 @@ def main():
                         sort=False,
                         marker=dict(colors=pie_colors),
                         textinfo="percent",
+                        textfont=dict(color=[pick_contrast_color(c) for c in pie_colors]),
                         customdata=segment_yoy_labels,
                         hoverlabel=dict(
                             bgcolor=pie_colors,
@@ -3696,7 +3719,7 @@ def main():
                     text=center_text,
                     x=0.5,
                     y=0.32,
-                    font=dict(size=14, family="Montserrat, sans-serif", color="#e6edf3"),
+                    font=dict(size=14, family="Montserrat, sans-serif", color="#c9d1d9"),
                     showarrow=False,
                 )
             ]
@@ -3719,7 +3742,15 @@ def main():
             pie_fig.update_layout(
                 height=520,
                 legend_title_text="Segments",
-                legend=dict(orientation="v", x=1.02, y=0.5, yanchor="middle"),
+                legend=dict(
+                    orientation="v",
+                    x=1.02,
+                    y=0.5,
+                    yanchor="middle",
+                    bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#e6edf3"),
+                    title=dict(font=dict(color="#e6edf3")),
+                ),
                 annotations=center_annotations,
                 images=layout_images,
                 margin=dict(l=20, r=120, t=20, b=20),
