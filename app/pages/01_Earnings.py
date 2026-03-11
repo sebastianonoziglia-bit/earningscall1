@@ -3703,60 +3703,46 @@ def main():
             if total <= 0:
                 return []
 
-            cx, cy = 0.36, 0.5      # pie center in paper coords (domain x=[0,0.72])
-            label_r = 0.56           # push labels further out from donut edge
-            arrow_r = 0.37           # connector arrow starts just outside donut ring
+            cx, cy = 0.36, 0.5
+            label_r = 0.58
 
             anns = []
-            angle = _math.pi / 2    # start at top, go clockwise
+            angle = _math.pi / 2
 
             for lbl, val, col, yoy in zip(labels, values, colors, yoy_pcts):
                 fraction = max(val, 0) / total
-                if fraction < 0.02:  # skip tiny slivers
+                if fraction < 0.02:
                     angle -= fraction * 2 * _math.pi
                     continue
                 span = fraction * 2 * _math.pi
                 mid = angle - span / 2
                 angle -= span
 
-                # Label position
                 lx = cx + label_r * _math.cos(mid)
                 ly = cy + label_r * _math.sin(mid)
-
-                # Arrow anchor — point on the donut outer edge
-                ax = cx + arrow_r * _math.cos(mid)
-                ay = cy + arrow_r * _math.sin(mid)
 
                 val_b = val / 1000
                 val_str = f"${val_b:.0f}B" if val_b >= 10 else f"${val_b:.1f}B"
                 yoy_str = f" ({yoy:+.0f}%)" if yoy is not None else ""
+                align = "left" if lx >= cx else "right"
 
                 text = (
                     f"<b>{val_str}{yoy_str}</b>"
                     f"<br><span style='font-size:10px;'>{lbl}</span>"
                 )
 
-                # Align text left/right depending on which side of the donut
-                align = "left" if lx >= cx else "right"
-
                 anns.append(dict(
                     x=lx, y=ly,
-                    ax=ax, ay=ay,
                     xref="paper", yref="paper",
-                    axref="paper", ayref="paper",
                     text=text,
-                    showarrow=True,
-                    arrowhead=0,
-                    arrowwidth=1,
-                    arrowcolor=col,
+                    showarrow=False,
                     font=dict(color=col, size=11, family="Montserrat, sans-serif"),
                     align=align,
-                    bgcolor="rgba(13,17,23,0.75)",
+                    bgcolor="rgba(13,17,23,0.82)",
                     bordercolor="rgba(0,0,0,0)",
-                    borderpad=3,
+                    borderpad=4,
                 ))
 
-            # Center period label
             anns.append(dict(
                 x=cx, y=cy, xref="paper", yref="paper",
                 text=f"<b>{period_text}</b>",
@@ -3954,7 +3940,7 @@ def main():
                 data=_init_data,
                 frames=_pie_frames,
                 layout=go.Layout(
-                    height=620,
+                    height=640,
                     annotations=_init_anns,
                     images=_layout_images,
                     legend=dict(
@@ -3964,7 +3950,7 @@ def main():
                         font=dict(color="#e6edf3", size=11),
                         title=dict(text="Segments", font=dict(color="#c9d1d9", size=11)),
                     ),
-                    margin=dict(l=60, r=160, t=80, b=110),
+                    margin=dict(l=80, r=180, t=80, b=120),
                     updatemenus=[{
                         "type": "buttons", "showactive": False, "direction": "left",
                         "x": 0.0, "y": -0.06, "xanchor": "left", "yanchor": "top",

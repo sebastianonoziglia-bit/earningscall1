@@ -1754,8 +1754,9 @@ st.markdown("""
 }
 .sv {
     opacity: 0;
-    transform: translateY(20px) scale(0.98);
-    transition: opacity 0.7s ease, transform 0.7s ease;
+    transform: translateY(22px) scale(0.99);
+    transition: opacity 0.65s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform, opacity;
 }
 .sv.sv-visible {
     opacity: 1;
@@ -1763,8 +1764,8 @@ st.markdown("""
 }
 .sv.sv-past {
     opacity: 0;
-    transform: translateY(-10%) scale(0.95);
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateY(-10%) scale(0.94);
+    transition: opacity 0.4s ease, transform 0.45s ease;
     pointer-events: none;
 }
 </style>
@@ -1792,15 +1793,15 @@ st.components.v1.html(
 
     const _revealObs = new window.parent.IntersectionObserver((entries) => {
       entries.forEach(e => {
-        const rect = e.boundingClientRect;
         if (e.isIntersecting) {
           e.target.classList.add('sv-visible');
           e.target.classList.remove('sv-past');
-        } else if (rect.top < 0) {
-          e.target.classList.add('sv-past');
-          e.target.classList.remove('sv-visible');
         } else {
-          e.target.classList.remove('sv-past', 'sv-visible');
+          const rect = e.target.getBoundingClientRect();
+          if (rect.bottom < 0) {
+            e.target.classList.add('sv-past');
+            e.target.classList.remove('sv-visible');
+          }
         }
       });
 
@@ -1814,7 +1815,7 @@ st.components.v1.html(
           d.classList.toggle('active', i === activeIdx);
         });
       }
-    }, { threshold: 0.08, root: null });
+    }, { threshold: 0.06, rootMargin: "0px 0px -40px 0px" });
 
     svEls.forEach(el => _revealObs.observe(el));
 
@@ -2598,8 +2599,8 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
   <div class="wa-headline">Two companies. Most of the money.</div>
   <div class="wa-body">Watch how Alphabet and Meta came to dominate digital advertising &#8212; from 2010 to today.</div>
   <div style="display:flex;width:100%;height:380px;align-items:stretch;gap:0;margin-top:8px;">
-    <div style="width:230px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 20px 12px 0;border-right:1px solid rgba(255,255,255,0.07);">
-      <canvas id="wa-duo-canvas" width="200" height="200"></canvas>
+    <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 24px 16px 0;border-right:1px solid rgba(255,255,255,0.07);min-height:380px;">
+      <canvas id="wa-duo-canvas" width="220" height="220"></canvas>
       <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:#e6edf3;line-height:1;margin-top:10px;transition:opacity .2s ease;">&#8212;</div>
       <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#ff5b1f;line-height:1;margin-top:4px;">&#8212;%</div>
       <div style="color:#8b949e;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-top:2px;">Duopoly share</div>
@@ -2634,8 +2635,8 @@ var duoCanvas=document.getElementById('wa-duo-canvas');
 var duoCtx=duoCanvas?duoCanvas.getContext('2d'):null;
 function drawDuoDonut(alpPct,metaPct){
   if(!duoCtx)return;
-  var cx=100,cy=100,r=88,ir=54;
-  duoCtx.clearRect(0,0,200,200);
+  var cx=110,cy=110,r=96,ir=60;
+  duoCtx.clearRect(0,0,220,220);
   var gap=0.016;
   var start=-Math.PI/2;
   var alpA=alpPct*(Math.PI*2);
