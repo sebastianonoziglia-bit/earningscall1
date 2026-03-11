@@ -3900,57 +3900,6 @@ def main():
                 )
             )
 
-        # ── SEGMENT DEBUG — remove after fix ──────────────────────
-        import traceback as _tb
-        st.markdown("---")
-        st.markdown("### 🔍 Segment Composition Debug")
-        st.write("canonical_company:", canonical_company)
-        st.write("year:", year, "| selected_quarter:", selected_quarter)
-        st.write("_is_annual:", _is_annual)
-        try:
-            st.write("segment_source_df shape:", segment_source_df.shape)
-            st.write("segment_source_df columns:", segment_source_df.columns.tolist())
-            _co_segs = segment_source_df[segment_source_df["company"] == canonical_company]
-            st.write(f"Rows for {canonical_company} in segment_source_df:", len(_co_segs))
-            st.dataframe(_co_segs.head(8))
-        except Exception as _e:
-            st.error(f"❌ segment_source_df error: {_e}")
-            st.code(_tb.format_exc())
-        try:
-            st.write("has_quarterly_segments:", has_quarterly_segments)
-            if has_quarterly_segments:
-                _co_qsegs = segments_quarterly_all[segments_quarterly_all["company"] == canonical_company]
-                st.write(f"Quarterly segment rows for {canonical_company}:", len(_co_qsegs))
-                st.write("Quarterly columns:", segments_quarterly_all.columns.tolist())
-                st.dataframe(_co_qsegs.head(8))
-            else:
-                st.warning("has_quarterly_segments is False — will use annual only")
-        except Exception as _e:
-            st.error(f"❌ quarterly segments error: {_e}")
-            st.code(_tb.format_exc())
-        try:
-            st.write(f"_anim_periods count: {len(_anim_periods)}")
-            st.write("First 5:", _anim_periods[:5])
-            st.write("Last 3:", _anim_periods[-3:])
-        except Exception as _e:
-            st.error(f"❌ _anim_periods error: {_e}")
-        try:
-            st.write(f"_pie_frames count: {len(_pie_frames)}")
-            if _pie_frames:
-                _f0 = _pie_frames[0]
-                st.write("Frame 0 name:", _f0.name)
-                st.write("Frame 0 labels:", list(_f0.data[0].labels) if _f0.data else "NO DATA")
-                st.write("Frame 0 values:", list(_f0.data[0].values) if _f0.data else "NO DATA")
-        except Exception as _e:
-            st.error(f"❌ _pie_frames error: {_e}")
-            st.code(_tb.format_exc())
-        try:
-            st.write("segment_colors:", segment_colors)
-        except Exception as _e:
-            st.error(f"❌ segment_colors error: {_e}")
-        st.markdown("---")
-        # ── END SEGMENT DEBUG ──────────────────────────────────────
-
         if not _pie_frames:
             st.info("Segment composition is not available for this company.")
         else:
@@ -4129,53 +4078,6 @@ def main():
                         )
             except Exception:
                 pass
-
-    # ── OWNERSHIP DEBUG — remove after fix ──────────────────────
-    import traceback as _tb2
-    st.markdown("### 🔍 Institutional Ownership Debug")
-    st.write("company:", company, "| canonical_company:", canonical_company)
-    try:
-        st.write("COMPANY_TICKERS entry:", COMPANY_TICKERS.get(company),
-                 "| canonical entry:", COMPANY_TICKERS.get(canonical_company))
-        st.write("_h_ticker resolved to:", _h_ticker)
-    except Exception as _e:
-        st.error(f"❌ ticker resolution error: {_e}")
-    try:
-        _dbg_holders = data_processor.get_holders(ticker=_h_ticker)
-        st.write(f"get_holders(ticker='{_h_ticker}') shape:",
-                 _dbg_holders.shape if _dbg_holders is not None else "None")
-        if _dbg_holders is not None and not _dbg_holders.empty:
-            st.write("Columns:", _dbg_holders.columns.tolist())
-            st.dataframe(_dbg_holders.head(5))
-        else:
-            st.warning("get_holders returned empty/None for this ticker")
-    except Exception as _e:
-        st.error(f"❌ get_holders(ticker) failed: {_e}")
-        st.code(_tb2.format_exc())
-    try:
-        _dbg_all_holders = data_processor.get_holders()
-        st.write("get_holders() ALL shape:",
-                 _dbg_all_holders.shape if _dbg_all_holders is not None else "None")
-        if _dbg_all_holders is not None and not _dbg_all_holders.empty:
-            st.write("All holders columns:", _dbg_all_holders.columns.tolist())
-            st.write("Unique companies/tickers:",
-                     _dbg_all_holders["company"].unique().tolist()
-                     if "company" in _dbg_all_holders.columns else "NO company column")
-            st.dataframe(_dbg_all_holders.head(10))
-        else:
-            st.warning("get_holders() ALL returned empty/None")
-    except Exception as _e:
-        st.error(f"❌ get_holders() ALL failed: {_e}")
-        st.code(_tb2.format_exc())
-    try:
-        import pandas as _pd_dbg
-        _wb_path = data_processor.data_path
-        _xls = _pd_dbg.ExcelFile(_wb_path)
-        st.write("Sheet names in workbook:", _xls.sheet_names)
-    except Exception as _e:
-        st.error(f"❌ Cannot list sheets: {_e}")
-    st.markdown("---")
-    # ── END OWNERSHIP DEBUG ──────────────────────────────────────
 
     # ── Institutional Ownership ───────────────────────────────────────────
     st.subheader("Institutional Ownership")
