@@ -2905,7 +2905,27 @@ def main():
 
     metrics_df_guard = getattr(data_processor, "df_metrics", None)
     if metrics_df_guard is None or metrics_df_guard.empty:
-        st.info("Financial data is loading — please refresh in a moment.")
+        # Cache may have captured a failed init — try a live reload before giving up.
+        try:
+            data_processor.load_data()
+            metrics_df_guard = getattr(data_processor, "df_metrics", None)
+        except Exception:
+            pass
+    if metrics_df_guard is None or metrics_df_guard.empty:
+        from utils.workbook_source import resolve_financial_data_xlsx, DEFAULT_GOOGLE_SHEET_ID
+        _resolved_path = resolve_financial_data_xlsx([])
+        _path_info = f"Path: `{_resolved_path}`" if _resolved_path else "No file downloaded."
+        _sheet_id = DEFAULT_GOOGLE_SHEET_ID
+        st.warning(
+            f"Financial data unavailable — could not load `Company_metrics_earnings_values` sheet.\n\n"
+            f"**Sheet ID:** `{_sheet_id}`\n\n"
+            f"**{_path_info}**\n\n"
+            "Check that the Google Sheet is **shared publicly** (Anyone with link → Viewer). "
+            "Then click Reload below."
+        )
+        if st.button("🔄 Reload data", key="reload_data_btn"):
+            st.cache_resource.clear()
+            st.rerun()
         st.stop()
 
     try:

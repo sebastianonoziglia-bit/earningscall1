@@ -287,6 +287,7 @@ def display_header(enable_dom_patch: bool = True):
     active_key = str(
         st.session_state.get("active_nav_page")
         or st.session_state.get("_active_nav_page")
+        or st.session_state.get("_last_nav_switch")
         or ""
     ).strip().lower()
     _render_sticky_top_bar(active_key)

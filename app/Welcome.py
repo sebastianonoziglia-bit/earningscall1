@@ -154,6 +154,10 @@ div[data-testid="block-container"] {
     color: #ff5b1f !important;
     font-weight: 800;
 }
+.section-desc b {
+    color: #ff5b1f !important;
+    font-weight: 800;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -1715,41 +1719,155 @@ selected_year = int(
 effective_year = int(selected_year)
 selected_quarter = _select_latest_quarter_for_year(macro_df, effective_year)
 
+st.markdown("""
+<style>
+.wm-progress-nav {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 9999;
+}
+.wm-progress-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.wm-progress-dot.active {
+    background: #ff5b1f;
+    height: 24px;
+    border-radius: 3px;
+    width: 6px;
+}
+.section-label {
+    letter-spacing: 0.1em;
+    transition: letter-spacing 0.8s ease, opacity 0.6s ease;
+}
+.sv.sv-visible .section-label {
+    letter-spacing: 0.28em;
+}
+.sv {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.sv.sv-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+.sv.sv-past {
+    opacity: 0;
+    transform: translateY(-10%) scale(0.95);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+}
+</style>
+<div class="wm-progress-nav" id="wm-progress-nav">
+  <div class="wm-progress-dot" data-section="0"></div>
+  <div class="wm-progress-dot" data-section="1"></div>
+  <div class="wm-progress-dot" data-section="2"></div>
+  <div class="wm-progress-dot" data-section="3"></div>
+  <div class="wm-progress-dot" data-section="4"></div>
+  <div class="wm-progress-dot" data-section="5"></div>
+  <div class="wm-progress-dot" data-section="6"></div>
+  <div class="wm-progress-dot" data-section="7"></div>
+</div>
+""", unsafe_allow_html=True)
+
 st.components.v1.html(
     """
 <script>
-const _revealObs = new IntersectionObserver((entries) => {
-  entries.forEach(e => {
-    if (e.isIntersecting) e.target.classList.add('sv-visible');
-  });
-}, { threshold: 0.08 });
-document.querySelectorAll('.sv').forEach(el => _revealObs.observe(el));
+(function() {
+  const doc = window.parent.document;
 
-function _startTicker() {
-  const els = document.querySelectorAll('[data-rps]');
-  if (!els.length) { setTimeout(_startTicker, 300); return; }
-  const t0 = Date.now();
-  setInterval(() => {
-    const elapsed = (Date.now() - t0) / 1000;
-    document.querySelectorAll('[data-rps]').forEach(el => {
-      const rps = parseFloat(el.getAttribute('data-rps'));
-      el.textContent = '$' + (rps * elapsed).toLocaleString('en-US',
-        {minimumFractionDigits:0, maximumFractionDigits:0});
-    });
-  }, 120);
-}
-_startTicker();
+  function init() {
+    const svEls = doc.querySelectorAll('.sv');
+    const dots = doc.querySelectorAll('.wm-progress-dot');
+
+    const _revealObs = new window.parent.IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        const rect = e.boundingClientRect;
+        if (e.isIntersecting) {
+          e.target.classList.add('sv-visible');
+          e.target.classList.remove('sv-past');
+        } else if (rect.top < 0) {
+          e.target.classList.add('sv-past');
+          e.target.classList.remove('sv-visible');
+        } else {
+          e.target.classList.remove('sv-past', 'sv-visible');
+        }
+      });
+
+      if (dots.length > 0) {
+        const scrollY = window.parent.scrollY;
+        const pageH = doc.documentElement.scrollHeight;
+        const viewH = window.parent.innerHeight;
+        const progress = scrollY / Math.max(1, pageH - viewH);
+        const activeIdx = Math.round(progress * (dots.length - 1));
+        dots.forEach((d, i) => {
+          d.classList.toggle('active', i === activeIdx);
+        });
+      }
+    }, { threshold: 0.08, root: null });
+
+    svEls.forEach(el => _revealObs.observe(el));
+
+    // Also update dots on scroll for smooth tracking
+    window.parent.addEventListener('scroll', function() {
+      if (!dots.length) return;
+      const scrollY = window.parent.scrollY;
+      const pageH = doc.documentElement.scrollHeight;
+      const viewH = window.parent.innerHeight;
+      const progress = scrollY / Math.max(1, pageH - viewH);
+      const activeIdx = Math.round(progress * (dots.length - 1));
+      dots.forEach((d, i) => d.classList.toggle('active', i === activeIdx));
+    }, { passive: true });
+  }
+
+  if (doc.readyState === 'loading') {
+    doc.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  function _startTicker() {
+    const els = doc.querySelectorAll('[data-rps]');
+    if (!els.length) { setTimeout(_startTicker, 300); return; }
+    const t0 = Date.now();
+    setInterval(() => {
+      const elapsed = (Date.now() - t0) / 1000;
+      doc.querySelectorAll('[data-rps]').forEach(el => {
+        const rps = parseFloat(el.getAttribute('data-rps'));
+        el.textContent = '$' + (rps * elapsed).toLocaleString('en-US',
+          {minimumFractionDigits:0, maximumFractionDigits:0});
+      });
+    }, 120);
+  }
+  _startTicker();
+})();
 </script>
 <style>
 html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 .sv {
   opacity: 0;
-  transform: translateY(18px);
-  transition: opacity .6s ease, transform .6s ease;
+  transform: translateY(20px) scale(0.98);
+  transition: opacity 0.7s ease, transform 0.7s ease;
 }
 .sv.sv-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
+}
+.sv.sv-past {
+  opacity: 0;
+  transform: translateY(-10%) scale(0.95);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none;
 }
 .human-voice-fix {
   margin-top: -1rem;
@@ -1875,28 +1993,26 @@ def _normalize_market_feed(raw: pd.DataFrame) -> pd.DataFrame:
 def _load_market_feed() -> pd.DataFrame:
     if not excel_path and not live_excel_path:
         return pd.DataFrame()
-    # Minute and Daily always come from the live (Google Sheets) path so prices stay current.
     _src = live_excel_path or excel_path
     _stamp = live_source_stamp if live_excel_path else source_stamp
-    minute_raw = _read_excel_sheet_cached(_src, "Minute", _stamp)
-    daily_raw = _read_excel_sheet_cached(_src, "Daily", _stamp)
-    minute_df = _normalize_market_feed(minute_raw)
-    daily_df = _normalize_market_feed(daily_raw)
-    combined = pd.concat([minute_df, daily_df], ignore_index=True)
-    if combined.empty:
-        # Legacy workbook fallback: local copies may only include "Stocks & Crypto".
-        stocks_raw = _read_excel_sheet_cached(excel_path or _src, "Stocks & Crypto", source_stamp)
-        combined = _normalize_market_feed(stocks_raw)
-    if combined.empty:
+    # Always merge all three sheets: Stocks & Crypto gives long historical data,
+    # Daily gives recent daily closes, Minute gives intraday prices.
+    _sheet_priority = [("Stocks & Crypto", 1), ("Daily", 2), ("Minute", 3)]
+    frames = []
+    for sheet_name, prio in _sheet_priority:
+        raw = _read_excel_sheet_cached(_src, sheet_name, _stamp)
+        norm = _normalize_market_feed(raw)
+        if not norm.empty:
+            norm = norm.copy()
+            norm["_prio"] = prio
+            frames.append(norm)
+    if not frames:
         return pd.DataFrame()
-    combined = combined.sort_values("date")
-    dedup_keys = ["date"]
-    if "tag" in combined.columns:
-        dedup_keys.append("tag")
-    if "asset" in combined.columns:
-        dedup_keys.append("asset")
-    combined = combined.drop_duplicates(subset=dedup_keys, keep="last")
-    return combined
+    combined = pd.concat(frames, ignore_index=True)
+    # Sort by date then priority so higher-priority source wins dedup (keep="last").
+    combined = combined.sort_values(["date", "_prio"])
+    combined = combined.drop_duplicates(subset=["date", "tag", "asset"], keep="last")
+    return combined.drop(columns=["_prio"]).sort_values("date").reset_index(drop=True)
 
 
 def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> None:
@@ -1991,6 +2107,9 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
             subset = feed[feed["asset_norm"].str.contains(pattern, na=False, regex=True)]
         if subset.empty:
             subset = feed[feed["tag_norm"].isin(ticker_aliases)]
+        if subset.empty:
+            # Some sheets store the ticker directly in the asset column.
+            subset = feed[feed["asset_norm"].isin([t.lower() for t in ticker_aliases])]
         if subset.empty:
             continue
 
@@ -2195,7 +2314,7 @@ st.components.v1.html(
 
 # Beat 1 — Map
 map_body = (
-    f"In {effective_year_groupm}, global advertising reached <span class='accent-num'>${groupm_b:.0f}B</span>. "
+    f"In {effective_year_groupm}, global advertising reached <b>${groupm_b:.0f}B</b>. "
     f"The map below shows how that spend is distributed — colored by advertising intensity as a share of each country's GDP."
     if groupm_b
     else "Global advertising data for this year is unavailable."
@@ -2365,6 +2484,8 @@ _separator()
 
 @st.cache_data(show_spinner=False)
 def _build_attn_html(ad_json_str: str, groupm_json_str: str) -> str:
+    # ad_json_str and groupm_json_str kept as params for cache key stability
+    del ad_json_str, groupm_json_str
     return (
     """
 <div id="wm-attn-root">
@@ -2387,7 +2508,6 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 .wb-fill{height:100%;width:0;background:var(--c);border-radius:6px;transition:width 1.2s cubic-bezier(.22,1,.36,1);}
 .wb-v{font-size:17px;font-weight:800;color:#ff5b1f;min-width:68px;text-align:right;font-family:'Syne',sans-serif;}
 .wb-s{font-size:11px;color:#8b949e;min-width:92px;white-space:nowrap;}
-.wa-sep{width:40px;height:2px;background:#ff5b1f;margin:8px 0 32px;}
 .wa-hero-stats{display:flex;gap:40px;margin-bottom:28px;padding:18px 0;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);opacity:0;transition:opacity .9s ease .1s;flex-wrap:wrap;}
 .wa-hs-label{font-size:10px;letter-spacing:.22em;text-transform:uppercase;font-family:'Syne',sans-serif;font-weight:700;margin-bottom:3px;}
 .wa-hs-num{font-size:40px;font-weight:800;color:#e6edf3;font-family:'Syne',sans-serif;line-height:1;}
@@ -2438,18 +2558,52 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
     </div>
   </div>
 </div>
-<div class="wa-sep"></div>
-<div class="wa-scene" id="wa-s2">
+<script>
+window.addEventListener('load',function(){
+  var heroStats=document.getElementById('wa-hero-stats');
+  if(heroStats){heroStats.style.opacity='1';}
+  setTimeout(function(){
+    document.querySelectorAll('.wb-row').forEach(function(el){
+      var d=parseInt(el.dataset.delay||0);
+      var w=el.dataset.w||'0';
+      setTimeout(function(){
+        el.classList.add('vis');
+        var fill=el.querySelector('.wb-fill');
+        if(fill)fill.style.width=w+'%';
+      },d);
+    });
+  },280);
+});
+</script>
+</div>
+"""
+    )
+
+
+def _build_duopoly_html(ad_json_str: str, groupm_json_str: str) -> str:
+    return (
+    """
+<div id="wm-duo-root">
+<style>
+html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+#wm-duo-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:0 24px;}
+#wm-duo-root *{box-sizing:border-box;}
+.wa-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
+.wa-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.14;margin:0 0 8px;}
+.wa-body{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 16px;}
+</style>
+<div style="padding:24px 0 16px;">
   <div class="wa-label">THE AD DUOPOLY</div>
   <div class="wa-headline">Two companies. Most of the money.</div>
   <div class="wa-body">Watch how Alphabet and Meta came to dominate digital advertising &#8212; from 2010 to today.</div>
-  <div style="display:flex;width:100%;height:460px;align-items:stretch;gap:0;margin-top:8px;">
+  <div style="display:flex;width:100%;height:380px;align-items:stretch;gap:0;margin-top:8px;">
     <div style="width:230px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 20px 12px 0;border-right:1px solid rgba(255,255,255,0.07);">
       <canvas id="wa-duo-canvas" width="200" height="200"></canvas>
-      <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:#e6edf3;line-height:1;margin-top:10px;transition:opacity .2s ease;">—</div>
-      <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#ff5b1f;line-height:1;margin-top:4px;">—%</div>
+      <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:#e6edf3;line-height:1;margin-top:10px;transition:opacity .2s ease;">&#8212;</div>
+      <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#ff5b1f;line-height:1;margin-top:4px;">&#8212;%</div>
       <div style="color:#8b949e;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-top:2px;">Duopoly share</div>
-      <div id="wa-dup-tot" style="font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:#8b949e;margin-top:10px;">Total: —</div>
+      <div id="wa-dup-tot" style="font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:#8b949e;margin-top:10px;">Total: &#8212;</div>
       <div style="height:2px;width:85%;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:10px;"><div id="wa-dup-prog" style="height:100%;background:#ff5b1f;border-radius:2px;width:0%;transition:width 1s ease;"></div></div>
       <div style="display:flex;gap:12px;margin-top:10px;">
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:#ff5b1f;flex-shrink:0;"></div>Duopoly</div>
@@ -2462,22 +2616,7 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
   </div>
 </div>
 <script>
-// Fade in hero stats immediately, then trigger bar cascade after 280ms
-var heroStats=document.getElementById('wa-hero-stats');
-if(heroStats){heroStats.style.opacity='1';}
-setTimeout(function(){
-  document.querySelectorAll('.wb-row').forEach(function(el){
-    var d=parseInt(el.dataset.delay||0);
-    var w=el.dataset.w||'0';
-    setTimeout(function(){
-      el.classList.add('vis');
-      var fill=el.querySelector('.wb-fill');
-      if(fill)fill.style.width=w+'%';
-    },d);
-  });
-},280);
-</script>
-<script>
+window.addEventListener('load',function(){
 (function(){
 var AD_DATA="""
     + ad_json_str
@@ -2510,7 +2649,6 @@ function drawDuoDonut(alpPct,metaPct){
   if(restA>0.01&&(alpPct+metaPct)<0.99){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s3,e3);duoCtx.closePath();duoCtx.fillStyle='rgba(255,255,255,0.1)';duoCtx.fill();}
   duoCtx.beginPath();duoCtx.arc(cx,cy,ir,0,Math.PI*2);duoCtx.fillStyle='#0d1117';duoCtx.fill();
 }
-// Fallback dataset so bars always display even when live data is unavailable
 var FALLBACK_DATA={
   2010:{"Alphabet":29,"Meta":2,"Amazon":0.8,"Microsoft":2.5},
   2012:{"Alphabet":43,"Meta":5,"Amazon":1.5,"Microsoft":3.5,"Twitter/X":0.5},
@@ -2521,10 +2659,9 @@ var FALLBACK_DATA={
   2022:{"Alphabet":225,"Meta":116,"Amazon":38,"Microsoft":12,"TikTok":10,"Twitter/X":4.5,"Snapchat":4.6},
   2024:{"Alphabet":265,"Meta":160,"Amazon":57,"Microsoft":18,"TikTok":22,"Netflix":3.9,"Snapchat":5,"Twitter/X":3.4}
 };
-// Merge: live data takes priority, fallback fills gaps
 var MERGED_DATA={};
 Object.keys(FALLBACK_DATA).forEach(function(y){MERGED_DATA[y]=FALLBACK_DATA[y];});
-Object.keys(AD_DATA).forEach(function(y){if(Object.keys(AD_DATA[y]).length>0)MERGED_DATA[y]=AD_DATA[y];});
+if(AD_DATA&&typeof AD_DATA==='object'){Object.keys(AD_DATA).forEach(function(y){if(AD_DATA[y]&&Object.keys(AD_DATA[y]).length>0)MERGED_DATA[y]=AD_DATA[y];});}
 var USE_DATA=MERGED_DATA;
 var YEARS=Object.keys(USE_DATA).map(Number).sort(function(a,b){return a-b;});
 var stepIdx=0,aTimer=null;
@@ -2540,14 +2677,12 @@ function updateYear(yr){
   var tEl=document.getElementById('wa-dup-tot');
   var pEl=document.getElementById('wa-dup-pct');
   var prEl=document.getElementById('wa-dup-prog');
-  if(tEl)tEl.textContent=total>0?'Total: $'+(total>=1000?(total/1000).toFixed(1)+'T':total.toFixed(0)+'B'):'Total: —';
-  if(pEl)pEl.textContent=total>0?(duo/total*100).toFixed(0)+'%':'—%';
+  if(tEl)tEl.textContent=total>0?'Total: $'+(total>=1000?(total/1000).toFixed(1)+'T':total.toFixed(0)+'B'):'Total: \u2014';
+  if(pEl)pEl.textContent=total>0?(duo/total*100).toFixed(0)+'%':'\u2014%';
   if(prEl){var idx=YEARS.indexOf(yr);var pct=YEARS.length>1?idx/(YEARS.length-1)*100:100;prEl.style.width=pct+'%';}
-  // Draw donut: Alphabet (blue), Meta (darker blue), rest (dim)
   var alpFrac=total>0?Math.min(alpVal/total,1):0;
   var metaFrac=total>0?Math.min(metaVal/total,1-alpFrac):0;
   drawDuoDonut(alpFrac,metaFrac);
-  // Build sorted horizontal bars for right column
   var barsEl=document.getElementById('wa-dup-bars');
   if(barsEl){
     var entries=Object.keys(data).map(function(k){return{name:k,val:data[k]||0};}).filter(function(e){return e.val>0;});
@@ -2577,14 +2712,12 @@ function runStep(){
   aTimer=setTimeout(runStep,last?3500:1350);
 }
 if(YEARS.length>0){
-  // Delay init slightly so iframe canvas context is ready
-  setTimeout(function(){
-    updateYear(YEARS[0]);
-    stepIdx=1;
-    aTimer=setTimeout(runStep,1600);
-  },120);
+  updateYear(YEARS[0]);
+  stepIdx=1;
+  aTimer=setTimeout(runStep,1600);
 }
 })();
+});
 </script>
 </div>
 """
@@ -2671,7 +2804,9 @@ io.observe(rows);
 _separator()
 
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str)
-st.components.v1.html(_attn_html, height=2200)
+st.components.v1.html(_attn_html, height=1400)
+_duo_html = _build_duopoly_html(_ad_json_str, _global_adv_json_str)
+st.components.v1.html(_duo_html, height=560, scrolling=False)
 
 _separator()
 # --- Concentration: animated stacked bar 2010→latest ---
@@ -3301,9 +3436,13 @@ try:
             else:
                 p_fig = go.Figure()
                 for idx_tag, idx_label, color, dash in [("^GSPC", "S&P 500", "white", "dash"), ("^IXIC", "Nasdaq", "#ff9900", "dot")]:
-                    idx_feed = market_feed_df[market_feed_df["tag"].astype(str).str.upper() == idx_tag]
+                    _tag_col = market_feed_df["tag"].astype(str).str.upper()
+                    _asset_col = market_feed_df["asset"].astype(str).str.lower()
+                    idx_feed = market_feed_df[_tag_col.isin([idx_tag, idx_tag.lstrip("^")])]
                     if idx_feed.empty:
-                        idx_feed = market_feed_df[market_feed_df["asset"].astype(str).str.lower().str.contains(idx_label.lower(), na=False)]
+                        idx_feed = market_feed_df[_asset_col.str.contains(idx_label.lower(), na=False)]
+                    if idx_feed.empty:
+                        idx_feed = market_feed_df[_asset_col.isin([idx_tag.lower(), idx_tag.lstrip("^").lower()])]
                     if idx_feed.empty:
                         continue
                     idx_feed = idx_feed.sort_values("date")
@@ -3319,6 +3458,8 @@ try:
                     co_feed = market_feed_df[market_feed_df["tag"].astype(str).str.upper() == ticker]
                     if co_feed.empty:
                         co_feed = market_feed_df[market_feed_df["asset"].astype(str).str.lower().str.contains(company.lower(), na=False)]
+                    if co_feed.empty:
+                        co_feed = market_feed_df[market_feed_df["asset"].astype(str).str.upper() == ticker]
                     if co_feed.empty:
                         continue
                     co_feed = co_feed.sort_values("date")
