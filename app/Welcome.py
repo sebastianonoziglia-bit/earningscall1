@@ -162,6 +162,41 @@ div[data-testid="block-container"] {
 """,
     unsafe_allow_html=True,
 )
+# ── DARK THEME DEBUG — remove after fix ──────────────────────
+st.markdown("### 🔍 Dark Theme Debug")
+st.markdown("""
+<div id="theme-test-div" style="background:#ff0000;color:#00ff00;
+     padding:8px;border-radius:4px;font-size:13px;">
+  If this box is RED with GREEN text → inline styles work fine.<br>
+  If it looks different → something is overriding inline styles.
+</div>
+""", unsafe_allow_html=True)
+try:
+    import inspect as _inspect
+    for _fn_name in ["render_plotly", "apply_dark_chart_theme", "_apply_dark_chart_layout"]:
+        try:
+            _fn = eval(_fn_name)
+            st.write(f"✅ `{_fn_name}` exists")
+            st.code(_inspect.getsource(_fn)[:400])
+        except NameError:
+            st.warning(f"⚠️ `{_fn_name}` not found in scope")
+except Exception as _e:
+    st.error(f"❌ {_e}")
+import plotly.graph_objects as _go_dbg
+_test_fig = _go_dbg.Figure(_go_dbg.Bar(
+    x=["A", "B", "C"], y=[10, 20, 15],
+    marker_color=["#ff5b1f", "#4285F4", "#1DB954"]
+))
+_test_fig.update_layout(title="Dark theme test — should be transparent background, white text")
+try:
+    _apply_dark_chart_layout(_test_fig)
+    st.write("✅ _apply_dark_chart_layout applied")
+except NameError:
+    st.warning("⚠️ _apply_dark_chart_layout not found in scope at this point")
+st.plotly_chart(_test_fig, use_container_width=True)
+st.markdown("---")
+# ── END DARK THEME DEBUG ──────────────────────────────────────
+
 st.markdown('<style>iframe{border:none!important;}</style>', unsafe_allow_html=True)
 _resolved = resolve_financial_data_xlsx([])
 logger.info(f"STARTUP: Excel resolved to → {_resolved}")
