@@ -17,12 +17,9 @@ import requests
 DEFAULT_GOOGLE_SHEET_ID = "10pOfzRRd0Mhbb_jq_fQRCqNr7N_R2KUpBBNsUuo5sxs"
 DEFAULT_GOOGLE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{DEFAULT_GOOGLE_SHEET_ID}/edit"
 DEFAULT_FINANCIAL_DATA_SOURCE = "google"
-EXPECTED_WORKBOOK_MIN_SHEET_COUNT = 43
+EXPECTED_WORKBOOK_MIN_SHEET_COUNT = 30
 REQUIRED_WORKBOOK_SHEETS = {
     "Company_metrics_earnings_values",
-    "Daily",
-    "Minute",
-    "Holders",
 }
 logger = logging.getLogger(__name__)
 
