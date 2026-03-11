@@ -5242,14 +5242,22 @@ def main():
     # {metric_label: {year: {qnum(1-4): yoy_pct_or_None}}}
     _cg_q_yoy = {}
     try:
-        if quarterly_kpis_df is not None and not quarterly_kpis_df.empty:
-            _cg_co_q = quarterly_kpis_df[quarterly_kpis_df["company"] == canonical_company]
+        # Use load_quarterly_company_metrics — same source as the existing heatmap,
+        # which has proper unit calibration against annual data (avoids raw-dollar scale bugs)
+        _cg_qm_df = load_quarterly_company_metrics(
+            data_processor.data_path, get_file_mtime(data_processor.data_path)
+        )
+        if _cg_qm_df is not None and not _cg_qm_df.empty:
+            _cg_co_qm = _cg_qm_df[_cg_qm_df["company"] == canonical_company]
             for _ml, _mk in _HM_METRICS.items():
+                _rows = _cg_co_qm[_cg_co_qm["metric_key"] == _mk]
+                if _rows.empty:
+                    continue
                 _raw = {}
-                for _, _r in _cg_co_q.iterrows():
-                    _v = pd.to_numeric(_r.get(_mk), errors="coerce")
+                for _, _r in _rows.iterrows():
+                    _v = pd.to_numeric(_r.get("value"), errors="coerce")
                     if not pd.isna(_v):
-                        _raw[(int(_r["Year"]), int(_r["quarter_num"]))] = float(_v)
+                        _raw[(int(_r["year"]), int(_r["quarter_num"]))] = float(_v)
                 _cg_q_vals[_ml] = {}
                 _cg_q_yoy[_ml] = {}
                 for (_yr, _qn), _v in _raw.items():
@@ -5358,33 +5366,34 @@ def main():
         pass
 
     # ── HTML cell builder helpers ──
+    _TD = "padding:7px 6px;font-size:11px;border:none;border-bottom:1px solid rgba(255,255,255,0.04);"
+
     def _cg_hdr(text):
         return (
-            f"<th style='background:rgba(255,255,255,0.05);color:#8b949e;text-align:center;"
+            f"<th style='background:rgba(255,255,255,0.03);color:#8b949e;text-align:center;"
             f"padding:9px 6px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;"
-            f"border:1px solid rgba(255,255,255,0.08);white-space:nowrap;'>{text}</th>"
+            f"border:none;border-bottom:1px solid rgba(255,255,255,0.08);white-space:nowrap;'>{text}</th>"
         )
 
     def _cg_time(text):
         return (
-            f"<td style='background:rgba(255,255,255,0.04);color:#e6edf3;text-align:center;"
-            f"padding:7px 10px;font-size:12px;font-weight:700;border:1px solid rgba(255,255,255,0.08);"
-            f"white-space:nowrap;'>{text}</td>"
+            f"<td style='background:transparent;color:#e6edf3;text-align:center;"
+            f"padding:7px 10px;font-size:12px;font-weight:700;border:none;"
+            f"border-bottom:1px solid rgba(255,255,255,0.05);white-space:nowrap;'>{text}</td>"
         )
 
     def _cg_foot(text):
         return (
-            f"<td style='background:rgba(255,255,255,0.05);color:#8b949e;text-align:center;"
+            f"<td style='background:rgba(255,255,255,0.03);color:#8b949e;text-align:center;"
             f"padding:7px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;"
-            f"border:1px solid rgba(255,255,255,0.08);'>{text}</td>"
+            f"border:none;border-top:1px solid rgba(255,255,255,0.1);'>{text}</td>"
         )
 
     def _cg_val_cell(val, yoy, scale=1000.0):
         """Cell showing absolute $B value, background colored by YoY change."""
         if val is None or (isinstance(val, float) and pd.isna(val)):
             return (
-                "<td style='background:rgba(255,255,255,0.03);color:#444;text-align:center;"
-                "padding:7px 4px;font-size:11px;border:1px solid rgba(255,255,255,0.05);'>—</td>"
+                f"<td style='background:transparent;color:#444;text-align:center;{_TD}'>—</td>"
             )
         v_b = val / scale
         if abs(v_b) >= 100:
@@ -5406,34 +5415,24 @@ def main():
             alpha = min(0.85, abs(yoy) / 25)
             bg = f"rgba(234,57,67,{alpha:.2f})"
             col = "#fff"
-        yoy_str = f"<br><span style='font-size:9px;opacity:.8;'>{'+'if yoy and yoy>0 else ''}{yoy:.1f}%</span>" if yoy is not None else ""
+        yoy_str = f"<br><span style='font-size:9px;opacity:.75;'>{'+'if yoy and yoy>0 else ''}{yoy:.1f}%</span>" if yoy is not None else ""
         return (
-            f"<td style='background:{bg};color:{col};text-align:center;padding:6px 4px;"
-            f"font-size:11px;font-weight:600;border:1px solid rgba(0,0,0,0.2);'>{fmt}{yoy_str}</td>"
+            f"<td style='background:{bg};color:{col};text-align:center;{_TD}'>{fmt}{yoy_str}</td>"
         )
 
     def _cg_pct_cell(pct):
         """Cell for stock % return."""
         if pct is None:
-            return (
-                "<td style='background:rgba(255,255,255,0.03);color:#444;text-align:center;"
-                "padding:7px 4px;font-size:11px;border:1px solid rgba(255,255,255,0.05);'>—</td>"
-            )
+            return f"<td style='background:transparent;color:#444;text-align:center;{_TD}'>—</td>"
         alpha = min(0.92, abs(pct) / 30)
         bg = f"rgba(22,199,132,{alpha:.2f})" if pct >= 0 else f"rgba(234,57,67,{alpha:.2f})"
         sign = "+" if pct > 0 else ""
-        return (
-            f"<td style='background:{bg};color:#fff;text-align:center;padding:7px 4px;"
-            f"font-size:11px;font-weight:600;border:1px solid rgba(0,0,0,0.2);'>{sign}{pct:.2f}%</td>"
-        )
+        return f"<td style='background:{bg};color:#fff;text-align:center;{_TD}'>{sign}{pct:.2f}%</td>"
 
     def _cg_stat_val(val_list, stat="avg", scale=1000.0):
         valid = [v for v in val_list if v is not None]
         if not valid:
-            return (
-                "<td style='background:rgba(255,255,255,0.05);color:#555;text-align:center;"
-                "padding:7px 4px;font-size:10px;border:1px solid rgba(255,255,255,0.06);'>—</td>"
-            )
+            return f"<td style='background:rgba(255,255,255,0.03);color:#555;text-align:center;{_TD}'>—</td>"
         if stat == "avg":
             v = sum(valid) / len(valid)
         else:
@@ -5446,31 +5445,22 @@ def main():
             fmt = f"${v_b:.1f}B"
         else:
             fmt = f"${v_b:.2f}B"
-        return (
-            f"<td style='background:rgba(255,255,255,0.07);color:#aaa;text-align:center;"
-            f"padding:7px 4px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.07);'>{fmt}</td>"
-        )
+        return f"<td style='background:rgba(255,255,255,0.04);color:#8b949e;text-align:center;{_TD}'>{fmt}</td>"
 
     def _cg_stat_pct(pct_list, stat="avg"):
         valid = [v for v in pct_list if v is not None]
         if not valid:
-            return (
-                "<td style='background:rgba(255,255,255,0.05);color:#555;text-align:center;"
-                "padding:7px 4px;font-size:10px;border:1px solid rgba(255,255,255,0.06);'>—</td>"
-            )
+            return f"<td style='background:rgba(255,255,255,0.03);color:#555;text-align:center;{_TD}'>—</td>"
         if stat == "avg":
             v = sum(valid) / len(valid)
         else:
             sv = sorted(valid); n = len(sv)
             v = sv[n // 2] if n % 2 else (sv[n // 2 - 1] + sv[n // 2]) / 2
         sign = "+" if v > 0 else ""
-        return (
-            f"<td style='background:rgba(255,255,255,0.07);color:#aaa;text-align:center;"
-            f"padding:7px 4px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.07);'>{sign}{v:.2f}%</td>"
-        )
+        return f"<td style='background:rgba(255,255,255,0.04);color:#8b949e;text-align:center;{_TD}'>{sign}{v:.2f}%</td>"
 
     def _detect_scale(vals_dict):
-        """Return 1000 if values are likely in $M, else 1 (already $B)."""
+        """Return divisor to convert raw value → $B. Handles raw $, $M, and $B sources."""
         all_vals = [
             v for yr_d in vals_dict.values()
             for v in (yr_d.values() if isinstance(yr_d, dict) else [yr_d])
@@ -5479,7 +5469,13 @@ def main():
         if not all_vals:
             return 1000.0
         med = sorted([abs(v) for v in all_vals])[len(all_vals) // 2]
-        return 1000.0 if med > 500 else 1.0
+        if med >= 1e9:
+            return 1e9    # raw dollars → $B
+        if med >= 1e6:
+            return 1e6    # raw millions → $B (unlikely but guard)
+        if med > 500:
+            return 1000.0  # $M → $B
+        return 1.0         # already $B
 
     def _build_q_table(metric_label):
         vals = _cg_q_vals.get(metric_label, {})
@@ -5620,17 +5616,17 @@ def main():
         """<!DOCTYPE html><html><head><meta charset='utf-8'>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:#0d1117;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;}
-.cg-wrap{background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;}
-.cg-tabs{display:flex;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.015);}
-.cg-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;padding:12px 18px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:.04em;transition:all .2s;}
+html,body{background:transparent;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;}
+.cg-wrap{background:transparent;border:none;overflow:hidden;}
+.cg-tabs{display:flex;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,0.1);background:transparent;}
+.cg-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:.04em;transition:all .2s;}
 .cg-tab.active,.cg-tab:hover{color:#e6edf3;border-bottom-color:#ff5b1f;}
-.cg-pills{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.cg-pills{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 8px;}
 .cg-pill{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b949e;padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
 .cg-pill.active,.cg-pill:hover{background:#ff5b1f;border-color:#ff5b1f;color:#fff;}
-.cg-note{padding:8px 16px 4px;font-size:10px;color:#555;letter-spacing:.05em;}
+.cg-note{padding:6px 0 2px;font-size:10px;color:#555;letter-spacing:.05em;}
 .cg-panel{display:none;}.cg-panel.active{display:block;}
-.cg-body{padding:12px 16px;}
+.cg-body{padding:10px 0;}
 </style></head><body><div class="cg-wrap">
 <div class="cg-tabs">
   <button class="cg-tab active" onclick="cgTab('q',this)">Quarterly</button>

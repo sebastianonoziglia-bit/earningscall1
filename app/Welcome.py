@@ -2588,7 +2588,7 @@ def _build_duopoly_html(ad_json_str: str, groupm_json_str: str) -> str:
 <style>
 html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-duo-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:0 24px;}
+#wm-duo-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;min-height:440px;height:440px;padding:0 24px;display:flex;flex-direction:column;}
 #wm-duo-root *{box-sizing:border-box;}
 .wa-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
 .wa-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.14;margin:0 0 8px;}
@@ -2598,8 +2598,8 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
   <div class="wa-label">THE AD DUOPOLY</div>
   <div class="wa-headline">Two companies. Most of the money.</div>
   <div class="wa-body">Watch how Alphabet and Meta came to dominate digital advertising &#8212; from 2010 to today.</div>
-  <div style="display:flex;width:100%;height:380px;align-items:stretch;gap:0;margin-top:8px;">
-    <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 24px 16px 0;border-right:1px solid rgba(255,255,255,0.07);min-height:380px;">
+  <div style="display:flex;width:100%;height:380px;align-items:stretch;gap:0;margin-top:8px;flex:1;">
+    <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 24px 16px 0;border-right:1px solid rgba(255,255,255,0.07);min-height:380px;height:380px;">
       <canvas id="wa-duo-canvas" width="220" height="220"></canvas>
       <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:#e6edf3;line-height:1;margin-top:10px;transition:opacity .2s ease;">&#8212;</div>
       <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#ff5b1f;line-height:1;margin-top:4px;">&#8212;%</div>
@@ -2611,8 +2611,8 @@ html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);flex-shrink:0;"></div>Rest</div>
       </div>
     </div>
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 0 8px 24px;overflow:hidden;min-width:0;">
-      <div id="wa-dup-bars" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 0 8px 24px;overflow:hidden;min-width:0;height:380px;">
+      <div id="wa-dup-bars" style="display:flex;flex-direction:column;gap:8px;min-height:340px;justify-content:center;flex:1;"></div>
     </div>
   </div>
 </div>
@@ -2806,52 +2806,8 @@ _separator()
 
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str)
 st.components.v1.html(_attn_html, height=1400)
-# ── DUOPOLY DEBUG — remove after fix ──────────────────────
-import traceback
-
-st.markdown("### 🔍 Duopoly Debug")
-
-try:
-    st.write("✅ `_build_duopoly_html` is defined:", callable(_build_duopoly_html))
-except NameError:
-    st.error("❌ `_build_duopoly_html` is NOT defined — function is missing or not in scope")
-
-try:
-    st.write("ad_json_str type:", type(_ad_json_str), "| length:", len(str(_ad_json_str)))
-    st.write("ad_json_str value (first 300 chars):", str(_ad_json_str)[:300])
-except NameError as e:
-    st.error(f"❌ _ad_json_str not in scope: {e}")
-
-try:
-    st.write("groupm_json_str type:", type(_global_adv_json_str), "| length:", len(str(_global_adv_json_str)))
-    st.write("groupm_json_str value (first 300 chars):", str(_global_adv_json_str)[:300])
-except NameError as e:
-    st.error(f"❌ _global_adv_json_str not in scope: {e}")
-
-try:
-    _test_html = _build_duopoly_html(_ad_json_str, _global_adv_json_str)
-    st.write("✅ Function returned HTML of length:", len(_test_html))
-    st.write("HTML preview (first 500 chars):", _test_html[:500])
-except Exception as e:
-    st.error(f"❌ Function call failed: {e}")
-    st.code(traceback.format_exc())
-
-try:
-    _raw_adv = data_processor.get_advertising_revenue()
-    if _raw_adv is None or _raw_adv.empty:
-        st.error("❌ advertising revenue returned empty or None")
-    else:
-        st.write("✅ advertising revenue shape:", _raw_adv.shape)
-        st.write("Columns:", _raw_adv.columns.tolist())
-        st.dataframe(_raw_adv.head(5))
-except Exception as e:
-    st.error(f"❌ Failed to load advertising revenue: {e}")
-    st.code(traceback.format_exc())
-
-# ── END DEBUG ──────────────────────────────────────────────
-
 _duo_html = _build_duopoly_html(_ad_json_str, _global_adv_json_str)
-st.components.v1.html(_duo_html, height=560, scrolling=False)
+st.components.v1.html(_duo_html, height=480, scrolling=False)
 
 _separator()
 # --- Concentration: animated stacked bar 2010→latest ---
