@@ -150,6 +150,10 @@ div[data-testid="block-container"] {
     line-height: 1.6;
     margin-top: 12px;
 }
+.accent-num {
+    color: #ff5b1f !important;
+    font-weight: 800;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -2191,7 +2195,7 @@ st.components.v1.html(
 
 # Beat 1 — Map
 map_body = (
-    f"In {effective_year_groupm}, global advertising reached <span style='color:#ff5b1f;font-weight:800;'>${groupm_b:.0f}B</span>. "
+    f"In {effective_year_groupm}, global advertising reached <span class='accent-num'>${groupm_b:.0f}B</span>. "
     f"The map below shows how that spend is distributed — colored by advertising intensity as a share of each country's GDP."
     if groupm_b
     else "Global advertising data for this year is unavailable."
