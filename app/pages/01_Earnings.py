@@ -3684,8 +3684,8 @@ def main():
                 return []
             # Pie domain x=[0, 0.72] → center (0.36, 0.5), outer_r ≈ 0.36
             cx, cy = 0.36, 0.5
-            outer_r = 0.33   # just outside donut edge in paper coords
-            label_r = 0.50   # label text radius
+            outer_r = 0.33   # just outside donut edge in paper coords (unused, kept for reference)
+            label_r = 0.52   # label text radius — outside donut edge
             anns = []
             angle = _math.pi / 2  # start at top, clockwise
             for lbl, val, col, yoy in zip(labels, values, colors, yoy_pcts):
@@ -3696,8 +3696,6 @@ def main():
                 span = fraction * 2 * _math.pi
                 mid = angle - span / 2
                 angle -= span
-                tip_x = cx + outer_r * _math.cos(mid)
-                tip_y = cy + outer_r * _math.sin(mid)
                 lx = cx + label_r * _math.cos(mid)
                 ly = cy + label_r * _math.sin(mid)
                 val_b = val / 1000
@@ -3708,12 +3706,10 @@ def main():
                     f"<br><span style='color:#e6edf3;font-size:11px;'>{lbl}</span>"
                 )
                 anns.append(dict(
-                    x=tip_x, y=tip_y, ax=lx, ay=ly,
+                    x=lx, y=ly,
                     xref="paper", yref="paper",
-                    axref="paper", ayref="paper",
-                    text=text, showarrow=True,
-                    arrowhead=0, arrowcolor=col, arrowwidth=1.5,
-                    font=dict(color=col, size=12, family="Montserrat, sans-serif"),
+                    text=text, showarrow=False,
+                    font=dict(color=col, size=11, family="Montserrat, sans-serif"),
                     align="center",
                     bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
                 ))
@@ -3815,12 +3811,12 @@ def main():
                             sort=False,
                             direction="clockwise",
                             rotation=90,
-                            domain=dict(x=[0, 0.72], y=[0, 1]),
                             marker=dict(
                                 colors=_fc,
                                 line=dict(color="rgba(0,0,0,0.18)", width=1),
                             ),
-                            textinfo="none",
+                            textinfo="percent",
+                            textfont=dict(color="#ffffff", size=10),
                             hovertemplate=(
                                 "<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}"
                                 "<extra></extra>"
@@ -3845,7 +3841,16 @@ def main():
                     break
 
             # ── Annual mode: compute FY aggregate as the static initial view ──
-            _init_data = _pie_frames[_init_idx].data
+            # Rebuild initial trace with domain (frames omit domain intentionally)
+            _f0 = _pie_frames[_init_idx].data[0]
+            _init_data = [go.Pie(
+                labels=_f0.labels, values=_f0.values,
+                hole=0.55, sort=False, direction="clockwise", rotation=90,
+                domain=dict(x=[0, 0.72], y=[0, 1]),
+                marker=_f0.marker,
+                textinfo="percent", textfont=dict(color="#ffffff", size=10),
+                hovertemplate="<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}<extra></extra>",
+            )]
             _init_anns = list(_pie_frames[_init_idx].layout.annotations or [])
             if _is_annual and has_quarterly_segments:
                 _fy_raw = segments_quarterly_all[
@@ -3872,7 +3877,8 @@ def main():
                         hole=0.55, sort=False, direction="clockwise", rotation=90,
                         domain=dict(x=[0, 0.72], y=[0, 1]),
                         marker=dict(colors=_fy_fc, line=dict(color="rgba(0,0,0,0.18)", width=1)),
-                        textinfo="none",
+                        textinfo="percent",
+                        textfont=dict(color="#ffffff", size=10),
                         hovertemplate="<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}<extra></extra>",
                     )]
 
