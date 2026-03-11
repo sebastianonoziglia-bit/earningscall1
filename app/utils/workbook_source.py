@@ -175,15 +175,14 @@ def _has_core_financial_coverage(path: str | Path | None) -> bool:
 
 
 def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -> Optional[str]:
-    """Resolve the primary workbook path.
+    """Download the Google Sheet and return the path to the cached XLSX.
 
-    Resolution order:
-    1. Google Sheets export (live data — primary source).
-    2. Explicit local_candidates (caller-supplied paths, fallback).
-    3. Auto-detected bundled XLSX files in app/attached_assets/ (last-resort fallback).
+    Google Sheets is the single source of truth. The sheet is downloaded on
+    first load and re-downloaded every FINANCIAL_DATA_GSHEET_REFRESH_SECONDS
+    (default 4 hours). The cached file lives in the OS temp directory.
 
-    Google Sheets is always attempted first so the app reflects live updates
-    to the spreadsheet without requiring a manual file commit.
+    No local committed files are used. Returns None only if the network
+    request fails AND no valid stale cache exists.
     """
     sheet_ref = (
         os.getenv("FINANCIAL_DATA_GSHEET_URL")
@@ -191,48 +190,27 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
         or DEFAULT_GOOGLE_SHEET_URL
     )
     sheet_id = extract_google_sheet_id(sheet_ref)
+    if not sheet_id:
+        logger.error("WORKBOOK_RESOLVE cannot parse Google Sheet ID from: %s", sheet_ref)
+        return None
 
     try:
         refresh_seconds = int(os.getenv("FINANCIAL_DATA_GSHEET_REFRESH_SECONDS", "14400"))
     except Exception:
         refresh_seconds = 14400
 
-    # 1: Google Sheets (live data, cached locally for refresh_seconds)
-    if sheet_id:
-        try:
-            downloaded = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
-        except Exception as exc:
-            logger.warning("WORKBOOK_RESOLVE Google export failed for sheet_id=%s: %s", sheet_id, exc)
-            downloaded = None
+    try:
+        path = _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
+    except Exception as exc:
+        logger.error("WORKBOOK_RESOLVE Google Sheet download failed: %s", exc)
+        return None
 
-        if downloaded and os.path.exists(downloaded) and _has_core_financial_coverage(downloaded):
-            logger.info("WORKBOOK_RESOLVE using Google Sheet: %s", sheet_id)
-            return os.path.abspath(downloaded)
-        else:
-            logger.warning("WORKBOOK_RESOLVE Google export unavailable or failed coverage check — falling back to local.")
-    else:
-        logger.warning("WORKBOOK_RESOLVE could not parse Google Sheet ID from %s", sheet_ref)
+    if not path or not os.path.exists(path):
+        logger.error("WORKBOOK_RESOLVE Google Sheet download returned no file.")
+        return None
 
-    # 2 + 3: local fallback (bundled file in attached_assets or caller-supplied)
-    _auto_candidates: list[str] = []
-    _here = Path(__file__).resolve()
-    for _rel in (
-        _here.parents[1] / "attached_assets",
-        _here.parents[0] / "attached_assets",
-    ):
-        if _rel.is_dir():
-            _auto_candidates.extend(str(p) for p in sorted(_rel.glob("*.xlsx")))
-
-    for _candidate in list(local_candidates or []) + _auto_candidates:
-        _p = Path(_candidate)
-        if not _p.exists() or not _is_valid_xlsx_file(_p):
-            continue
-        if _has_core_financial_coverage(_p):
-            logger.info("WORKBOOK_RESOLVE using local fallback: %s", _p)
-            return str(_p.resolve())
-
-    logger.error("WORKBOOK_RESOLVE no valid workbook found (Google Sheet + all local candidates failed).")
-    return None
+    logger.info("WORKBOOK_RESOLVE live data from Google Sheet (id=%s) cached at: %s", sheet_id, path)
+    return os.path.abspath(path)
 
 
 def get_workbook_source_stamp(path: str | None) -> int:
