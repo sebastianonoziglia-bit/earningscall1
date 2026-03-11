@@ -4054,34 +4054,28 @@ def main():
 
             # Employee count footnote below donut
             try:
-                _emp_df = data_processor.get_sheet("Company_Employees")
-                if _emp_df is not None and not _emp_df.empty:
-                    _emp_df.columns = [str(c).strip().lower() for c in _emp_df.columns]
-                    _emp_col = next((c for c in _emp_df.columns if "employee" in c or "count" in c), None)
-                    if _emp_col and "company" in _emp_df.columns and "year" in _emp_df.columns:
-                        _emp_df["year"] = pd.to_numeric(_emp_df["year"], errors="coerce")
-                        _emp_df["company"] = _emp_df["company"].astype(str).str.strip()
-                        _emp_row = _emp_df[
-                            (_emp_df["company"].str.lower() == canonical_company.lower())
-                            & (_emp_df["year"] == int(year))
-                        ]
-                        if _emp_row.empty:
-                            _emp_co = _emp_df[_emp_df["company"].str.lower() == canonical_company.lower()]
-                            if not _emp_co.empty:
-                                _emp_row = _emp_co.sort_values("year").iloc[[-1]]
-                        if not _emp_row.empty:
-                            _emp_val = pd.to_numeric(_emp_row.iloc[0][_emp_col], errors="coerce")
-                            if pd.notna(_emp_val) and _emp_val > 0:
-                                _emp_yr = int(_emp_row.iloc[0]["year"])
-                                _emp_fmt = (
-                                    f"{_emp_val/1000:.0f}K" if _emp_val >= 1000 else str(int(_emp_val))
-                                )
-                                st.markdown(
-                                    f"<div style='text-align:center;color:#8b949e;font-size:0.82rem;"
-                                    f"margin-top:-8px;padding-bottom:8px;'>"
-                                    f"\U0001f465 <b style='color:#c9d1d9;'>{_emp_fmt}</b> employees ({_emp_yr})</div>",
-                                    unsafe_allow_html=True,
-                                )
+                _emp_val = data_processor.get_employee_count(canonical_company, int(year))
+                _emp_yr_disp = int(year)
+                if _emp_val is None:
+                    # Try most recent available year for this company
+                    _emp_df_fb = data_processor.df_employees
+                    if _emp_df_fb is not None and not _emp_df_fb.empty:
+                        _emp_co_fb = _emp_df_fb[_emp_df_fb["company"] == canonical_company]
+                        if not _emp_co_fb.empty:
+                            _emp_yr_disp = int(_emp_co_fb.sort_values("year")["year"].iloc[-1])
+                            _emp_val = data_processor.get_employee_count(canonical_company, _emp_yr_disp)
+                if _emp_val is not None:
+                    _emp_val_n = pd.to_numeric(_emp_val, errors="coerce")
+                    if pd.notna(_emp_val_n) and _emp_val_n > 0:
+                        _emp_fmt = (
+                            f"{_emp_val_n/1000:.0f}K" if _emp_val_n >= 1000 else str(int(_emp_val_n))
+                        )
+                        st.markdown(
+                            f"<div style='text-align:center;color:#8b949e;font-size:0.82rem;"
+                            f"margin-top:-8px;padding-bottom:8px;'>"
+                            f"\U0001f465 <b style='color:#c9d1d9;'>{_emp_fmt}</b> employees ({_emp_yr_disp})</div>",
+                            unsafe_allow_html=True,
+                        )
             except Exception:
                 pass
 
@@ -5222,6 +5216,293 @@ def main():
                 period_limit=week_window,
             )
         render_heatmap_figure(heatmap_df, "stock", heatmap_freq, "Company")
+
+    # ── Coinglass-style single-company performance heatmap ──────────────────
+    st.markdown("<div class='metrics-section-spacer'></div>", unsafe_allow_html=True)
+    st.divider()
+    st.subheader(f"Returns Heatmap — {company}")
+    st.markdown("Period-over-period performance by financial metric or stock price. Green = positive, red = negative.")
+
+    import json as _json_mod
+
+    _HM_METRICS = {
+        "Revenue": "revenue",
+        "Net Income": "net_income",
+        "Operating Income": "operating_income",
+        "Cost of Revenue": "cost_of_revenue",
+        "R&D": "rd",
+        "CapEx": "capex",
+        "Total Assets": "total_assets",
+        "Debt": "debt",
+        "Cash Balance": "cash_balance",
+    }
+    _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    # Quarterly QoQ % changes
+    _cg_q = {}
+    try:
+        if quarterly_kpis_df is not None and not quarterly_kpis_df.empty:
+            _cg_co_q = quarterly_kpis_df[
+                quarterly_kpis_df["company"] == canonical_company
+            ].sort_values(["Year", "quarter_num"])
+            _cg_prev = {}
+            for _, _r in _cg_co_q.iterrows():
+                _yr, _qn = int(_r["Year"]), int(_r["quarter_num"])
+                for _ml, _mk in _HM_METRICS.items():
+                    _v = pd.to_numeric(_r.get(_mk), errors="coerce")
+                    _cg_q.setdefault(_ml, {}).setdefault(_yr, {})
+                    if pd.isna(_v):
+                        _cg_q[_ml][_yr][_qn] = None
+                        continue
+                    _pk = (_ml, _yr - 1, 4) if _qn == 1 else (_ml, _yr, _qn - 1)
+                    _pv = _cg_prev.get(_pk)
+                    _cg_q[_ml][_yr][_qn] = (
+                        round((float(_v) - _pv) / abs(_pv) * 100, 2)
+                        if _pv and abs(_pv) > 0 else None
+                    )
+                    _cg_prev[(_ml, _yr, _qn)] = float(_v)
+    except Exception:
+        pass
+
+    # Annual YoY % changes
+    _cg_a = {}
+    try:
+        _amdf = data_processor.df_metrics
+        if _amdf is not None and not _amdf.empty:
+            _cg_co_a = _amdf[_amdf["company"] == canonical_company].copy()
+            _cg_co_a["year"] = pd.to_numeric(_cg_co_a["year"], errors="coerce")
+            _cg_co_a = _cg_co_a.dropna(subset=["year"]).sort_values("year")
+            _ap = {}
+            for _, _r in _cg_co_a.iterrows():
+                _yr = int(_r["year"])
+                for _ml, _mk in _HM_METRICS.items():
+                    if _mk not in _cg_co_a.columns:
+                        continue
+                    _v = pd.to_numeric(_r.get(_mk), errors="coerce")
+                    _cg_a.setdefault(_ml, {})
+                    _pv = _ap.get(_ml)
+                    if pd.isna(_v):
+                        _cg_a[_ml][_yr] = None
+                    elif _pv and abs(_pv) > 0:
+                        _cg_a[_ml][_yr] = round((float(_v) - _pv) / abs(_pv) * 100, 2)
+                    else:
+                        _cg_a[_ml][_yr] = None
+                    if not pd.isna(_v):
+                        _ap[_ml] = float(_v)
+    except Exception:
+        pass
+
+    # Stock period returns
+    _cg_mon = {}
+    _cg_wk = {}
+    _cg_day = {}
+    try:
+        _cg_st = filter_stock_for_company(stock_df, canonical_company)
+        if not _cg_st.empty:
+            _ps = _cg_st.sort_values("date").set_index("date")["price"]
+            _ps.index = pd.to_datetime(_ps.index, errors="coerce")
+            _ps = _ps[_ps.index.notna()].sort_index()
+            _ps = _ps[~_ps.index.duplicated(keep="last")]
+            for _dt, _pct in (_ps.resample("ME").last().pct_change() * 100).items():
+                _cg_mon.setdefault(_dt.year, {})[_MONTHS[_dt.month - 1]] = (
+                    None if pd.isna(_pct) else round(float(_pct), 2)
+                )
+            _wk_cut = _ps.index.max() - pd.Timedelta(days=3 * 365)
+            for _dt, _pct in (_ps[_ps.index >= _wk_cut].resample("W").last().pct_change() * 100).items():
+                _cg_wk.setdefault(_dt.year, {})[f"W{_dt.isocalendar()[1]:02d}"] = (
+                    None if pd.isna(_pct) else round(float(_pct), 2)
+                )
+            _dy_cut = _ps.index.max() - pd.Timedelta(days=365)
+            for _dt, _pct in (_ps[_ps.index >= _dy_cut].pct_change() * 100).items():
+                _cg_day.setdefault(_dt.strftime("%Y-%m"), {})[_dt.day] = (
+                    None if pd.isna(_pct) else round(float(_pct), 2)
+                )
+    except Exception:
+        pass
+
+    # HTML table cell builders
+    def _cg_cell(pct):
+        if pct is None:
+            return "<td style='background:rgba(255,255,255,0.03);color:#444;text-align:center;padding:7px 4px;font-size:11px;border:1px solid rgba(255,255,255,0.05);'>—</td>"
+        alpha = min(0.92, abs(pct) / 30)
+        bg = f"rgba(22,199,132,{alpha:.2f})" if pct >= 0 else f"rgba(234,57,67,{alpha:.2f})"
+        sign = "+" if pct > 0 else ""
+        return f"<td style='background:{bg};color:#fff;text-align:center;padding:7px 4px;font-size:11px;border:1px solid rgba(0,0,0,0.2);font-weight:600;'>{sign}{pct:.2f}%</td>"
+
+    def _cg_stat(vals, stat="avg"):
+        valid = [v for v in vals if v is not None]
+        if not valid:
+            return "<td style='background:rgba(255,255,255,0.05);color:#555;text-align:center;padding:7px 4px;font-size:11px;border:1px solid rgba(255,255,255,0.06);'>—</td>"
+        if stat == "avg":
+            v = sum(valid) / len(valid)
+        else:
+            sv = sorted(valid); n = len(sv)
+            v = sv[n // 2] if n % 2 else (sv[n // 2 - 1] + sv[n // 2]) / 2
+        sign = "+" if v > 0 else ""
+        return f"<td style='background:rgba(255,255,255,0.07);color:#aaa;text-align:center;padding:7px 4px;font-size:11px;border:1px solid rgba(255,255,255,0.07);font-weight:600;'>{sign}{v:.2f}%</td>"
+
+    def _cg_hdr(text):
+        return f"<th style='background:rgba(255,255,255,0.05);color:#8b949e;text-align:center;padding:9px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:1px solid rgba(255,255,255,0.08);white-space:nowrap;'>{text}</th>"
+
+    def _cg_time(text):
+        return f"<td style='background:rgba(255,255,255,0.04);color:#e6edf3;text-align:center;padding:7px 10px;font-size:12px;font-weight:700;border:1px solid rgba(255,255,255,0.08);white-space:nowrap;'>{text}</td>"
+
+    def _cg_foot(text):
+        return f"<td style='background:rgba(255,255,255,0.05);color:#8b949e;text-align:center;padding:7px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(255,255,255,0.08);'>{text}</td>"
+
+    def _build_q_table(metric_label):
+        data = _cg_q.get(metric_label, {})
+        if not data:
+            return "<p style='color:#555;padding:20px;text-align:center;'>No quarterly data available.</p>"
+        years = sorted(data.keys(), reverse=True)
+        rows = ["<table style='width:100%;border-collapse:collapse;'>"]
+        rows.append("<thead><tr>" + _cg_hdr("Time") + "".join(_cg_hdr(f"Q{q}") for q in [1,2,3,4]) + "</tr></thead><tbody>")
+        col_vals = {q: [] for q in [1, 2, 3, 4]}
+        for yr in years:
+            yd = data.get(yr, {})
+            rows.append("<tr>" + _cg_time(str(yr)))
+            for q in [1, 2, 3, 4]:
+                pct = yd.get(q)
+                if pct is not None:
+                    col_vals[q].append(pct)
+                rows.append(_cg_cell(pct))
+            rows.append("</tr>")
+        rows.append("<tr>" + _cg_foot("Avg") + "".join(_cg_stat(col_vals[q], "avg") for q in [1,2,3,4]) + "</tr>")
+        rows.append("<tr>" + _cg_foot("Med") + "".join(_cg_stat(col_vals[q], "med") for q in [1,2,3,4]) + "</tr>")
+        rows.append("</tbody></table>")
+        return "".join(rows)
+
+    def _build_a_table(metric_label):
+        data = _cg_a.get(metric_label, {})
+        if not data:
+            return "<p style='color:#555;padding:20px;text-align:center;'>No annual data available.</p>"
+        years = sorted(data.keys(), reverse=True)
+        rows = ["<table style='width:260px;border-collapse:collapse;'>"]
+        rows.append("<thead><tr>" + _cg_hdr("Year") + _cg_hdr("YoY %") + "</tr></thead><tbody>")
+        all_vals = []
+        for yr in years:
+            pct = data.get(yr)
+            if pct is not None:
+                all_vals.append(pct)
+            rows.append("<tr>" + _cg_time(str(yr)) + _cg_cell(pct) + "</tr>")
+        rows.append("<tr>" + _cg_foot("Avg") + _cg_stat(all_vals, "avg") + "</tr>")
+        rows.append("<tr>" + _cg_foot("Med") + _cg_stat(all_vals, "med") + "</tr>")
+        rows.append("</tbody></table>")
+        return "".join(rows)
+
+    def _build_generic_table(data_dict, col_keys, empty_msg):
+        if not data_dict:
+            return f"<p style='color:#555;padding:20px;text-align:center;'>{empty_msg}</p>"
+        rows_keys = sorted(data_dict.keys(), reverse=True)
+        col_vals = {k: [] for k in col_keys}
+        rows = ["<div style='overflow-x:auto;'><table style='border-collapse:collapse;min-width:400px;'>"]
+        rows.append("<thead><tr>" + _cg_hdr("Time") + "".join(_cg_hdr(str(k)) for k in col_keys) + "</tr></thead><tbody>")
+        for rk in rows_keys:
+            rd = data_dict.get(rk, {})
+            rows.append("<tr>" + _cg_time(str(rk)))
+            for ck in col_keys:
+                pct = rd.get(ck)
+                if pct is not None:
+                    col_vals[ck].append(pct)
+                rows.append(_cg_cell(pct))
+            rows.append("</tr>")
+        rows.append("<tr>" + _cg_foot("Avg") + "".join(_cg_stat(col_vals[k], "avg") for k in col_keys) + "</tr>")
+        rows.append("<tr>" + _cg_foot("Med") + "".join(_cg_stat(col_vals[k], "med") for k in col_keys) + "</tr>")
+        rows.append("</tbody></table></div>")
+        return "".join(rows)
+
+    _all_wk_keys = sorted({wk for yd in _cg_wk.values() for wk in yd})
+    _all_day_keys = list(range(1, 32))
+    _cg_mon_html = _build_generic_table({str(k): v for k, v in _cg_mon.items()}, _MONTHS, "No monthly stock data.")
+    _cg_wk_html = _build_generic_table({str(k): v for k, v in _cg_wk.items()}, _all_wk_keys, "No weekly stock data.")
+    _cg_day_html = _build_generic_table(_cg_day, _all_day_keys, "No daily stock data.")
+
+    _metric_ids = [ml.lower().replace(" ", "_").replace("/", "_").replace("&", "") for ml in _HM_METRICS]
+    _first_mid = _metric_ids[0]
+
+    _q_panes_html = ""
+    _a_panes_html = ""
+    _pill_buttons_q = ""
+    _pill_buttons_a = ""
+    for i, (ml, _) in enumerate(_HM_METRICS.items()):
+        mid = _metric_ids[i]
+        disp = "block" if i == 0 else "none"
+        _q_panes_html += f"<div id='cg-q-{mid}' class='cg-mpane' style='display:{disp};'>{_build_q_table(ml)}</div>"
+        _a_panes_html += f"<div id='cg-a-{mid}' class='cg-mpane' style='display:{disp};'>{_build_a_table(ml)}</div>"
+        active_cls = " active" if i == 0 else ""
+        _pill_buttons_q += f"<button class='cg-pill{active_cls}' onclick=\"cgMetric('q','{mid}',this)\">{ml}</button>"
+        _pill_buttons_a += f"<button class='cg-pill{active_cls}' onclick=\"cgMetric('a','{mid}',this)\">{ml}</button>"
+
+    _cg_q_years = max((len(_cg_q.get(ml, {})) for ml in _HM_METRICS), default=0)
+    _cg_height = max(480, min(960, 200 + _cg_q_years * 34))
+
+    _cg_html = (
+        """<!DOCTYPE html><html><head><meta charset='utf-8'>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0d1117;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;}
+.cg-wrap{background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;}
+.cg-tabs{display:flex;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.015);}
+.cg-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;padding:12px 18px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:.04em;transition:all .2s;}
+.cg-tab.active,.cg-tab:hover{color:#e6edf3;border-bottom-color:#ff5b1f;}
+.cg-pills{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.cg-pill{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b949e;padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
+.cg-pill.active,.cg-pill:hover{background:#ff5b1f;border-color:#ff5b1f;color:#fff;}
+.cg-panel{display:none;}.cg-panel.active{display:block;}
+.cg-body{padding:12px 16px;}
+</style></head><body><div class="cg-wrap">
+<div class="cg-tabs">
+  <button class="cg-tab active" onclick="cgTab('q',this)">Quarterly (%)</button>
+  <button class="cg-tab" onclick="cgTab('a',this)">Annual (%)</button>
+  <button class="cg-tab" onclick="cgTab('mon',this)">Monthly returns (%)</button>
+  <button class="cg-tab" onclick="cgTab('wk',this)">Weekly returns (%)</button>
+  <button class="cg-tab" onclick="cgTab('day',this)">Daily returns (%)</button>
+</div>
+<div id="cg-pq" class="cg-panel active">
+  <div class="cg-pills">"""
+        + _pill_buttons_q
+        + """</div><div class="cg-body">"""
+        + _q_panes_html
+        + """</div></div>
+<div id="cg-pa" class="cg-panel">
+  <div class="cg-pills">"""
+        + _pill_buttons_a
+        + """</div><div class="cg-body">"""
+        + _a_panes_html
+        + """</div></div>
+<div id="cg-pmon" class="cg-panel"><div class="cg-body">"""
+        + _cg_mon_html
+        + """</div></div>
+<div id="cg-pwk" class="cg-panel"><div class="cg-body">"""
+        + _cg_wk_html
+        + """</div></div>
+<div id="cg-pday" class="cg-panel"><div class="cg-body">"""
+        + _cg_day_html
+        + """</div></div>
+</div>
+<script>
+var TABS={'q':'cg-pq','a':'cg-pa','mon':'cg-pmon','wk':'cg-pwk','day':'cg-pday'};
+function cgTab(id,btn){
+  document.querySelectorAll('.cg-tab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  Object.keys(TABS).forEach(function(k){
+    var p=document.getElementById(TABS[k]);
+    if(p)p.classList.toggle('active',k===id);
+  });
+}
+function cgMetric(tab,mid,btn){
+  var panel=document.getElementById(TABS[tab]);
+  if(!panel)return;
+  panel.querySelectorAll('.cg-pill').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  panel.querySelectorAll('.cg-mpane').forEach(function(p){p.style.display='none';});
+  var pane=document.getElementById('cg-'+tab+'-'+mid);
+  if(pane)pane.style.display='block';
+}
+</script>
+</body></html>"""
+    )
+    components.html(_cg_html, height=_cg_height, scrolling=True)
 
 if __name__ == '__main__' or True:
     main()
