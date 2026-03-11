@@ -2191,7 +2191,7 @@ st.components.v1.html(
 
 # Beat 1 — Map
 map_body = (
-    f"In {effective_year_groupm}, global advertising reached <span style='color:#e6edf3;font-weight:700;'>${groupm_b:.0f}B</span>. "
+    f"In {effective_year_groupm}, global advertising reached <span style='color:#ff5b1f;font-weight:800;'>${groupm_b:.0f}B</span>. "
     f"The map below shows how that spend is distributed — colored by advertising intensity as a share of each country's GDP."
     if groupm_b
     else "Global advertising data for this year is unavailable."
