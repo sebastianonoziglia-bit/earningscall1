@@ -1043,9 +1043,9 @@ def main():
 
     BRAND_BLUE = "#0073ff"
     HOVERLABEL_STYLE = dict(
-        bgcolor="rgba(255, 255, 255, 0.98)",
-        bordercolor="rgba(0, 115, 255, 0.35)",
-        font=dict(family="Montserrat, sans-serif", size=12, color="#0f172a"),
+        bgcolor="rgba(10, 14, 26, 0.97)",
+        bordercolor="rgba(99, 179, 237, 0.45)",
+        font=dict(family='"DM Sans","Montserrat",system-ui,sans-serif', size=13, color="#e2e8f0"),
         align="left",
         namelength=-1,
     )
@@ -1074,24 +1074,26 @@ def main():
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#e6edf3"),
+            hoverlabel=HOVERLABEL_STYLE,
         )
         fig.update_xaxes(
             tickfont=dict(color="#8b949e"),
             title_font=dict(color="#c9d1d9"),
             gridcolor="#21262d",
-            linecolor="#30363d",
-            zerolinecolor="#30363d",
+            showline=False,
+            zeroline=False,
         )
         fig.update_yaxes(
             tickfont=dict(color="#8b949e"),
             title_font=dict(color="#c9d1d9"),
             gridcolor="#21262d",
-            linecolor="#30363d",
-            zerolinecolor="#30363d",
+            showline=False,
+            zeroline=False,
         )
         fig.update_layout(legend=dict(
             font=dict(color="#c9d1d9"),
             bgcolor="rgba(0,0,0,0)",
+            borderwidth=0,
         ))
         if xaxis_is_year:
             fig.update_xaxes(dtick=1, tickformat="d")
@@ -4457,8 +4459,11 @@ def main():
         fig = go.Figure()
         hover_value = "%{y:.1f}%" if value_mode == "% of total" else "$%{y:,.0f}M"
         hover_template = (
-            f"<b>%{{fullData.name}}</b><br>{time_label}: %{{x}}<br>Value: {hover_value}"
-            f"<br>{change_label}: %{{customdata}}<extra></extra>"
+            f"<b>%{{fullData.name}}</b>"
+            f"<br><span style='color:#94a3b8'>{time_label}</span>  <b>%{{x}}</b>"
+            f"<br><span style='color:#94a3b8'>Value</span>  <b>{hover_value}</b>"
+            f"<br><span style='color:#94a3b8'>{change_label}</span>  <b>%{{customdata}}</b>"
+            f"<extra></extra>"
         )
         for segment in pivot.columns:
             color = evolution_colors.get(segment, "#999999")
@@ -4851,16 +4856,21 @@ def main():
                     height=520,
                     margin=dict(t=60, r=30, l=20, b=40),
                 )
+                _period_word = "Quarter" if metrics_freq == "Quarterly" else "Year"
                 if show_metric_yoy:
                     hovertemplate = (
-                        f"<b>%{{fullData.name}}</b><br>{metric_label}: $%{{y:,.0f}}M"
-                        f"<br>{'Quarter' if metrics_freq == 'Quarterly' else 'Year'}: %{{x}}"
-                        f"<br>{change_label}: %{{customdata[0]}}<extra></extra>"
+                        f"<b>%{{fullData.name}}</b>"
+                        f"<br><span style='color:#94a3b8'>{_period_word}</span>  <b>%{{x}}</b>"
+                        f"<br><span style='color:#94a3b8'>{metric_label}</span>  <b>$%{{y:,.0f}}M</b>"
+                        f"<br><span style='color:#94a3b8'>{change_label}</span>  <b>%{{customdata[0]}}</b>"
+                        f"<extra></extra>"
                     )
                 else:
                     hovertemplate = (
-                        f"<b>%{{fullData.name}}</b><br>{metric_label}: $%{{y:,.0f}}M"
-                        f"<br>{'Quarter' if metrics_freq == 'Quarterly' else 'Year'}: %{{x}}<extra></extra>"
+                        f"<b>%{{fullData.name}}</b>"
+                        f"<br><span style='color:#94a3b8'>{_period_word}</span>  <b>%{{x}}</b>"
+                        f"<br><span style='color:#94a3b8'>{metric_label}</span>  <b>$%{{y:,.0f}}M</b>"
+                        f"<extra></extra>"
                     )
                 fig.update_traces(
                     hovertemplate=hovertemplate
@@ -5696,8 +5706,8 @@ def main():
         """<!DOCTYPE html><html><head><meta charset='utf-8'>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:transparent;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;}
-.cg-wrap{background:transparent;border:none;overflow:hidden;}
+html,body{background:#0d1117;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;}
+.cg-wrap{background:#0d1117;border:none;overflow:hidden;}
 .cg-tabs{display:flex;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,0.1);background:transparent;}
 .cg-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:.04em;transition:all .2s;}
 .cg-tab.active,.cg-tab:hover{color:#e6edf3;border-bottom-color:#ff5b1f;}
