@@ -2806,6 +2806,50 @@ _separator()
 
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str)
 st.components.v1.html(_attn_html, height=1400)
+# ── DUOPOLY DEBUG — remove after fix ──────────────────────
+import traceback
+
+st.markdown("### 🔍 Duopoly Debug")
+
+try:
+    st.write("✅ `_build_duopoly_html` is defined:", callable(_build_duopoly_html))
+except NameError:
+    st.error("❌ `_build_duopoly_html` is NOT defined — function is missing or not in scope")
+
+try:
+    st.write("ad_json_str type:", type(_ad_json_str), "| length:", len(str(_ad_json_str)))
+    st.write("ad_json_str value (first 300 chars):", str(_ad_json_str)[:300])
+except NameError as e:
+    st.error(f"❌ _ad_json_str not in scope: {e}")
+
+try:
+    st.write("groupm_json_str type:", type(_global_adv_json_str), "| length:", len(str(_global_adv_json_str)))
+    st.write("groupm_json_str value (first 300 chars):", str(_global_adv_json_str)[:300])
+except NameError as e:
+    st.error(f"❌ _global_adv_json_str not in scope: {e}")
+
+try:
+    _test_html = _build_duopoly_html(_ad_json_str, _global_adv_json_str)
+    st.write("✅ Function returned HTML of length:", len(_test_html))
+    st.write("HTML preview (first 500 chars):", _test_html[:500])
+except Exception as e:
+    st.error(f"❌ Function call failed: {e}")
+    st.code(traceback.format_exc())
+
+try:
+    _raw_adv = data_processor.get_advertising_revenue()
+    if _raw_adv is None or _raw_adv.empty:
+        st.error("❌ advertising revenue returned empty or None")
+    else:
+        st.write("✅ advertising revenue shape:", _raw_adv.shape)
+        st.write("Columns:", _raw_adv.columns.tolist())
+        st.dataframe(_raw_adv.head(5))
+except Exception as e:
+    st.error(f"❌ Failed to load advertising revenue: {e}")
+    st.code(traceback.format_exc())
+
+# ── END DEBUG ──────────────────────────────────────────────
+
 _duo_html = _build_duopoly_html(_ad_json_str, _global_adv_json_str)
 st.components.v1.html(_duo_html, height=560, scrolling=False)
 
