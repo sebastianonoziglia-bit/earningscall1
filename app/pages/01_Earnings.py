@@ -1065,29 +1065,29 @@ def main():
             fig.update_yaxes(tickfont=dict(color="#111827"), title_font=dict(color="#111827"))
         else:
             fig.update_layout(
-                font=dict(family="Montserrat, sans-serif", color="#374151"),
+                font=dict(family="Montserrat, sans-serif", color="#ffffff"),
                 paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0.02)",
+                plot_bgcolor="rgba(0,0,0,0)",
                 legend=dict(
-                    bgcolor="rgba(248,249,250,0.95)",
-                    bordercolor="rgba(0,0,0,0.12)",
-                    borderwidth=1,
-                    font=dict(color="#374151"),
-                    title=dict(font=dict(color="#111827")),
+                    bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#cccccc"),
+                    title=dict(font=dict(color="#cccccc")),
                 ),
                 dragmode=False,
             )
             fig.update_xaxes(
-                gridcolor="rgba(0,0,0,0.07)",
-                zerolinecolor="rgba(0,0,0,0.12)",
-                tickfont=dict(color="#374151"),
-                title_font=dict(color="#374151"),
+                gridcolor="#2a2a2a",
+                linecolor="#444444",
+                zerolinecolor="#444444",
+                tickfont=dict(color="#cccccc"),
+                title_font=dict(color="#cccccc"),
             )
             fig.update_yaxes(
-                gridcolor="rgba(0,0,0,0.07)",
-                zerolinecolor="rgba(0,0,0,0.12)",
-                tickfont=dict(color="#374151"),
-                title_font=dict(color="#374151"),
+                gridcolor="#2a2a2a",
+                linecolor="#444444",
+                zerolinecolor="#444444",
+                tickfont=dict(color="#cccccc"),
+                title_font=dict(color="#cccccc"),
             )
         if xaxis_is_year:
             fig.update_xaxes(dtick=1, tickformat="d")
@@ -3675,7 +3675,81 @@ def main():
             )
 
     with composition_cols[1]:
-        # Build animation frames through all available years or quarters
+        import math as _math
+
+        # Helper: compute outer-label annotations with connector lines for donut
+        def _donut_annotations(labels, values, colors, yoy_pcts, period_text):
+            total = sum(max(v, 0) for v in values)
+            if total <= 0:
+                return []
+            # Pie domain x=[0, 0.72] → center (0.36, 0.5), outer_r ≈ 0.36
+            cx, cy = 0.36, 0.5
+            outer_r = 0.33   # just outside donut edge in paper coords
+            label_r = 0.50   # label text radius
+            anns = []
+            angle = _math.pi / 2  # start at top, clockwise
+            for lbl, val, col, yoy in zip(labels, values, colors, yoy_pcts):
+                fraction = max(val, 0) / total
+                if fraction < 0.025:
+                    angle -= fraction * 2 * _math.pi
+                    continue
+                span = fraction * 2 * _math.pi
+                mid = angle - span / 2
+                angle -= span
+                tip_x = cx + outer_r * _math.cos(mid)
+                tip_y = cy + outer_r * _math.sin(mid)
+                lx = cx + label_r * _math.cos(mid)
+                ly = cy + label_r * _math.sin(mid)
+                val_b = val / 1000
+                val_str = f"${val_b:.0f}B" if val_b >= 10 else f"${val_b:.1f}B"
+                yoy_str = f" ({yoy:+.0f}%)" if yoy is not None else ""
+                text = (
+                    f"<b style='color:{col};'>{val_str}{yoy_str}</b>"
+                    f"<br><span style='color:#e6edf3;font-size:11px;'>{lbl}</span>"
+                )
+                anns.append(dict(
+                    x=tip_x, y=tip_y, ax=lx, ay=ly,
+                    xref="paper", yref="paper",
+                    axref="paper", ayref="paper",
+                    text=text, showarrow=True,
+                    arrowhead=0, arrowcolor=col, arrowwidth=1.5,
+                    font=dict(color=col, size=12, family="Montserrat, sans-serif"),
+                    align="center",
+                    bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
+                ))
+            # Center period label
+            anns.append(dict(
+                x=cx, y=cy, xref="paper", yref="paper",
+                text=f"<b>{period_text}</b>",
+                showarrow=False,
+                font=dict(size=12, color="#8b949e", family="Montserrat, sans-serif"),
+                align="center", bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
+            ))
+            return anns
+
+        # Helper: normalize + aggregate segments for one period
+        def _agg_period_df(src_df):
+            df = src_df.copy()
+            df["segment"] = df["segment"].apply(
+                lambda s: normalize_segment_label(canonical_company, s)
+            )
+            df = df[df["segment"].notna() & (df["segment"] != "") & (df["segment"] != "Total Revenue")]
+            df = df.groupby("segment", as_index=False)["revenue"].sum()
+            return df.sort_values("revenue", ascending=False)
+
+        # Helper: compute YoY per segment given current and previous dicts
+        def _compute_yoy(labels, values, prev_map):
+            result = []
+            for lbl, val in zip(labels, values):
+                prev = prev_map.get(lbl)
+                if prev and prev > 0:
+                    result.append((val - prev) / prev * 100)
+                else:
+                    result.append(None)
+            return result
+
+        # Build animation periods
+        _is_annual = (selected_quarter == "Annual")
         if has_quarterly_segments:
             _qdf = segments_quarterly_all[
                 segments_quarterly_all["company"] == canonical_company
@@ -3697,33 +3771,39 @@ def main():
         _pie_frames = []
         for _plabel, _pyr, _pqn in _anim_periods:
             if _pqn is not None:
-                _dfp = segments_quarterly_all[
+                _dfp_raw = segments_quarterly_all[
                     (segments_quarterly_all["company"] == canonical_company)
                     & (segments_quarterly_all["year"] == _pyr)
                     & (segments_quarterly_all["quarter_num"] == _pqn)
-                ].copy()
+                ]
+                _prev_raw = segments_quarterly_all[
+                    (segments_quarterly_all["company"] == canonical_company)
+                    & (segments_quarterly_all["year"] == _pyr - 1)
+                    & (segments_quarterly_all["quarter_num"] == _pqn)
+                ]
             else:
-                _dfp = segment_source_df[
+                _dfp_raw = segment_source_df[
                     (segment_source_df["company"] == canonical_company)
                     & (segment_source_df["year"] == _pyr)
-                ].copy()
+                ]
+                _prev_raw = segment_source_df[
+                    (segment_source_df["company"] == canonical_company)
+                    & (segment_source_df["year"] == _pyr - 1)
+                ]
 
-            if _dfp.empty:
+            if _dfp_raw.empty:
                 continue
 
-            _dfp["segment"] = _dfp["segment"].apply(
-                lambda s: normalize_segment_label(canonical_company, s)
-            )
-            _dfp = _dfp[
-                _dfp["segment"].notna()
-                & (_dfp["segment"] != "")
-                & (_dfp["segment"] != "Total Revenue")
-            ]
-            _dfp = _dfp.groupby("segment", as_index=False)["revenue"].sum()
-            _dfp = _dfp.sort_values("revenue", ascending=False)
+            _dfp = _agg_period_df(_dfp_raw)
             _fl = _dfp["segment"].tolist()
             _fv = _dfp["revenue"].fillna(0).tolist()
             _fc = [segment_colors.get(l, "#999999") for l in _fl]
+
+            _prev_df = _agg_period_df(_prev_raw) if not _prev_raw.empty else pd.DataFrame()
+            _prev_map = dict(zip(_prev_df["segment"], _prev_df["revenue"])) if not _prev_df.empty else {}
+            _fyoy = _compute_yoy(_fl, _fv, _prev_map)
+
+            _frame_anns = _donut_annotations(_fl, _fv, _fc, _fyoy, _plabel)
 
             _pie_frames.append(
                 go.Frame(
@@ -3733,12 +3813,14 @@ def main():
                             values=[max(v, 0) for v in _fv],
                             hole=0.55,
                             sort=False,
+                            direction="clockwise",
+                            rotation=90,
+                            domain=dict(x=[0, 0.72], y=[0, 1]),
                             marker=dict(
                                 colors=_fc,
                                 line=dict(color="rgba(0,0,0,0.18)", width=1),
                             ),
-                            textinfo="percent",
-                            textfont=dict(size=11, color="#ffffff"),
+                            textinfo="none",
                             hovertemplate=(
                                 "<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}"
                                 "<extra></extra>"
@@ -3746,23 +3828,7 @@ def main():
                         )
                     ],
                     name=_plabel,
-                    layout=go.Layout(
-                        annotations=[
-                            dict(
-                                text=f"<b>{_plabel}</b>",
-                                x=0.5,
-                                y=0.26,
-                                xref="paper",
-                                yref="paper",
-                                font=dict(
-                                    size=11,
-                                    family="Montserrat, sans-serif",
-                                    color="#8b949e",
-                                ),
-                                showarrow=False,
-                            )
-                        ]
-                    ),
+                    layout=go.Layout(annotations=_frame_anns),
                 )
             )
 
@@ -3771,31 +3837,54 @@ def main():
         else:
             # Find frame closest to the selected `year`
             _init_idx = len(_pie_frames) - 1
+            # Find frame closest to the selected year (for Annual, pick first Q of that year)
+            _init_idx = len(_pie_frames) - 1
             for _i, (_lbl, _yr, _qn) in enumerate(_anim_periods):
                 if _yr == int(year):
                     _init_idx = _i
                     break
 
-            _init_frame = _pie_frames[_init_idx]
+            # ── Annual mode: compute FY aggregate as the static initial view ──
+            _init_data = _pie_frames[_init_idx].data
+            _init_anns = list(_pie_frames[_init_idx].layout.annotations or [])
+            if _is_annual and has_quarterly_segments:
+                _fy_raw = segments_quarterly_all[
+                    (segments_quarterly_all["company"] == canonical_company)
+                    & (segments_quarterly_all["year"] == int(year))
+                ]
+                _prev_fy_raw = segments_quarterly_all[
+                    (segments_quarterly_all["company"] == canonical_company)
+                    & (segments_quarterly_all["year"] == int(year) - 1)
+                ]
+                if not _fy_raw.empty:
+                    _fy_df = _agg_period_df(_fy_raw)
+                    _fy_fl = _fy_df["segment"].tolist()
+                    _fy_fv = _fy_df["revenue"].fillna(0).tolist()
+                    _fy_fc = [segment_colors.get(l, "#999999") for l in _fy_fl]
+                    _prev_fy = _agg_period_df(_prev_fy_raw) if not _prev_fy_raw.empty else pd.DataFrame()
+                    _prev_fy_map = dict(zip(_prev_fy["segment"], _prev_fy["revenue"])) if not _prev_fy.empty else {}
+                    _fy_yoy = _compute_yoy(_fy_fl, _fy_fv, _prev_fy_map)
+                    _fy_period_label = f"FY {int(year)}"
+                    _init_anns = _donut_annotations(_fy_fl, _fy_fv, _fy_fc, _fy_yoy, _fy_period_label)
+                    _init_data = [go.Pie(
+                        labels=_fy_fl,
+                        values=[max(v, 0) for v in _fy_fv],
+                        hole=0.55, sort=False, direction="clockwise", rotation=90,
+                        domain=dict(x=[0, 0.72], y=[0, 1]),
+                        marker=dict(colors=_fy_fc, line=dict(color="rgba(0,0,0,0.18)", width=1)),
+                        textinfo="none",
+                        hovertemplate="<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}<extra></extra>",
+                    )]
+
             _logo_src = f"data:image/png;base64,{logo_base64}" if logo_base64 else ""
             _layout_images = []
             if _logo_src:
-                _layout_images.append(
-                    dict(
-                        source=_logo_src,
-                        xref="paper",
-                        yref="paper",
-                        x=0.5,
-                        y=0.5,
-                        sizex=0.22,
-                        sizey=0.22,
-                        xanchor="center",
-                        yanchor="middle",
-                        layer="above",
-                    )
-                )
+                _layout_images.append(dict(
+                    source=_logo_src, xref="paper", yref="paper",
+                    x=0.36, y=0.5, sizex=0.22, sizey=0.22,
+                    xanchor="center", yanchor="middle", layer="above",
+                ))
 
-            _mode_label = "by quarter" if has_quarterly_segments else "by year"
             _slider_steps = [
                 {
                     "args": [
@@ -3813,97 +3902,60 @@ def main():
             ]
 
             _pie_anim_fig = go.Figure(
-                data=_init_frame.data,
+                data=_init_data,
                 frames=_pie_frames,
                 layout=go.Layout(
                     height=580,
-                    annotations=list(_init_frame.layout.annotations or []),
+                    annotations=_init_anns,
                     images=_layout_images,
                     legend=dict(
                         orientation="v",
-                        x=1.02,
-                        y=0.5,
-                        yanchor="middle",
-                        bgcolor="rgba(13,17,23,0.88)",
-                        bordercolor="rgba(255,255,255,0.14)",
-                        borderwidth=1,
+                        x=1.02, y=0.5, yanchor="middle",
+                        bgcolor="rgba(0,0,0,0)",
                         font=dict(color="#e6edf3", size=11),
-                        title=dict(
-                            text="Segments",
-                            font=dict(color="#c9d1d9", size=11),
-                        ),
+                        title=dict(text="Segments", font=dict(color="#c9d1d9", size=11)),
                     ),
-                    margin=dict(l=10, r=140, t=20, b=110),
-                    uniformtext_minsize=9,
-                    uniformtext_mode="hide",
-                    updatemenus=[
-                        {
-                            "type": "buttons",
-                            "showactive": False,
-                            "direction": "left",
-                            "x": 0.0,
-                            "y": -0.06,
-                            "xanchor": "left",
-                            "yanchor": "top",
-                            "buttons": [
-                                {
-                                    "label": "▶",
-                                    "method": "animate",
-                                    "args": [
-                                        None,
-                                        {
-                                            "frame": {"duration": 900, "redraw": True},
-                                            "fromcurrent": True,
-                                            "transition": {
-                                                "duration": 600,
-                                                "easing": "cubic-in-out",
-                                            },
-                                        },
-                                    ],
-                                },
-                                {
-                                    "label": "⏸",
-                                    "method": "animate",
-                                    "args": [
-                                        [None],
-                                        {
-                                            "frame": {"duration": 0, "redraw": False},
-                                            "mode": "immediate",
-                                            "transition": {"duration": 0},
-                                        },
-                                    ],
-                                },
-                            ],
-                            "font": {"size": 18, "color": "#111827"},
-                            "bgcolor": "rgba(200,210,220,0.18)",
-                            "bordercolor": "rgba(0,0,0,0.18)",
-                            "borderwidth": 1,
-                            "pad": {"l": 10, "r": 10, "t": 5, "b": 5},
-                        }
-                    ],
-                    sliders=[
-                        {
-                            "active": _init_idx,
-                            "currentvalue": {
-                                "prefix": "Period: ",
-                                "visible": True,
-                                "xanchor": "left",
-                                "font": {"size": 13, "color": "#111827", "family": "Montserrat, sans-serif"},
+                    margin=dict(l=10, r=130, t=60, b=110),
+                    updatemenus=[{
+                        "type": "buttons", "showactive": False, "direction": "left",
+                        "x": 0.0, "y": -0.06, "xanchor": "left", "yanchor": "top",
+                        "buttons": [
+                            {
+                                "label": "▶",
+                                "method": "animate",
+                                "args": [None, {"frame": {"duration": 900, "redraw": True},
+                                                "fromcurrent": True,
+                                                "transition": {"duration": 600, "easing": "cubic-in-out"}}],
                             },
-                            "pad": {"b": 10, "t": 50},
-                            "len": 0.82,
-                            "x": 0.18,
-                            "y": 0,
-                            "steps": _slider_steps,
-                            "font": {"color": "#374151", "size": 9},
-                            "bgcolor": "rgba(200,210,220,0.15)",
-                            "bordercolor": "rgba(0,0,0,0.15)",
-                            "activebgcolor": "#2563eb",
-                            "tickcolor": "rgba(0,0,0,0.25)",
-                            "ticklen": 5,
-                            "minorticklen": 3,
-                        }
-                    ],
+                            {
+                                "label": "⏸",
+                                "method": "animate",
+                                "args": [[None], {"frame": {"duration": 0, "redraw": False},
+                                                  "mode": "immediate", "transition": {"duration": 0}}],
+                            },
+                        ],
+                        "font": {"size": 18, "color": "#e6edf3"},
+                        "bgcolor": "rgba(255,255,255,0.08)",
+                        "bordercolor": "rgba(255,255,255,0.18)",
+                        "borderwidth": 1,
+                        "pad": {"l": 10, "r": 10, "t": 5, "b": 5},
+                    }],
+                    sliders=[{
+                        "active": _init_idx,
+                        "currentvalue": {
+                            "prefix": "Period: ", "visible": True, "xanchor": "left",
+                            "font": {"size": 13, "color": "#e6edf3", "family": "Montserrat, sans-serif"},
+                        },
+                        "pad": {"b": 10, "t": 50},
+                        "len": 0.82, "x": 0.18, "y": 0,
+                        "steps": _slider_steps,
+                        "font": {"color": "#cccccc", "size": 9},
+                        "bgcolor": "rgba(255,255,255,0.08)",
+                        "bordercolor": "rgba(255,255,255,0.15)",
+                        "activebgcolor": "#2563eb",
+                        "tickcolor": "rgba(255,255,255,0.25)",
+                        "ticklen": 5, "minorticklen": 3,
+                    }],
                 ),
             )
             render_plotly(_pie_anim_fig)
@@ -4011,80 +4063,89 @@ def main():
 
         st.markdown("<div style='margin-top:0.75rem;'></div>", unsafe_allow_html=True)
 
-        # Horizontal bar chart — top 15 by pct_out
-        _top_n = min(15, len(_holders_df))
-        _hbar_df = _holders_df.head(_top_n).sort_values("pct_out", ascending=True)
-        _H_COLORS = {"institutional": "#1a73e8", "fund": "#00c9a7"}
-        _hbar_fig = go.Figure()
-        for _htype, _hcolor in [("institutional", "#1a73e8"), ("fund", "#00c9a7")]:
-            _m = _hbar_df["holder_type"] == _htype
-            if _m.any():
-                _sub = _hbar_df[_m]
-                _hbar_fig.add_trace(
-                    go.Bar(
-                        y=_sub["name_short"],
-                        x=_sub["pct_display"],
-                        orientation="h",
-                        name=_htype.capitalize(),
-                        marker_color=_hcolor,
-                        customdata=_sub[["value_b", "shares_m"]].values,
-                        hovertemplate=(
-                            "<b>%{y}</b><br>Stake: %{x:.2f}%<br>"
-                            "Value: $%{customdata[0]:.1f}B<br>"
-                            "Shares: %{customdata[1]:.1f}M<extra></extra>"
-                        ),
-                    )
-                )
-        _hbar_fig.update_layout(
-            height=max(300, _top_n * 30 + 70),
-            barmode="relative",
-            xaxis_title="% stake",
-            margin=dict(l=10, r=20, t=10, b=30),
-            legend=dict(
-                orientation="h",
-                x=0,
-                y=1.04,
-                yanchor="bottom",
-            ),
-            hoverlabel=HOVERLABEL_STYLE,
-        )
-        render_plotly(_hbar_fig)
+        _INST_PALETTE = [
+            "#1a73e8", "#00c9a7", "#f59e0b", "#ef4444", "#8b5cf6",
+            "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
+        ]
 
-        # Tabbed detail table
+        def _render_ownership_tab(df_tab: pd.DataFrame, tab_label: str) -> None:
+            """Render donut + compact table for one holder type."""
+            if df_tab.empty:
+                st.info(f"No {tab_label.lower()} holders found.")
+                return
+
+            _top8 = df_tab.head(8).copy()
+            _top8_labels = _top8["name_short"].tolist()
+            _top8_vals = _top8["pct_display"].tolist()
+            _top8_colors = _INST_PALETTE[: len(_top8)]
+
+            _donut_fig = go.Figure(go.Pie(
+                labels=_top8_labels,
+                values=_top8_vals,
+                hole=0.50,
+                sort=False,
+                marker=dict(colors=_top8_colors, line=dict(color="rgba(0,0,0,0.15)", width=1)),
+                textinfo="none",
+                hovertemplate="<b>%{label}</b><br>%{value:.2f}%<extra></extra>",
+                customdata=_top8[["value_b", "shares_m"]].values,
+            ))
+            _donut_fig.update_layout(
+                height=340,
+                margin=dict(l=0, r=0, t=10, b=10),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                showlegend=True,
+                legend=dict(
+                    orientation="v", x=1.01, y=0.5, yanchor="middle",
+                    bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#cccccc", size=10),
+                ),
+                hoverlabel=HOVERLABEL_STYLE,
+            )
+            # Compact styled HTML table
+            _tbl_rows = ""
+            for _ri, (_idx, _row) in enumerate(df_tab.iterrows()):
+                _bg = "#0d1117" if _ri % 2 == 0 else "#13191f"
+                _tbl_rows += (
+                    f"<tr style='background:{_bg};'>"
+                    f"<td style='padding:6px 8px;color:#8b949e;font-size:11px;width:30px;'>{_ri+1}</td>"
+                    f"<td style='padding:6px 8px;color:#e6edf3;font-size:12px;font-weight:600;'>{html.escape(_row['name_short'][:36])}</td>"
+                    f"<td style='padding:6px 8px;color:#cccccc;font-size:11px;text-align:right;'>{_row['shares_m']:.1f}</td>"
+                    f"<td style='padding:6px 8px;color:#cccccc;font-size:11px;text-align:right;'>${_row['value_b']:.1f}B</td>"
+                    f"<td style='padding:6px 8px;color:#58a6ff;font-size:11px;text-align:right;font-weight:700;'>{_row['pct_display']:.2f}%</td>"
+                    f"</tr>"
+                )
+            _tbl_html = (
+                "<div style='overflow-x:auto;'>"
+                "<table style='width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;'>"
+                "<thead><tr style='background:#161b22;'>"
+                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;width:30px;'>#</th>"
+                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;'>Holder</th>"
+                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Shares (M)</th>"
+                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Value</th>"
+                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>% Stake</th>"
+                "</tr></thead>"
+                f"<tbody>{_tbl_rows}</tbody>"
+                "</table></div>"
+            )
+
+            _dcol, _tcol = st.columns([1, 1.4])
+            with _dcol:
+                st.plotly_chart(_donut_fig, use_container_width=True, config=PLOTLY_CONFIG)
+            with _tcol:
+                st.markdown(_tbl_html, unsafe_allow_html=True)
+
+        # Tabs: Institutional | Funds
         _tab_inst, _tab_fund = st.tabs(["📋 Institutional", "📊 Funds"])
         with _tab_inst:
-            _inst_tbl = (
-                _holders_df[_holders_df["holder_type"] == "institutional"]
-                .reset_index(drop=True)
-            )
-            _inst_tbl.index = _inst_tbl.index + 1
-            st.dataframe(
-                _inst_tbl[["name_short", "shares_m", "value_b", "pct_display"]].rename(
-                    columns={
-                        "name_short": "Holder",
-                        "shares_m": "Shares (M)",
-                        "value_b": "Value ($B)",
-                        "pct_display": "% Stake",
-                    }
-                ),
-                use_container_width=True,
+            _render_ownership_tab(
+                _holders_df[_holders_df["holder_type"] == "institutional"].reset_index(drop=True),
+                "Institutional",
             )
         with _tab_fund:
-            _fund_tbl = (
-                _holders_df[_holders_df["holder_type"] == "fund"]
-                .reset_index(drop=True)
-            )
-            _fund_tbl.index = _fund_tbl.index + 1
-            st.dataframe(
-                _fund_tbl[["name_short", "shares_m", "value_b", "pct_display"]].rename(
-                    columns={
-                        "name_short": "Holder",
-                        "shares_m": "Shares (M)",
-                        "value_b": "Value ($B)",
-                        "pct_display": "% Stake",
-                    }
-                ),
-                use_container_width=True,
+            _render_ownership_tab(
+                _holders_df[_holders_df["holder_type"] == "fund"].reset_index(drop=True),
+                "Fund",
             )
 
     segment_controls = st.columns([7, 3])
