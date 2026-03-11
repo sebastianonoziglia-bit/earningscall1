@@ -2573,9 +2573,12 @@ function runStep(){
   aTimer=setTimeout(runStep,last?3500:1350);
 }
 if(YEARS.length>0){
-  updateYear(YEARS[0]);
-  stepIdx=1;
-  aTimer=setTimeout(runStep,1600);
+  // Delay init slightly so iframe canvas context is ready
+  setTimeout(function(){
+    updateYear(YEARS[0]);
+    stepIdx=1;
+    aTimer=setTimeout(runStep,1600);
+  },120);
 }
 })();
 </script>
@@ -2583,8 +2586,88 @@ if(YEARS.length>0){
 """
     )
 
+# Beat — The Human Side (before Scale of Attention)
+_human_df = _read_excel_sheet_cached(excel_path, "Company_minute&dollar_earned", source_stamp) if excel_path else pd.DataFrame()
+_human_companies: list[dict] = []
+if not _human_df.empty:
+    _human_df.columns = [str(c).strip() for c in _human_df.columns]
+    _h_plat = _find_col(_human_df, ["platform"]) or _find_col(_human_df, ["company"]) or _find_col(_human_df, ["name"])
+    _h_usr = (_find_col(_human_df, ["user"]) or _find_col(_human_df, ["subscrib"])
+              or _find_col(_human_df, ["mau"]) or _find_col(_human_df, ["active"]))
+    _h_lbl = _find_col(_human_df, ["label"]) or _find_col(_human_df, ["note"])
+    if _h_plat and _h_usr:
+        _human_df[_h_usr] = pd.to_numeric(_human_df[_h_usr], errors="coerce")
+        _human_df = _human_df.dropna(subset=[_h_plat, _h_usr])
+        _human_df = _human_df[_human_df[_h_usr] > 0].sort_values(_h_usr, ascending=False)
+        for _, _hr in _human_df.iterrows():
+            _hname = str(_hr[_h_plat]).strip()
+            _hval = float(_hr[_h_usr])
+            _hlbl = (str(_hr[_h_lbl]).strip() if _h_lbl and not pd.isna(_hr.get(_h_lbl, np.nan)) else
+                     (f"{_hval/1000:.1f}B" if _hval >= 1000 else f"{_hval:.0f}M"))
+            _human_companies.append({"name": _hname, "val": _hval, "color": _company_color(_hname), "label": _hlbl})
+if not _human_companies:
+    _human_companies = [
+        {"name": "YouTube", "val": 2500, "color": "#ff0000", "label": "2.5B users"},
+        {"name": "Spotify", "val": 675, "color": "#1db954", "label": "675M users"},
+        {"name": "Netflix", "val": 301, "color": "#e50914", "label": "301M subs"},
+        {"name": "Disney+", "val": 174, "color": "#113ccf", "label": "174M subs"},
+        {"name": "Amazon", "val": 200, "color": "#ff9900", "label": "200M Prime"},
+        {"name": "Max (WBD)", "val": 116, "color": "#0047ab", "label": "116M subs"},
+        {"name": "Paramount+", "val": 77, "color": "#0033a0", "label": "77M subs"},
+        {"name": "Roku", "val": 89, "color": "#6f1ab1", "label": "89M accounts"},
+    ]
+_human_json = json.dumps(_human_companies)
+_human_height = int(min(720, max(320, 160 + len(_human_companies) * 50)))
+st.components.v1.html(
+    f"""
+<div id="wm-human-root">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
+html,body{{margin:0;padding:0;background:#0d1117;}}
+#wm-human-root{{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
+.wh-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
+.wh-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}}
+.wh-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
+.wh-row{{display:flex;align-items:center;gap:16px;margin-bottom:18px;}}
+.wh-name{{width:110px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#e6edf3;text-align:right;flex-shrink:0;}}
+.wh-track{{flex:1;height:28px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden;position:relative;}}
+.wh-fill{{height:100%;border-radius:4px;width:0%;transition:width 1.4s cubic-bezier(.34,1.1,.64,1);}}
+.wh-val{{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#e6edf3;}}
+.wh-caption{{font-size:12px;color:#8b949e;margin-top:8px;}}
+</style>
+<div class="wh-label">THE HUMAN SIDE</div>
+<div class="wh-headline">Behind every dollar: a human being.</div>
+<div class="wh-sub">Paid subscribers and active users across the tracked universe.</div>
+<div id="wh-rows"></div>
+<div class="wh-caption" id="wh-caption"></div>
+<script>
+const companies={_human_json};
+const maxVal=Math.max(...companies.map(c=>c.val));
+const rows=document.getElementById('wh-rows');
+const total=companies.reduce((s,c)=>s+c.val,0);
+companies.forEach(c=>{{
+  const pct=Math.round((c.val/maxVal)*100);
+  rows.innerHTML+=`<div class="wh-row">
+    <div class="wh-name">${{c.name}}</div>
+    <div class="wh-track"><div class="wh-fill" style="background:${{c.color}}" data-w="${{pct}}"></div><span class="wh-val">${{c.label}}</span></div>
+  </div>`;
+}});
+document.getElementById('wh-caption').textContent=`Combined: ${{(total/1000).toFixed(1)}}B people — nearly half the world's population uses at least one of these platforms daily.`;
+const io=new IntersectionObserver(entries=>{{
+  if(!entries[0].isIntersecting)return;
+  document.querySelectorAll('.wh-fill').forEach(el=>el.style.width=el.dataset.w+'%');
+  io.unobserve(entries[0].target);
+}},{{threshold:0.2}});
+io.observe(rows);
+</script>
+</div>
+""",
+    height=_human_height,
+)
+_separator()
+
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str)
-st.components.v1.html(_attn_html, height=1500)
+st.components.v1.html(_attn_html, height=2200)
 
 _separator()
 # --- Concentration: animated stacked bar 2010→latest ---
@@ -3044,8 +3127,14 @@ try:
         }
         gdf_agg = global_adv_df[global_adv_df["year"] >= 2010].copy()
         # Map metric_type → channel group, then sum per year
+        # Strip trailing " Worldwide" suffix that appears in Global_Adv_Aggregates
         _mt_to_ch = {mt: ch for ch, mts in _channel_map.items() for mt in mts}
-        gdf_agg["channel"] = gdf_agg["metric_type"].map(_mt_to_ch)
+        gdf_agg["channel"] = (
+            gdf_agg["metric_type"]
+            .str.replace(" Worldwide", "", regex=False)
+            .str.strip()
+            .map(_mt_to_ch)
+        )
         gdf_agg = gdf_agg.dropna(subset=["channel"])
         gdf_pivot = (
             gdf_agg.groupby(["year", "channel"])["value"].sum().unstack(fill_value=0) / 1_000.0
@@ -3286,86 +3375,6 @@ try:
                 st.caption(cap)
 except Exception:
     st.info("Market cap history unavailable.")
-_separator()
-
-# Beat 12 — Human side bars (loaded from Company_minute&dollar_earned sheet)
-_human_df = _read_excel_sheet_cached(excel_path, "Company_minute&dollar_earned", source_stamp) if excel_path else pd.DataFrame()
-_human_companies: list[dict] = []
-if not _human_df.empty:
-    _human_df.columns = [str(c).strip() for c in _human_df.columns]
-    _h_plat = _find_col(_human_df, ["platform"]) or _find_col(_human_df, ["company"]) or _find_col(_human_df, ["name"])
-    _h_usr = (_find_col(_human_df, ["user"]) or _find_col(_human_df, ["subscrib"])
-              or _find_col(_human_df, ["mau"]) or _find_col(_human_df, ["active"]))
-    _h_lbl = _find_col(_human_df, ["label"]) or _find_col(_human_df, ["note"])
-    if _h_plat and _h_usr:
-        _human_df[_h_usr] = pd.to_numeric(_human_df[_h_usr], errors="coerce")
-        _human_df = _human_df.dropna(subset=[_h_plat, _h_usr])
-        _human_df = _human_df[_human_df[_h_usr] > 0].sort_values(_h_usr, ascending=False)
-        for _, _hr in _human_df.iterrows():
-            _hname = str(_hr[_h_plat]).strip()
-            _hval = float(_hr[_h_usr])
-            _hlbl = (str(_hr[_h_lbl]).strip() if _h_lbl and not pd.isna(_hr.get(_h_lbl, np.nan)) else
-                     (f"{_hval/1000:.1f}B" if _hval >= 1000 else f"{_hval:.0f}M"))
-            _human_companies.append({"name": _hname, "val": _hval, "color": _company_color(_hname), "label": _hlbl})
-if not _human_companies:
-    _human_companies = [
-        {"name": "YouTube", "val": 2500, "color": "#ff0000", "label": "2.5B users"},
-        {"name": "Spotify", "val": 675, "color": "#1db954", "label": "675M users"},
-        {"name": "Netflix", "val": 301, "color": "#e50914", "label": "301M subs"},
-        {"name": "Disney+", "val": 174, "color": "#113ccf", "label": "174M subs"},
-        {"name": "Amazon", "val": 200, "color": "#ff9900", "label": "200M Prime"},
-        {"name": "Max (WBD)", "val": 116, "color": "#0047ab", "label": "116M subs"},
-        {"name": "Paramount+", "val": 77, "color": "#0033a0", "label": "77M subs"},
-        {"name": "Roku", "val": 89, "color": "#6f1ab1", "label": "89M accounts"},
-    ]
-_human_json = json.dumps(_human_companies)
-_human_height = int(min(720, max(320, 160 + len(_human_companies) * 50)))
-st.components.v1.html(
-    f"""
-<div id="wm-human-root">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
-html,body{{margin:0;padding:0;background:#0d1117;}}
-#wm-human-root{{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
-.wh-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
-.wh-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}}
-.wh-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
-.wh-row{{display:flex;align-items:center;gap:16px;margin-bottom:18px;}}
-.wh-name{{width:110px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#e6edf3;text-align:right;flex-shrink:0;}}
-.wh-track{{flex:1;height:28px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden;position:relative;}}
-.wh-fill{{height:100%;border-radius:4px;width:0%;transition:width 1.4s cubic-bezier(.34,1.1,.64,1);}}
-.wh-val{{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#e6edf3;}}
-.wh-caption{{font-size:12px;color:#8b949e;margin-top:8px;}}
-</style>
-<div class="wh-label">THE HUMAN SIDE</div>
-<div class="wh-headline">Behind every dollar: a human being.</div>
-<div class="wh-sub">Paid subscribers and active users across the tracked universe.</div>
-<div id="wh-rows"></div>
-<div class="wh-caption" id="wh-caption"></div>
-<script>
-const companies={_human_json};
-const maxVal=Math.max(...companies.map(c=>c.val));
-const rows=document.getElementById('wh-rows');
-const total=companies.reduce((s,c)=>s+c.val,0);
-companies.forEach(c=>{{
-  const pct=Math.round((c.val/maxVal)*100);
-  rows.innerHTML+=`<div class="wh-row">
-    <div class="wh-name">${{c.name}}</div>
-    <div class="wh-track"><div class="wh-fill" style="background:${{c.color}}" data-w="${{pct}}"></div><span class="wh-val">${{c.label}}</span></div>
-  </div>`;
-}});
-document.getElementById('wh-caption').textContent=`Combined: ${{(total/1000).toFixed(1)}}B people — nearly half the world's population uses at least one of these platforms daily.`;
-const io=new IntersectionObserver(entries=>{{
-  if(!entries[0].isIntersecting)return;
-  document.querySelectorAll('.wh-fill').forEach(el=>el.style.width=el.dataset.w+'%');
-  io.unobserve(entries[0].target);
-}},{{threshold:0.2}});
-io.observe(rows);
-</script>
-</div>
-""",
-    height=_human_height,
-)
 _separator()
 
 # Beat 13 — Live ticker
