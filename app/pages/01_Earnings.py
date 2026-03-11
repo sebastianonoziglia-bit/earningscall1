@@ -3703,32 +3703,38 @@ def main():
             if total <= 0:
                 return []
 
+            # Pie domain x=[0, 0.72], y=[0, 1]; center at (0.36, 0.5)
+            # Figure is landscape (~820px wide, ~640px tall) so x coords are
+            # stretched relative to y — use separate radii to compensate.
             cx, cy = 0.36, 0.5
-            label_r = 0.58
+            label_rx = 0.40   # x radius for label placement
+            label_ry = 0.30   # y radius — smaller because figure is wider than tall
 
             anns = []
-            angle = _math.pi / 2
+            angle = _math.pi / 2  # start at 12 o'clock, clockwise
 
             for lbl, val, col, yoy in zip(labels, values, colors, yoy_pcts):
                 fraction = max(val, 0) / total
-                if fraction < 0.02:
+                if fraction < 0.03:   # skip slivers < 3%
                     angle -= fraction * 2 * _math.pi
                     continue
                 span = fraction * 2 * _math.pi
                 mid = angle - span / 2
                 angle -= span
 
-                lx = cx + label_r * _math.cos(mid)
-                ly = cy + label_r * _math.sin(mid)
+                # Elliptical placement to correct for non-square figure
+                lx = cx + label_rx * _math.cos(mid)
+                ly = cy + label_ry * _math.sin(mid)
 
                 val_b = val / 1000
                 val_str = f"${val_b:.0f}B" if val_b >= 10 else f"${val_b:.1f}B"
                 yoy_str = f" ({yoy:+.0f}%)" if yoy is not None else ""
-                align = "left" if lx >= cx else "right"
+                align = "left" if lx > cx + 0.02 else ("right" if lx < cx - 0.02 else "center")
 
+                # Value in segment color, name in light grey — no background
                 text = (
-                    f"<b>{val_str}{yoy_str}</b>"
-                    f"<br><span style='font-size:10px;'>{lbl}</span>"
+                    f"<b style='color:{col};font-size:12px;'>{val_str}{yoy_str}</b>"
+                    f"<br><span style='color:#c9d1d9;font-size:10px;'>{lbl}</span>"
                 )
 
                 anns.append(dict(
@@ -3738,16 +3744,17 @@ def main():
                     showarrow=False,
                     font=dict(color=col, size=11, family="Montserrat, sans-serif"),
                     align=align,
-                    bgcolor="rgba(13,17,23,0.82)",
+                    bgcolor="rgba(0,0,0,0)",
                     bordercolor="rgba(0,0,0,0)",
-                    borderpad=4,
+                    borderpad=2,
                 ))
 
+            # Period label pushed slightly below center to avoid logo overlap
             anns.append(dict(
-                x=cx, y=cy, xref="paper", yref="paper",
+                x=cx, y=cy - 0.07, xref="paper", yref="paper",
                 text=f"<b>{period_text}</b>",
                 showarrow=False,
-                font=dict(size=12, color="#8b949e", family="Montserrat, sans-serif"),
+                font=dict(size=11, color="#8b949e", family="Montserrat, sans-serif"),
                 align="center", bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
             ))
             return anns
@@ -3775,7 +3782,22 @@ def main():
 
         # Build animation periods
         _is_annual = (selected_quarter == "Annual")
+
+        # Animation granularity toggle — only show if quarterly data exists
         if has_quarterly_segments:
+            _anim_mode = st.radio(
+                "Animation mode",
+                options=["Quarterly", "Annual"],
+                index=0 if not _is_annual else 1,
+                horizontal=True,
+                key=f"seg_anim_mode_{canonical_company}_{year}",
+                label_visibility="collapsed",
+            )
+            _use_quarterly_anim = (_anim_mode == "Quarterly")
+        else:
+            _use_quarterly_anim = False
+
+        if has_quarterly_segments and _use_quarterly_anim:
             _qdf = segments_quarterly_all[
                 segments_quarterly_all["company"] == canonical_company
             ].copy()
@@ -3791,7 +3813,17 @@ def main():
                 for _, r in _qperiods.iterrows()
             ]
         else:
-            _anim_periods = [(str(yr), yr, None) for yr in sorted(segment_years)]
+            # Annual mode: one frame per year
+            _annual_years = (
+                sorted(
+                    segments_quarterly_all[
+                        segments_quarterly_all["company"] == canonical_company
+                    ]["year"].dropna().astype(int).unique().tolist()
+                )
+                if has_quarterly_segments
+                else sorted(segment_years)
+            )
+            _anim_periods = [(f"FY {yr}", yr, None) for yr in _annual_years]
 
         _pie_frames = []
         for _plabel, _pyr, _pqn in _anim_periods:
@@ -3807,14 +3839,25 @@ def main():
                     & (segments_quarterly_all["quarter_num"] == _pqn)
                 ]
             else:
-                _dfp_raw = segment_source_df[
-                    (segment_source_df["company"] == canonical_company)
-                    & (segment_source_df["year"] == _pyr)
-                ]
-                _prev_raw = segment_source_df[
-                    (segment_source_df["company"] == canonical_company)
-                    & (segment_source_df["year"] == _pyr - 1)
-                ]
+                # Annual — aggregate all quarters if quarterly data exists
+                if has_quarterly_segments:
+                    _dfp_raw = segments_quarterly_all[
+                        (segments_quarterly_all["company"] == canonical_company)
+                        & (segments_quarterly_all["year"] == _pyr)
+                    ]
+                    _prev_raw = segments_quarterly_all[
+                        (segments_quarterly_all["company"] == canonical_company)
+                        & (segments_quarterly_all["year"] == _pyr - 1)
+                    ]
+                else:
+                    _dfp_raw = segment_source_df[
+                        (segment_source_df["company"] == canonical_company)
+                        & (segment_source_df["year"] == _pyr)
+                    ]
+                    _prev_raw = segment_source_df[
+                        (segment_source_df["company"] == canonical_company)
+                        & (segment_source_df["year"] == _pyr - 1)
+                    ]
 
             if _dfp_raw.empty:
                 continue
@@ -3881,35 +3924,48 @@ def main():
                 hovertemplate="<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}<extra></extra>",
             )]
             _init_anns = list(_pie_frames[_init_idx].layout.annotations or [])
-            if _is_annual and has_quarterly_segments:
-                _fy_raw = segments_quarterly_all[
-                    (segments_quarterly_all["company"] == canonical_company)
-                    & (segments_quarterly_all["year"] == int(year))
-                ]
-                _prev_fy_raw = segments_quarterly_all[
-                    (segments_quarterly_all["company"] == canonical_company)
-                    & (segments_quarterly_all["year"] == int(year) - 1)
-                ]
-                if not _fy_raw.empty:
-                    _fy_df = _agg_period_df(_fy_raw)
-                    _fy_fl = _fy_df["segment"].tolist()
-                    _fy_fv = _fy_df["revenue"].fillna(0).tolist()
-                    _fy_fc = [segment_colors.get(l, "#999999") for l in _fy_fl]
-                    _prev_fy = _agg_period_df(_prev_fy_raw) if not _prev_fy_raw.empty else pd.DataFrame()
-                    _prev_fy_map = dict(zip(_prev_fy["segment"], _prev_fy["revenue"])) if not _prev_fy.empty else {}
-                    _fy_yoy = _compute_yoy(_fy_fl, _fy_fv, _prev_fy_map)
+            _cx, _cy = 0.36, 0.5
+            if _is_annual:
+                if has_quarterly_segments:
+                    _fy_raw = segments_quarterly_all[
+                        (segments_quarterly_all["company"] == canonical_company)
+                        & (segments_quarterly_all["year"] == int(year))
+                    ]
+                    _prev_fy_raw = segments_quarterly_all[
+                        (segments_quarterly_all["company"] == canonical_company)
+                        & (segments_quarterly_all["year"] == int(year) - 1)
+                    ]
+                    if not _fy_raw.empty:
+                        _fy_df = _agg_period_df(_fy_raw)
+                        _fy_fl = _fy_df["segment"].tolist()
+                        _fy_fv = _fy_df["revenue"].fillna(0).tolist()
+                        _fy_fc = [segment_colors.get(l, "#999999") for l in _fy_fl]
+                        _prev_fy = _agg_period_df(_prev_fy_raw) if not _prev_fy_raw.empty else pd.DataFrame()
+                        _prev_fy_map = dict(zip(_prev_fy["segment"], _prev_fy["revenue"])) if not _prev_fy.empty else {}
+                        _fy_yoy = _compute_yoy(_fy_fl, _fy_fv, _prev_fy_map)
+                        _fy_period_label = f"FY {int(year)}"
+                        _init_anns = _donut_annotations(_fy_fl, _fy_fv, _fy_fc, _fy_yoy, _fy_period_label)
+                        _init_data = [go.Pie(
+                            labels=_fy_fl,
+                            values=[max(v, 0) for v in _fy_fv],
+                            hole=0.55, sort=False, direction="clockwise", rotation=90,
+                            domain=dict(x=[0, 0.72], y=[0, 1]),
+                            marker=dict(colors=_fy_fc, line=dict(color="rgba(0,0,0,0.18)", width=1)),
+                            textinfo="percent",
+                            textfont=dict(color="#ffffff", size=10),
+                            hovertemplate="<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}<extra></extra>",
+                        )]
+                else:
+                    # Annual-only company: relabel center annotation to FY format
                     _fy_period_label = f"FY {int(year)}"
-                    _init_anns = _donut_annotations(_fy_fl, _fy_fv, _fy_fc, _fy_yoy, _fy_period_label)
-                    _init_data = [go.Pie(
-                        labels=_fy_fl,
-                        values=[max(v, 0) for v in _fy_fv],
-                        hole=0.55, sort=False, direction="clockwise", rotation=90,
-                        domain=dict(x=[0, 0.72], y=[0, 1]),
-                        marker=dict(colors=_fy_fc, line=dict(color="rgba(0,0,0,0.18)", width=1)),
-                        textinfo="percent",
-                        textfont=dict(color="#ffffff", size=10),
-                        hovertemplate="<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}<extra></extra>",
-                    )]
+                    if _init_anns:
+                        _init_anns[-1] = dict(
+                            x=_cx, y=_cy - 0.07, xref="paper", yref="paper",
+                            text=f"<b>{_fy_period_label}</b>",
+                            showarrow=False,
+                            font=dict(size=11, color="#8b949e", family="Montserrat, sans-serif"),
+                            align="center", bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
+                        )
 
             _logo_src = f"data:image/png;base64,{logo_base64}" if logo_base64 else ""
             _layout_images = []
@@ -3950,7 +4006,7 @@ def main():
                         font=dict(color="#e6edf3", size=11),
                         title=dict(text="Segments", font=dict(color="#c9d1d9", size=11)),
                     ),
-                    margin=dict(l=80, r=180, t=80, b=120),
+                    margin=dict(l=80, r=200, t=80, b=120),
                     updatemenus=[{
                         "type": "buttons", "showactive": False, "direction": "left",
                         "x": 0.0, "y": -0.06, "xanchor": "left", "yanchor": "top",
@@ -3995,6 +4051,39 @@ def main():
                 ),
             )
             render_plotly(_pie_anim_fig)
+
+            # Employee count footnote below donut
+            try:
+                _emp_df = data_processor.get_sheet("Company_Employees")
+                if _emp_df is not None and not _emp_df.empty:
+                    _emp_df.columns = [str(c).strip().lower() for c in _emp_df.columns]
+                    _emp_col = next((c for c in _emp_df.columns if "employee" in c or "count" in c), None)
+                    if _emp_col and "company" in _emp_df.columns and "year" in _emp_df.columns:
+                        _emp_df["year"] = pd.to_numeric(_emp_df["year"], errors="coerce")
+                        _emp_df["company"] = _emp_df["company"].astype(str).str.strip()
+                        _emp_row = _emp_df[
+                            (_emp_df["company"].str.lower() == canonical_company.lower())
+                            & (_emp_df["year"] == int(year))
+                        ]
+                        if _emp_row.empty:
+                            _emp_co = _emp_df[_emp_df["company"].str.lower() == canonical_company.lower()]
+                            if not _emp_co.empty:
+                                _emp_row = _emp_co.sort_values("year").iloc[[-1]]
+                        if not _emp_row.empty:
+                            _emp_val = pd.to_numeric(_emp_row.iloc[0][_emp_col], errors="coerce")
+                            if pd.notna(_emp_val) and _emp_val > 0:
+                                _emp_yr = int(_emp_row.iloc[0]["year"])
+                                _emp_fmt = (
+                                    f"{_emp_val/1000:.0f}K" if _emp_val >= 1000 else str(int(_emp_val))
+                                )
+                                st.markdown(
+                                    f"<div style='text-align:center;color:#8b949e;font-size:0.82rem;"
+                                    f"margin-top:-8px;padding-bottom:8px;'>"
+                                    f"\U0001f465 <b style='color:#c9d1d9;'>{_emp_fmt}</b> employees ({_emp_yr})</div>",
+                                    unsafe_allow_html=True,
+                                )
+            except Exception:
+                pass
 
     # ── Institutional Ownership ───────────────────────────────────────────
     st.subheader("Institutional Ownership")
