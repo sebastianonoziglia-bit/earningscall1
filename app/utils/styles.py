@@ -21,22 +21,40 @@ PLOTLY_HOVERLABEL_STYLE = dict(
 )
 
 def apply_plotly_theme():
-    if "plotly_white" in pio.templates:
-        base_template = go.layout.Template(pio.templates["plotly_white"])
-    else:
-        base_template = go.layout.Template()
-    base_template.layout.legend = go.layout.Legend(
-        bgcolor="rgba(0,0,0,0)",
-        font=go.layout.legend.Font(color="#e6edf3"),
-    )
-    base_template.layout.update(
-        hoverlabel=PLOTLY_HOVERLABEL_STYLE,
-        font=dict(
-            family='"Poppins", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif'
+    # Build the dark MFE template
+    mfe_dark = go.layout.Template()
+    mfe_dark.layout = go.Layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#e6edf3", family="Montserrat, DM Sans, sans-serif"),
+        title=dict(font=dict(color="#ffffff")),
+        xaxis=dict(
+            tickfont=dict(color="#8b949e"),
+            title_font=dict(color="#c9d1d9"),
+            gridcolor="#21262d",
+            linecolor="#30363d",
+            zerolinecolor="#30363d",
         ),
+        yaxis=dict(
+            tickfont=dict(color="#8b949e"),
+            title_font=dict(color="#c9d1d9"),
+            gridcolor="#21262d",
+            linecolor="#30363d",
+            zerolinecolor="#30363d",
+        ),
+        legend=dict(
+            font=dict(color="#c9d1d9"),
+            bgcolor="rgba(0,0,0,0)",
+            bordercolor="rgba(0,0,0,0)",
+        ),
+        colorway=[
+            "#4285F4", "#FF5B1F", "#1DB954", "#E50914",
+            "#FF9900", "#0082FB", "#9147FF", "#113CCF",
+        ],
     )
-    pio.templates[PLOTLY_TEMPLATE_NAME] = base_template
-    pio.templates.default = PLOTLY_TEMPLATE_NAME
+
+    pio.templates["mfe_dark"] = mfe_dark
+    pio.templates.default = "plotly_dark+mfe_dark"  # plotly_dark not plotly_white
 
 apply_plotly_theme()
 
