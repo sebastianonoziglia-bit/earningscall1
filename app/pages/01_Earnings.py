@@ -3702,37 +3702,60 @@ def main():
             total = sum(max(v, 0) for v in values)
             if total <= 0:
                 return []
-            # Pie domain x=[0, 0.72] → center (0.36, 0.5), outer_r ≈ 0.36
-            cx, cy = 0.36, 0.5
-            outer_r = 0.33   # just outside donut edge in paper coords (unused, kept for reference)
-            label_r = 0.52   # label text radius — outside donut edge
+
+            cx, cy = 0.36, 0.5      # pie center in paper coords (domain x=[0,0.72])
+            label_r = 0.56           # push labels further out from donut edge
+            arrow_r = 0.37           # connector arrow starts just outside donut ring
+
             anns = []
-            angle = _math.pi / 2  # start at top, clockwise
+            angle = _math.pi / 2    # start at top, go clockwise
+
             for lbl, val, col, yoy in zip(labels, values, colors, yoy_pcts):
                 fraction = max(val, 0) / total
-                if fraction < 0.025:
+                if fraction < 0.02:  # skip tiny slivers
                     angle -= fraction * 2 * _math.pi
                     continue
                 span = fraction * 2 * _math.pi
                 mid = angle - span / 2
                 angle -= span
+
+                # Label position
                 lx = cx + label_r * _math.cos(mid)
                 ly = cy + label_r * _math.sin(mid)
+
+                # Arrow anchor — point on the donut outer edge
+                ax = cx + arrow_r * _math.cos(mid)
+                ay = cy + arrow_r * _math.sin(mid)
+
                 val_b = val / 1000
                 val_str = f"${val_b:.0f}B" if val_b >= 10 else f"${val_b:.1f}B"
                 yoy_str = f" ({yoy:+.0f}%)" if yoy is not None else ""
+
                 text = (
-                    f"<b style='color:{col};'>{val_str}{yoy_str}</b>"
-                    f"<br><span style='color:#e6edf3;font-size:11px;'>{lbl}</span>"
+                    f"<b>{val_str}{yoy_str}</b>"
+                    f"<br><span style='font-size:10px;'>{lbl}</span>"
                 )
+
+                # Align text left/right depending on which side of the donut
+                align = "left" if lx >= cx else "right"
+
                 anns.append(dict(
                     x=lx, y=ly,
+                    ax=ax, ay=ay,
                     xref="paper", yref="paper",
-                    text=text, showarrow=False,
+                    axref="paper", ayref="paper",
+                    text=text,
+                    showarrow=True,
+                    arrowhead=0,
+                    arrowwidth=1,
+                    arrowcolor=col,
                     font=dict(color=col, size=11, family="Montserrat, sans-serif"),
-                    align="center",
-                    bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
+                    align=align,
+                    bgcolor="rgba(13,17,23,0.75)",
+                    bordercolor="rgba(0,0,0,0)",
+                    borderpad=3,
                 ))
+
             # Center period label
             anns.append(dict(
                 x=cx, y=cy, xref="paper", yref="paper",
@@ -3931,7 +3954,7 @@ def main():
                 data=_init_data,
                 frames=_pie_frames,
                 layout=go.Layout(
-                    height=580,
+                    height=620,
                     annotations=_init_anns,
                     images=_layout_images,
                     legend=dict(
@@ -3941,7 +3964,7 @@ def main():
                         font=dict(color="#e6edf3", size=11),
                         title=dict(text="Segments", font=dict(color="#c9d1d9", size=11)),
                     ),
-                    margin=dict(l=10, r=130, t=60, b=110),
+                    margin=dict(l=60, r=160, t=80, b=110),
                     updatemenus=[{
                         "type": "buttons", "showactive": False, "direction": "left",
                         "x": 0.0, "y": -0.06, "xanchor": "left", "yanchor": "top",
@@ -3968,6 +3991,7 @@ def main():
                     }],
                     sliders=[{
                         "active": _init_idx,
+                        "transition": {"duration": 0},
                         "currentvalue": {
                             "prefix": "Period: ", "visible": True, "xanchor": "left",
                             "font": {"size": 13, "color": "#e6edf3", "family": "Montserrat, sans-serif"},
