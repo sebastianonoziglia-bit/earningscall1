@@ -934,6 +934,24 @@ def main():
                 --stock-safe-bottom: 230px;
             }
         }
+
+        /* Force all Plotly SVG text dark-theme */
+        .js-plotly-plot .plotly .xtick text,
+        .js-plotly-plot .plotly .ytick text,
+        .js-plotly-plot .plotly .gtitle,
+        .js-plotly-plot .plotly .g-xtitle text,
+        .js-plotly-plot .plotly .g-ytitle text,
+        .js-plotly-plot .plotly .legendtext,
+        .js-plotly-plot .plotly .colorbar-title text,
+        .js-plotly-plot .plotly .colorbar .tick text {
+            fill: #8b949e !important;
+        }
+        .js-plotly-plot .plotly .gtitle {
+            fill: #ffffff !important;
+        }
+        .js-plotly-plot .plotly .bg {
+            fill: rgba(0,0,0,0) !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1050,48 +1068,87 @@ def main():
         ],
     }
 
-    def render_plotly(fig, xaxis_is_year=False, light_theme=False):
-        if light_theme:
-            fig.update_layout(
-                font=dict(family="Montserrat, sans-serif", color="#111827"),
-                legend=dict(
-                    bgcolor="rgba(255,255,255,0.85)",
-                    font=dict(color="#111827"),
-                    title=dict(font=dict(color="#111827")),
-                ),
-                dragmode=False,
-            )
-            fig.update_xaxes(tickfont=dict(color="#111827"), title_font=dict(color="#111827"))
-            fig.update_yaxes(tickfont=dict(color="#111827"), title_font=dict(color="#111827"))
-        else:
-            fig.update_layout(
-                font=dict(family="Montserrat, sans-serif", color="#ffffff"),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                legend=dict(
-                    bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#cccccc"),
-                    title=dict(font=dict(color="#cccccc")),
-                ),
-                dragmode=False,
-            )
-            fig.update_xaxes(
-                gridcolor="#2a2a2a",
-                linecolor="#444444",
-                zerolinecolor="#444444",
-                tickfont=dict(color="#cccccc"),
-                title_font=dict(color="#cccccc"),
-            )
-            fig.update_yaxes(
-                gridcolor="#2a2a2a",
-                linecolor="#444444",
-                zerolinecolor="#444444",
-                tickfont=dict(color="#cccccc"),
-                title_font=dict(color="#cccccc"),
-            )
+    def render_plotly(fig, xaxis_is_year=False, light_theme=False, key=None, **kwargs):
+        # Always apply dark theme — ignore light_theme param entirely
+        fig.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#e6edf3"),
+        )
+        fig.update_xaxes(
+            tickfont=dict(color="#8b949e"),
+            title_font=dict(color="#c9d1d9"),
+            gridcolor="#21262d",
+            linecolor="#30363d",
+            zerolinecolor="#30363d",
+        )
+        fig.update_yaxes(
+            tickfont=dict(color="#8b949e"),
+            title_font=dict(color="#c9d1d9"),
+            gridcolor="#21262d",
+            linecolor="#30363d",
+            zerolinecolor="#30363d",
+        )
+        fig.update_layout(legend=dict(
+            font=dict(color="#c9d1d9"),
+            bgcolor="rgba(0,0,0,0)",
+        ))
         if xaxis_is_year:
             fig.update_xaxes(dtick=1, tickformat="d")
-        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
+        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key=key, **kwargs)
+
+    def _auto_insight(data_dict: dict, company: str) -> str:
+        """Generate a concise narrative insight from chart data.
+        data_dict: {metric_name: {period: value}}. Returns HTML string.
+        """
+        if not data_dict:
+            return ""
+        all_vals = []
+        for metric, periods in data_dict.items():
+            for period, val in periods.items():
+                if val is not None and not (isinstance(val, float) and val != val):
+                    all_vals.append((metric, period, float(val)))
+        if not all_vals:
+            return ""
+        all_vals.sort(key=lambda x: x[2])
+        worst = all_vals[0]
+        best = all_vals[-1]
+        yoy_notes = []
+        for metric, periods in data_dict.items():
+            sorted_periods = sorted(periods.keys())
+            if len(sorted_periods) >= 2:
+                prev_val = periods[sorted_periods[-2]]
+                curr_val = periods[sorted_periods[-1]]
+                if prev_val and prev_val != 0 and curr_val is not None:
+                    yoy = (float(curr_val) - float(prev_val)) / abs(float(prev_val)) * 100
+                    if abs(yoy) >= 15:
+                        direction = "▲" if yoy > 0 else "▼"
+                        color = "#3fb950" if yoy > 0 else "#f85149"
+                        yoy_notes.append(
+                            f"<span style='color:{color};'>{direction} {metric}: "
+                            f"{yoy:+.1f}% vs prior period</span>"
+                        )
+        insight_parts = []
+        if yoy_notes:
+            insight_parts.append("Notable moves: " + " &nbsp;·&nbsp; ".join(yoy_notes[:3]))
+        insight_parts.append(
+            f"<span style='color:#8b949e;'>Period high: "
+            f"<b style='color:#e6edf3;'>{best[0]}</b> at "
+            f"<b style='color:#3fb950;'>{best[2]:,.1f}</b> ({best[1]})</span>"
+        )
+        insight_parts.append(
+            f"<span style='color:#8b949e;'>Period low: "
+            f"<b style='color:#e6edf3;'>{worst[0]}</b> at "
+            f"<b style='color:#f85149;'>{worst[2]:,.1f}</b> ({worst[1]})</span>"
+        )
+        return (
+            "<div style='margin-top:10px; padding:10px 16px; "
+            "background:#0d1117; border-left:3px solid #ff5b1f; "
+            "border-radius:0 6px 6px 0; font-size:12px; "
+            "font-family:\"DM Mono\",monospace; line-height:1.8;'>"
+            + "<br>".join(insight_parts)
+            + "</div>"
+        )
 
     HEATMAP_COLORSCALE = [
         [0.0, "#EAF2FF"],
@@ -5221,7 +5278,17 @@ def main():
     st.markdown("<div class='metrics-section-spacer'></div>", unsafe_allow_html=True)
     st.divider()
     st.subheader(f"Performance Heatmap — {company}")
-    st.markdown("Financial metrics by quarter (value shown, color = YoY change). Stock tabs show price return %.")
+    _hm_period_label = (
+        f"Q{selected_quarter.strip('Q')} {year}"
+        if str(selected_quarter).upper().startswith("Q")
+        else f"FY {year}"
+    )
+    st.markdown(
+        f"<p style='color:#8b949e;font-size:13px;margin-top:-6px;'>"
+        f"<b style='color:#e6edf3;'>{_hm_period_label}</b> &nbsp;·&nbsp; "
+        f"Value shown · Color = YoY change · 9 metrics · Stock tabs show price return %</p>",
+        unsafe_allow_html=True,
+    )
 
     _HM_METRICS = {
         "Revenue": "revenue",
@@ -5389,6 +5456,14 @@ def main():
             f"border:none;border-top:1px solid rgba(255,255,255,0.1);'>{text}</td>"
         )
 
+    def _heatmap_text_color(normalized_val):
+        """Return dark or white text based on colorscale position (0=min, 1=max).
+        Yellow zone (near neutral 0.5) gets dark text for readability on pastel bg.
+        """
+        if 0.30 <= normalized_val <= 0.70:
+            return "#0d1117"
+        return "#ffffff"
+
     def _cg_val_cell(val, yoy, scale=1000.0):
         """Cell showing absolute $B value, background colored by YoY change."""
         if val is None or (isinstance(val, float) and pd.isna(val)):
@@ -5410,11 +5485,11 @@ def main():
         elif yoy >= 0:
             alpha = min(0.85, yoy / 25)
             bg = f"rgba(22,199,132,{alpha:.2f})"
-            col = "#fff"
+            col = _heatmap_text_color(0.5 + (alpha / 0.85) * 0.5)
         else:
             alpha = min(0.85, abs(yoy) / 25)
             bg = f"rgba(234,57,67,{alpha:.2f})"
-            col = "#fff"
+            col = _heatmap_text_color(0.5 - (alpha / 0.85) * 0.5)
         yoy_str = f"<br><span style='font-size:9px;opacity:.75;'>{'+'if yoy and yoy>0 else ''}{yoy:.1f}%</span>" if yoy is not None else ""
         return (
             f"<td style='background:{bg};color:{col};text-align:center;{_TD}'>{fmt}{yoy_str}</td>"
@@ -5425,9 +5500,14 @@ def main():
         if pct is None:
             return f"<td style='background:transparent;color:#444;text-align:center;{_TD}'>—</td>"
         alpha = min(0.92, abs(pct) / 30)
-        bg = f"rgba(22,199,132,{alpha:.2f})" if pct >= 0 else f"rgba(234,57,67,{alpha:.2f})"
+        if pct >= 0:
+            bg = f"rgba(22,199,132,{alpha:.2f})"
+            col = _heatmap_text_color(0.5 + (alpha / 0.92) * 0.5)
+        else:
+            bg = f"rgba(234,57,67,{alpha:.2f})"
+            col = _heatmap_text_color(0.5 - (alpha / 0.92) * 0.5)
         sign = "+" if pct > 0 else ""
-        return f"<td style='background:{bg};color:#fff;text-align:center;{_TD}'>{sign}{pct:.2f}%</td>"
+        return f"<td style='background:{bg};color:{col};text-align:center;{_TD}'>{sign}{pct:.2f}%</td>"
 
     def _cg_stat_val(val_list, stat="avg", scale=1000.0):
         valid = [v for v in val_list if v is not None]
@@ -5699,6 +5779,21 @@ function cgMetric(tab,mid,btn){
 </body></html>"""
     )
     components.html(_cg_html, height=_cg_height, scrolling=True)
+
+    # Auto-generated insight for the top 3 metrics
+    _hm_insight_data = {}
+    for _ml in list(_HM_METRICS.keys())[:3]:
+        _yr_dict = _cg_q_vals.get(_ml, {})
+        if _yr_dict:
+            _hm_insight_data[_ml] = {
+                f"{yr} Q{q}": v
+                for yr, qd in _yr_dict.items()
+                for q, v in qd.items()
+                if v is not None
+            }
+    _hm_insight_html = _auto_insight(_hm_insight_data, company)
+    if _hm_insight_html:
+        st.markdown(_hm_insight_html, unsafe_allow_html=True)
 
 if __name__ == '__main__' or True:
     main()
