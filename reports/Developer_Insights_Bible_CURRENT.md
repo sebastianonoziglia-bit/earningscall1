@@ -1,8 +1,8 @@
 # Developer Insights Bible — The Attention Economy
 ## Complete Technical Handover Document
 
-**Generated:** 2026-03-10 09:59:04 UTC
-**Git branch:** `main` — commit `743a6a4`
+**Generated:** 2026-03-12 14:22:49 UTC
+**Git branch:** `main` — commit `7442c8b`
 **Repository root:** `/Users/sebbo/Desktop/Replit revival`
 **HuggingFace Space:** `https://sebbo89-earningscall2.hf.space/`
 **HF Space repo:** `https://huggingface.co/spaces/sebbo89/Earningscall2`
@@ -87,8 +87,8 @@ with chart text tuned for dark background rendering.
 
 | File | Lines | Description |
 |---|---|---|
-| `app/pages/00_Overview.py` | 10470 | Macro overview — global ad market, duopoly analysis, M2 money supply, concentration bars, landscape bubble chart, market bet. 8-section navigator with per-section st.stop() exits. |
-| `app/pages/01_Earnings.py` | 4685 | Company deep-dive — hero banner, KPI cards, revenue waterfall, segment composition donut, segment evolution chart, transcript highlights, heatmap, AI chat (Genie). |
+| `app/pages/00_Overview.py` | 11657 | Macro overview — global ad market, duopoly analysis, M2 money supply, concentration bars, landscape bubble chart, market bet. 8-section navigator with per-section st.stop() exits. |
+| `app/pages/01_Earnings.py` | 5425 | Company deep-dive — hero banner, KPI cards, revenue waterfall, segment composition donut, segment evolution chart, transcript highlights, heatmap, AI chat (Genie). |
 | `app/pages/02_Stocks.py` | 957 | Stock price charts, returns, market cap trends, volume, daily/minute OHLCV data sourced from the 'Stocks & Crypto' sheet. |
 | `app/pages/03_Editorial.py` | 605 | Editorial/insight narrative page. Renders auto-generated company and macro insights from the intelligence pipeline. |
 | `app/pages/04_Genie.py` | 3108 | AI assistant (Genie) — natural-language Q&A about earnings data, powered by OpenAI API with SQLite transcript intelligence DB as context. |
@@ -104,18 +104,16 @@ with chart text tuned for dark background rendering.
 7. `Attention + Duopoly` — animated scene (Google+Meta combined share)
 8. `Concentration` — bitcoin-style horizontal bar showing duopoly + human sidebars
 9. `Revenue Anatomy` — full-width flex bars per company (total + ad% breakdown)
-10. `The World` — *Every dollar. Every country.* (`app/Welcome.py:2151`)
-11. `The Revenue Map` — *Not all revenue is advertising.* (`app/Welcome.py:2622`)
-12. `The Dependency` — *Some live and die by advertising. Others barely care.* (`app/Welcome.py:2662`)
-13. `The Money Printer` — *When liquidity expands, ad markets follow.* (`app/Welcome.py:2877`)
-14. `The Structural Shift` — *The ad market didn't just grow. It transformed.* (`app/Welcome.py:2929`)
-15. `The Landscape` — *Not all Big Tech is equal. Who won?* (`app/Welcome.py:2979`)
-16. `The Market Bet` — *Starting from the same base of 100, who compounded fastest?* (`app/Welcome.py:3064`)
-17. `The Wealth Machine` — *The market cap story, then vs now.* (`app/Welcome.py:3144`)
-18. `The Clock` — *Every second you stay on this page, revenue keeps running.* (`app/Welcome.py:3243`)
-19. `The Human Voice` — *Here's what management teams are saying.* (`app/Welcome.py:3389`)
-20. Market tape (stock strip, `_render_stock_price_strip`)
-21. Gateway section (→ Overview / Earnings / Genie)
+10. `The World` — *Every dollar. Every country.* (`app/Welcome.py:2335`)
+11. `The Money Printer` — *When liquidity expands, ad markets follow.* (`app/Welcome.py:3348`)
+12. `The Structural Shift` — *The ad market didn't just grow. It transformed.* (`app/Welcome.py:3397`)
+13. `The Landscape` — *Not all Big Tech is equal. Who won?* (`app/Welcome.py:3465`)
+14. `The Market Bet` — *Starting from the same base of 100, who compounded fastest?* (`app/Welcome.py:3562`)
+15. `The Wealth Machine` — *The market cap story, then vs now.* (`app/Welcome.py:3648`)
+16. `The Clock` — *Every second you stay on this page, revenue keeps running.* (`app/Welcome.py:3689`)
+17. `The Human Voice` — *Here's what management teams are saying.* (`app/Welcome.py:3835`)
+18. Market tape (stock strip, `_render_stock_price_strip`)
+19. Gateway section (→ Overview / Earnings / Genie)
 
 ## 5) Overview Page Architecture (00_Overview.py)
 
@@ -190,50 +188,46 @@ auto-detects it and validates: ≥43 sheets, required tabs present,
 
 | Sheet Name | Dimensions | First Columns (up to 6) |
 |---|---|---|
-| Daily | 0r × 0c | date, price, open, high, low, vol. (+6 more) |
-| Minute | 0r × 0c | date, close, open, high, low, volume (+4 more) |
-| Holders | 0r × 0c | date_fetched, company, ticker, holder_name, shares, value_usd (+2 more) |
-| M2 | 0r × 0c | observation_date, M2SL |
-| USD Inflation | 0r × 0c | Year, Official Headline CPI, Core Inflation (excl. Food/Energy), ShadowStats 1990s Method*, ShadowStats 1980s Method*, Chapwood |
-| Nasdaq Composite Est. (FRED) | 0r × 0c | observation_date, NASDAQCOM, estimated_nasdaq_market_cap_usd |
-| Country_Totals_vs_GDP | 0r × 0c | Country, Year, AdSpending_Total, AdSpending_USD, GDP_USD, Ad_vs_GDP_% |
-| Country_Totals_vs_GDP_ RAW | 0r × 0c | Country, Metric, 1999.0, 2000.0, 2001.0, 2002.0 (+22 more) |
-| Country_Advertising_Data_FullVi | 0r × 0c | Country, Year, Metric_type, Value |
-| Country_avg_timespent_intrnt24 | 0r × 0c | Country, Daily Time Spent Internet (hours.minutes) |
-| Global_Adv_Aggregates | 0r × 0c | year, metric_type, value |
-| Global Advertising (GroupM) | 0r × 0c | Year, Traditional_TV, Connected_TV, Traditional_OOH, Digital_OOH, Search (+2 more) |
-|  (GroupM) Granular  | 0r × 0c | Year, TV / Pro Video, Audio, Newspapers, Magazines, OOH (+3 more) |
-| M2_values | 0r × 0c | he , WM2NS, EUR observation, WM2 |
-| Company_metrics_earnings_values | 0r × 0c | Company, Year, Operating Income, Debt, Revenue, Net Income (+6 more) |
-| Company_Employees | 0r × 0c | Company, Year, Employee Count |
-| Company_Segments_insights_text | 0r × 0c | Company, Year, Segment, Insight, Category, quarter |
-| Company_insights_text | 0r × 0c | company, year, category, insight, Unnamed: 4, Unnamed: 5 (+1 more) |
-| Company_advertising_revenue | 0r × 0c | Year, Google_Ads, Meta_Ads, Amazon_Ads, Spotify_Ads, *WBD_Ads (+9 more) |
-| Company_subscribers_values | 0r × 0c | service, quarter, year, subscribers, unit, US_Canade (+1 more) |
-| Hardware_Smartphone_Shipments | 0r × 0c | Year, Apple_iPhone_Units_M, Samsung_Units_M, Xiaomi_Units_M, Huawei_Units_M, Oppo_Units_M (+7 more) |
-| Macro_Wealth_by_Generation | 0r × 0c | Country, Year, Age_Group, Generation_Label, Total_Wealth_Billion_USD, Wealth_Share_Pct (+14 more) |
-| Company_revenue_by_region | 0r × 0c | company, year, segment_name, revenue_millions |
-| Company_minute&dollar_earned | 0r × 0c | Platform, Subscribers/Users (2024), Avg Time per User, Total Minutes Watched (T), Revenue ($B), $ per Minute Watched |
-| Company_yearly_segments_values | 0r × 0c | Company, year, segments, Yearly Segment Revenue |
-| Company_Quarterly_segments_valu | 0r × 0c | Ticker, Year, Revenue, Cost Of Revenue, Operating Income, Net Income (+5 more) |
-| Alphabet Quarterly Segments | 0r × 0c | Quarter, Search & Other, YouTube Ads, Google Network, Google Cloud, Google subscriptions, platforms & devices (+3 more) |
-| Apple Quarterly Segments | 0r × 0c | Quarter, iPhone, Mac, iPad, Wearables/Home/Accessories, Services (+1 more) |
-| Amazon Quarterly Segments  | 0r × 0c | Quarter, Online Stores, Third-Party Seller Services, Subscription Services, AWS, Physical Stores (+3 more) |
-| Meta Quarterly Segments | 0r × 0c | Quarter, family of apps, other, reality labs, Total Quarterly Segment Revenue |
-| Comcast Quarterly Segments Gran | 0r × 0c | Quarter, Domestic Broadband, Domestic Wireless, International Connectivity, Video, Advertising (+16 more) |
-| Disney Quarterly Segments | 0r × 0c |  |
-| Microsoft Quarterly Segments | 0r × 0c | Quarter, Server products and cloud services, office products and cloud services, windows, Gaming, Linkedin (+10 more) |
-| Netflix Quarterly Segments | 0r × 0c | Quarter, UCAN, EMEA, LATAM, APAC, Total Quarterly Segment Revenue |
-| Paramount Quarterly Segments | 0r × 0c | Quarter, Direct-to-Consumer, TV Media, Filmed Entertainment, Eliminations |
-| Roku Quarterly Segments | 0r × 0c | Quarter, Platform, Devices/Player, Total Quarterly Segment Revenue |
-| Spotify Quarterly Segments | 0r × 0c | Quarter, Premium, Ad-supported, Total Quarterly Segment Revenue |
-| Warner Bros Quarterly Segments | 0r × 0c | Quarter, Distribution, Advertising, Content, Other, Total Quarterly Segment Revenue |
-| Overview_Macro | 0r × 0c | year, quarter, m2_value, global_ad_market, duopoly_share, tv_ad_spend (+3 more) |
-| Overview_Insights | 0r × 0c | insight_id, sort_order, category, title, year, quarter (+3 more) |
-| Overview_Charts | 0r × 0c | chart_key, year, quarter, title, pre_comment, post_comment |
-| Transcripts | 0r × 0c | company, year, quarter, transcript_text, last_updated |
-| Overview_Auto_Insights | 0r × 0c | insight_id, category, title, text, comment, priority (+7 more) |
-| Macro_KPIs | 0r × 0c | indicator, value, unit, period, source |
+| Stocks & Crypto | 261181r × 12c | date, price, open, high, low, vol. (+6 more) |
+| USD Inflation | 1000r × 6c | Year, Official Headline CPI, Core Inflation (excl. Food/Energy), ShadowStats 1990s Method*, ShadowStats 1980s Method*, Chapwood |
+| Nasdaq Composite Est. (FRED) | 1000r × 6c | observation_date, NASDAQCOM, estimated_nasdaq_market_cap_usd |
+| Country_Totals_vs_GDP | 1797r × 11c | Country, Year, AdSpending_Total, AdSpending_USD, GDP_USD, Ad_vs_GDP_% |
+| Country_Totals_vs_GDP_ RAW | 1000r × 28c | Country, Metric, 1999, 2000, 2001, 2002 (+22 more) |
+| Country_Advertising_Data_FullVi | 38616r × 9c | Country, Year, Metric_type, Value |
+| Country_avg_timespent_intrnt24 | 1000r × 6c | Country, Daily Time Spent Internet (hours.minutes) |
+| Global_Adv_Aggregates | 1000r × 6c | year, metric_type, value |
+| Global Advertising (GroupM) | 1000r × 8c | Year, Traditional_TV, Connected_TV, Traditional_OOH, Digital_OOH, Search (+2 more) |
+|  (GroupM) Granular  | 1000r × 9c | Year, TV / Pro Video, Audio, Newspapers, Magazines, OOH (+3 more) |
+| M2_values | 1000r × 6c | he , WM2NS, EUR observation, WM2 |
+| Company_metrics_earnings_values | 1000r × 26c | Company, Year, Operating Income, Debt, Revenue, Net Income (+6 more) |
+| Company_Employees | 1000r × 6c | Company, Year, Employee Count |
+| Company_Segments_insights_text | 1000r × 6c | Company, Year, Segment, Insight, Category |
+| Company_insights_text | 1000r × 7c | company, year, category, insight, quarter |
+| Company_advertising_revenue | 1000r × 16c | Year, Google_Ads, Meta_Ads, Amazon_Ads, Spotify_Ads, *WBD_Ads (+9 more) |
+| Company_subscribers_values | 1000r × 16c | service, quarter, year, subscribers, unit, US_Canade (+1 more) |
+| Hardware_Smartphone_Shipments | 17r × 13c | Year, Apple_iPhone_Units_M, Samsung_Units_M, Xiaomi_Units_M, Huawei_Units_M, Oppo_Units_M (+7 more) |
+| Macro_Wealth_by_Generation | 210r × 21c | Country, Year, Age_Group, Generation_Label, Total_Wealth_Billion_USD, Wealth_Share_Pct (+14 more) |
+| Company_revenue_by_region | 1000r × 6c | company, year, segment_name, revenue_millions |
+| Company_minute&dollar_earned | 1000r × 6c | Platform, Subscribers/Users (2024), Avg Time per User, Total Minutes Watched (T), Revenue ($B), $ per Minute Watched |
+| Company_yearly_segments_values | 1000r × 6c | Company, year, segments, Yearly Segment Revenue |
+| Company_Quarterly_segments_valu | 1000r × 25c | Ticker, Year, Revenue, Cost Of Revenue, Operating Income, Net Income (+5 more) |
+| Alphabet Quarterly Segments | 1000r × 9c | Quarter, Search & Other, YouTube Ads, Google Network, Google Cloud, Google subscriptions, platforms & devices (+3 more) |
+| Apple Quarterly Segments | 1000r × 7c | Quarter, iPhone, Mac, iPad, Wearables/Home/Accessories, Services (+1 more) |
+| Amazon Quarterly Segments  | 1000r × 9c | Quarter, Online Stores, Third-Party Seller Services, Subscription Services, AWS, Physical Stores (+3 more) |
+| Meta Quarterly Segments | 1000r × 7c | Quarter, family of apps, other, reality labs, Total Quarterly Segment Revenue |
+| Comcast Quarterly Segments Gran | 1000r × 22c | Quarter, Domestic Broadband, Domestic Wireless, International Connectivity, Video, Advertising (+16 more) |
+| Disney Quarterly Segments | 1000r × 14c |  |
+| Microsoft Quarterly Segments | 1000r × 16c | Quarter, Server products and cloud services, office products and cloud services, windows, Gaming, Linkedin (+10 more) |
+| Netflix Quarterly Segments | 1000r × 6c | Quarter, UCAN, EMEA, LATAM, APAC, Total Quarterly Segment Revenue |
+| Paramount Quarterly Segments | 1000r × 8c | Quarter, Direct-to-Consumer, TV Media, Filmed Entertainment, Eliminations |
+| Roku Quarterly Segments | 1000r × 6c | Quarter, Platform, Devices/Player, Total Quarterly Segment Revenue |
+| Spotify Quarterly Segments | 1000r × 10c | Quarter, Premium, Ad-supported, Total Quarterly Segment Revenue |
+| Warner Bros Quarterly Segments | 1000r × 8c | Quarter, Distribution, Advertising, Content, Other, Total Quarterly Segment Revenue |
+| Overview_Macro | 2r × 9c | year, quarter, m2_value, global_ad_market, duopoly_share, tv_ad_spend (+3 more) |
+| Overview_Insights | 25r × 9c | insight_id, sort_order, category, title, year, quarter (+3 more) |
+| Overview_Charts | 26r × 6c | chart_key, year, quarter, title, pre_comment, post_comment |
+| Transcripts | 349r × 5c | company, year, quarter, transcript_text, last_updated |
+| Overview_Auto_Insights | 12r × 13c | insight_id, category, title, text, comment, priority (+7 more) |
 
 ## 7) Data Flow: Excel → Processors → Pages
 
@@ -276,7 +270,7 @@ SQLite (earningscall_intelligence.db)
 
 | Module | Exists | Lines | Description |
 |---|---|---|---|
-| `workbook_source.py` | ✓ | 280 | Resolves the primary Excel data file — tries local files first (attached_assets/*.xlsx), then falls back to Google Sheets download with 20s timeout. Validates sheet count, required tabs, and financial coverage. |
+| `workbook_source.py` | ✓ | 258 | Resolves the primary Excel data file — tries local files first (attached_assets/*.xlsx), then falls back to Google Sheets download with 20s timeout. Validates sheet count, required tabs, and financial coverage. |
 | `workbook_market_data.py` | ✓ | 331 | Loads stock/market data from the 'Stocks & Crypto' sheet. Builds company-ticker maps for market tape and 02_Stocks.py. |
 | `state_management.py` | ✓ | 151 | Provides get_data_processor() — a cached singleton FinancialDataProcessor instance shared across all pages via Streamlit session state. |
 | `data_granularity.py` | ✓ | 256 | Detects available data granularity (annual/quarterly/monthly) per company from the workbook sheets. |
@@ -284,10 +278,10 @@ SQLite (earningscall_intelligence.db)
 | `m2_supply_data.py` | ✓ | 471 | Loads M2 money supply data. Supports both old sheet ('M2_values', columns WM2NS/USD observation_date) and new sheet ('M2', columns M2SL/observation_date) with automatic fallback. |
 | `data_loader.py` | ✓ | 277 | Generic data loading helpers used by data_processor.py. |
 | `auth.py` | ✓ | 18 | Password gate (check_password()). Called on pages that require authentication. |
-| `header.py` | ✓ | 303 | Renders the top navigation header (display_header()). Shared across all pages. |
+| `header.py` | ✓ | 304 | Renders the top navigation header (display_header()). Shared across all pages. |
 | `logos.py` | ✓ | 72 | Loads company logos from attached_assets/ as base64. Used in market tape, Earnings hero, pulse strip. |
 | `global_fonts.py` | ✓ | 119 | Injects Google Fonts (DM Sans, Syne, Montserrat) via st.markdown. Called at top of every page. |
-| `styles.py` | ✓ | 1268 | CSS + Plotly theme definitions. get_page_style() returns the light-theme CSS used by Earnings/Overview. apply_plotly_theme() sets the default Plotly template ('mfe_blue' based on plotly_white). |
+| `styles.py` | ✓ | 1291 | CSS + Plotly theme definitions. get_page_style() returns the light-theme CSS used by Earnings/Overview. apply_plotly_theme() sets the default Plotly template ('mfe_blue' based on plotly_white). |
 | `theme.py` | ✓ | 927 | get_theme_mode() — returns current light/dark preference. |
 | `components.py` | ✓ | 236 | render_ai_assistant() — renders the Genie AI chat UI component. |
 | `transcript_startup_sync.py` | ✓ | 194 | One-time-per-container sync of local transcript text files into the Excel workbook's 'Transcripts' sheet. |
@@ -400,15 +394,15 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | File | Lines | Functions | Classes |
 |---|---|---|---|
 | `app.py` | 5 | 0 | 0 |
-| `app/Welcome.py` | 3433 | 57 | 0 |
-| `app/pages/00_Overview.py` | 10470 | 130 | 0 |
-| `app/pages/01_Earnings.py` | 4685 | 1 | 0 |
+| `app/Welcome.py` | 3879 | 63 | 0 |
+| `app/pages/00_Overview.py` | 11657 | 155 | 0 |
+| `app/pages/01_Earnings.py` | 5425 | 1 | 0 |
 | `app/pages/02_Stocks.py` | 957 | 13 | 0 |
 | `app/pages/03_Editorial.py` | 605 | 3 | 0 |
 | `app/pages/04_Genie.py` | 3108 | 25 | 0 |
 | `app/data_processor.py` | 998 | 1 | 1 |
 | `app/stock_processor_fix.py` | 193 | 2 | 1 |
-| `app/utils/workbook_source.py` | 280 | 10 | 0 |
+| `app/utils/workbook_source.py` | 258 | 12 | 0 |
 | `app/utils/workbook_market_data.py` | 331 | 12 | 0 |
 | `app/utils/transcript_startup_sync.py` | 194 | 9 | 1 |
 | `scripts/rebuild_transcript_index.py` | 199 | 7 | 1 |
@@ -426,74 +420,80 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | Function | Line | Internal Calls | Name References |
 |---|---|---|---|
 | `ensure_intelligence_pipeline_is_fresh` | 28 | 1 | 2 |
-| `_run_startup_transcript_sync` | 159 | 1 | 2 |
-| `_format_money_musd` | 200 | 5 | 6 |
-| `_company_color` | 250 | 4 | 5 |
-| `_resolve_logo` | 269 | 6 | 7 |
-| `_resolve_workbook_path` | 408 | 1 | 2 |
-| `_normalize_quarter_label` | 464 | 4 | 9 |
-| `_normalize_company_name` | 480 | 7 | 13 |
-| `_company_variants` | 487 | 2 | 3 |
-| `_resolve_speaker_label` | 508 | 2 | 3 |
-| `_split_company_tokens` | 528 | 1 | 2 |
-| `_read_excel_sheet_cached` | 539 | 13 | 14 |
-| `_pick_col` | 552 | 7 | 8 |
-| `_load_company_metrics_sheet` | 563 | 2 | 3 |
-| `_load_overview_macro_sheet` | 602 | 1 | 2 |
-| `_load_company_ad_revenue_sheet` | 657 | 3 | 4 |
-| `_load_company_employees_sheet` | 675 | 1 | 2 |
-| `_select_latest_quarter_for_year` | 704 | 1 | 2 |
-| `_load_m2_yearly_series` | 717 | 1 | 2 |
-| `_map_ad_column_to_company` | 895 | 1 | 2 |
-| `_load_ad_revenue_by_company` | 905 | 3 | 4 |
-| `_format_people` | 930 | 1 | 2 |
-| `_sqlite_has_column` | 1044 | 2 | 3 |
-| `_normalize_quotes_frame` | 1150 | 2 | 3 |
-| `_load_pulse_quotes_csv` | 1222 | 1 | 2 |
-| `_load_pulse_quotes_sqlite` | 1242 | 1 | 2 |
-| `_load_transcript_pulse_quotes` | 1295 | 1 | 2 |
-| `_load_page_data` | 1324 | 1 | 2 |
-| `_section` | 1688 | 10 | 11 |
-| `_separator` | 1707 | 17 | 18 |
-| `_find_col` | 1717 | 29 | 30 |
-| `_yr` | 1730 | 3 | 7 |
-| `_yoy` | 1743 | 5 | 6 |
-| `_yoy_vec` | 1749 | 2 | 3 |
-| `_apply_dark_chart_layout` | 1753 | 8 | 9 |
-| `_normalize_market_feed` | 1777 | 3 | 4 |
-| `_load_market_feed` | 1802 | 1 | 2 |
-| `_render_transcript_pulse_strip` | 1829 | 1 | 2 |
-| `_render_stock_price_strip` | 1888 | 1 | 2 |
-| `_normalize_groupm_to_billions` | 2004 | 2 | 3 |
+| `_run_startup_transcript_sync` | 205 | 1 | 2 |
+| `_format_money_musd` | 246 | 5 | 6 |
+| `_company_color` | 296 | 5 | 6 |
+| `_resolve_logo` | 315 | 6 | 7 |
+| `_resolve_workbook_path` | 454 | 1 | 2 |
+| `_normalize_quarter_label` | 510 | 4 | 9 |
+| `_normalize_company_name` | 526 | 7 | 13 |
+| `_company_variants` | 533 | 2 | 3 |
+| `_resolve_speaker_label` | 554 | 2 | 3 |
+| `_split_company_tokens` | 574 | 1 | 2 |
+| `_read_excel_sheet_cached` | 585 | 12 | 13 |
+| `_pick_col` | 598 | 7 | 8 |
+| `_load_company_metrics_sheet` | 609 | 2 | 3 |
+| `_load_overview_macro_sheet` | 648 | 1 | 2 |
+| `_load_company_ad_revenue_sheet` | 703 | 3 | 4 |
+| `_load_company_employees_sheet` | 721 | 1 | 2 |
+| `_select_latest_quarter_for_year` | 750 | 1 | 2 |
+| `_load_m2_yearly_series` | 763 | 1 | 2 |
+| `_map_ad_column_to_company` | 941 | 1 | 2 |
+| `_load_ad_revenue_by_company` | 951 | 3 | 4 |
+| `_format_people` | 976 | 1 | 2 |
+| `_sqlite_has_column` | 1090 | 2 | 3 |
+| `_normalize_quotes_frame` | 1196 | 2 | 3 |
+| `_load_pulse_quotes_csv` | 1268 | 1 | 2 |
+| `_load_pulse_quotes_sqlite` | 1288 | 1 | 2 |
+| `_load_transcript_pulse_quotes` | 1341 | 1 | 2 |
+| `_load_page_data` | 1370 | 1 | 2 |
+| `_section` | 1894 | 8 | 9 |
+| `_separator` | 1912 | 14 | 15 |
+| `_find_col` | 1919 | 34 | 35 |
+| `_yr` | 1932 | 1 | 5 |
+| `_yoy` | 1945 | 5 | 6 |
+| `_yoy_vec` | 1951 | 1 | 2 |
+| `_apply_dark_chart_layout` | 1955 | 6 | 7 |
+| `_normalize_market_feed` | 1981 | 1 | 2 |
+| `_load_market_feed` | 2006 | 1 | 2 |
+| `_render_transcript_pulse_strip` | 2031 | 1 | 2 |
+| `_render_stock_price_strip` | 2092 | 1 | 2 |
+| `_build_ss_html` | 2408 | 1 | 2 |
+| `_build_attn_html` | 2498 | 1 | 2 |
+| `_build_duopoly_html` | 2643 | 1 | 2 |
+| `_safe_float` | 2943 | 10 | 11 |
 
 **Possibly legacy** (call count = 0 within Welcome.py):
 | Function | Line | Internal Calls | Name References |
 |---|---|---|---|
-| `_to_numeric` | 196 | 0 | 1 |
-| `_safe_pct` | 217 | 0 | 1 |
-| `_build_hero_narrative` | 225 | 0 | 1 |
-| `_render_company_logos` | 286 | 0 | 1 |
-| `_clean_signal_title` | 307 | 0 | 1 |
-| `_build_hero_company_logo_bar` | 313 | 0 | 1 |
-| `_render_leaderboard_strip` | 348 | 0 | 1 |
-| `_quarter_sort_value` | 476 | 0 | 5 |
-| `_normalize_text_for_compare` | 533 | 0 | 1 |
-| `_load_auto_insights` | 625 | 0 | 1 |
-| `_build_home_narrative` | 778 | 0 | 1 |
-| `_macro_comment_is_placeholder` | 866 | 0 | 1 |
-| `_pick_macro_comment_for_period` | 873 | 0 | 1 |
-| `_build_bubble_dataset` | 942 | 0 | 1 |
-| `_pick_primary_company_for_insight` | 1022 | 0 | 1 |
-| `_get_best_quote_for_insight` | 1053 | 0 | 1 |
-| `_build_rank_cards` | 1427 | 0 | 1 |
+| `_to_numeric` | 242 | 0 | 1 |
+| `_safe_pct` | 263 | 0 | 1 |
+| `_build_hero_narrative` | 271 | 0 | 1 |
+| `_render_company_logos` | 332 | 0 | 1 |
+| `_clean_signal_title` | 353 | 0 | 1 |
+| `_build_hero_company_logo_bar` | 359 | 0 | 1 |
+| `_render_leaderboard_strip` | 394 | 0 | 1 |
+| `_quarter_sort_value` | 522 | 0 | 5 |
+| `_normalize_text_for_compare` | 579 | 0 | 1 |
+| `_load_auto_insights` | 671 | 0 | 1 |
+| `_build_home_narrative` | 824 | 0 | 1 |
+| `_macro_comment_is_placeholder` | 912 | 0 | 1 |
+| `_pick_macro_comment_for_period` | 919 | 0 | 1 |
+| `_build_bubble_dataset` | 988 | 0 | 1 |
+| `_pick_primary_company_for_insight` | 1068 | 0 | 1 |
+| `_get_best_quote_for_insight` | 1099 | 0 | 1 |
+| `_build_rank_cards` | 1517 | 0 | 1 |
+| `_parse_human_count_millions` | 2952 | 0 | 2 |
+| `_parse_billions` | 2966 | 0 | 2 |
+| `_parse_trillion_minutes` | 2981 | 0 | 2 |
 
 ## 14) Chart & Component Footprint
 
 | File | Plotly Calls | HTML Components | @st.cache_data | st.stop Calls |
 |---|---|---|---|---|
-| `app/Welcome.py` | 8 | 12 | 15 | 0 |
-| `app/pages/00_Overview.py` | 71 | 0 | 37 | 8 |
-| `app/pages/01_Earnings.py` | 1 | 0 | 16 | 4 |
+| `app/Welcome.py` | 6 | 11 | 16 | 0 |
+| `app/pages/00_Overview.py` | 72 | 0 | 44 | 8 |
+| `app/pages/01_Earnings.py` | 2 | 0 | 16 | 4 |
 | `app/pages/04_Genie.py` | 4 | 0 | 15 | 1 |
 
 ## 15) Known Operational Risks
@@ -510,34 +510,31 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 
 | Check | Status | Time | Details |
 |---|---|---|---|
-| `Workbook resolver` | timeout | 12.02s | timed out after 12s |
-| `FinancialDataProcessor.load_data()` | timeout | 28.01s | timed out after 28s |
+| `Workbook resolver` | ok | 0.66s | resolved=True; path=/Users/sebbo/Desktop/Replit revival/app/attached_assets/Earnings + stocks  copy.xlsx |
+| `FinancialDataProcessor.load_data()` | ok | 1.23s | metrics_rows=175; segments_rows=557; has_data_path=True |
 | `SQLite intelligence tables` | ok | 0.09s | db_found=False |
 
-- Slowest successful probe: **SQLite intelligence tables** at `0.09s`
-- Checks needing attention:
-  - `Workbook resolver` → `timeout` (timed out after 12s)
-  - `FinancialDataProcessor.load_data()` → `timeout` (timed out after 28s)
+- Slowest successful probe: **FinancialDataProcessor.load_data()** at `1.23s`
 
 ## 17) Recent Git History (Last 15 Commits)
 
 | SHA | Date | Commit Message |
 |---|---|---|
-| 743a6a4 | 2026-03-10 | chore: trigger HF Spaces rebuild |
-| 927c243 | 2026-03-09 | fix: iframe-safe inline colors for KPI, Human Voice, stock tape, Duopoly header |
-| c535961 | 2026-03-09 | fix: force text colors in Human Voice, stock tape, KPI %, narrative |
-| 12e868c | 2026-03-09 | docs: massively expand dev bible — full handover-ready technical map |
-| c092a4b | 2026-03-09 | feat: orthographic globe, dark-theme charts in Earnings, green/red ticker |
-| 96359d1 | 2026-03-09 | perf: use local bundled XLSX as primary source, skip Google Sheets download on cold start |
-| e635f50 | 2026-03-09 | fix: M2 compat all pages, revenue bars full width, dependency flip, remove search dominance, bubble log scale, market bet clarity |
-| fafbe0d | 2026-03-09 | feat: bitcoin-style concentration bar, human side bars, bubble ordering, global duopoly denominator |
-| 94478c9 | 2026-03-09 | perf: cache Google Sheet download for 4 hours, reduce timeout to 20s |
-| ec30cdd | 2026-03-08 | fix: home hero/map visibility and KPI contrast |
-| 5a7f1e0 | 2026-03-08 | fix: bubble sizes use sqrt(value) for correct area scaling |
-| 5bba10b | 2026-03-08 | fix: correct donut DATA object from actual GroupM sheet values |
-| 681f83a | 2026-03-08 | fix: stacked revenue bars + diagnostic output for donut data |
-| 56bc096 | 2026-03-08 | chore: add dev manual refresh pipeline and enforce in CODEX_RULES |
-| 188b8a1 | 2026-03-08 | feat: revenue anatomy bars + fix iframe borders + fix bubble height + remove old concentration plotly |
+| 7442c8b | 2026-03-12 | fix: mute heatmap text to #8b949e — matches pill label tone |
+| cdd3a4e | 2026-03-11 | fix: heatmap dark bg, remove axis lines, premium dark hover box |
+| 810a7e6 | 2026-03-11 | feat: Earnings dark theme hardening + heatmap contrast + insight + subtitle |
+| b19a7a9 | 2026-03-11 | fix: dark theme — apply_plotly_theme uses plotly_dark base not plotly_white |
+| 9600ee2 | 2026-03-11 | fix: remove debug blocks, fix duopoly DOM timing with _initDuo polling |
+| fc9819e | 2026-03-11 | debug: add 3 diagnostic blocks (segment donut, ownership, dark theme) |
+| 17c05cf | 2026-03-11 | fix: heatmap data source + transparent bg + no gridlines; duopoly height/layout |
+| ab12712 | 2026-03-11 | debug: add duopoly diagnostic block before _build_duopoly_html call |
+| 4dda432 | 2026-03-11 | fix: heatmap — YoY coloring, $B display, add Segments tab |
+| a9d0035 | 2026-03-11 | feat: Coinglass heatmap + fix employee count + donut/slider polish |
+| 0f85425 | 2026-03-11 | fix: segment donut — labels, annual mode, anim toggle, employee count |
+| c32dd42 | 2026-03-11 | fix: donut annotations no axref, duopoly canvas sizing, scroll CSS refinement |
+| 7226d1d | 2026-03-11 | fix: donut labels clipping + animation update + GOOGLE_SHEET_URL data source |
+| af6b55d | 2026-03-11 | feat: scroll-driven narrative, duopoly fix, nav highlight fix |
+| 689a7d8 | 2026-03-11 | fix: use CSS class for $942B highlight — inline style was being stripped |
 
 ## 18) Regeneration & Artifact Policy
 

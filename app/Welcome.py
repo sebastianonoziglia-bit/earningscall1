@@ -111,20 +111,30 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+:root {
+  --bg: #020810;
+  --bg2: #030d1a;
+  --accent: #4aaeff;
+  --accent2: #ff6b6b;
+  --text: #e6edf3;
+  --muted: #8899aa;
+  --alp: #4285f4;
+  --meta: #0082fb;
+}
 .stApp, .stApp > div, .main, .main > div,
 section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
 div[data-testid="block-container"] {
-    background-color: #0d1117 !important;
-    background: #0d1117 !important;
+    background-color: #020810 !important;
+    background: #020810 !important;
 }
 .element-container, .stMarkdown, .stPlotlyChart,
 .stCaption, div[data-testid="stVerticalBlock"] {
     background: transparent !important;
 }
 .section-label {
-    color: #ff5b1f;
+    color: #4aaeff;
     font-size: 0.7rem;
     letter-spacing: 0.28em;
     text-transform: uppercase;
@@ -151,11 +161,11 @@ div[data-testid="block-container"] {
     margin-top: 12px;
 }
 .accent-num {
-    color: #ff5b1f !important;
+    color: #4aaeff !important;
     font-weight: 800;
 }
 .section-desc b {
-    color: #ff5b1f !important;
+    color: #4aaeff !important;
     font-weight: 800;
 }
 </style>
@@ -1536,8 +1546,8 @@ section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
 div[data-testid="block-container"] {
-    background-color: #0d1117 !important;
-    background: #0d1117 !important;
+    background-color: #020810 !important;
+    background: #020810 !important;
 }
 .element-container, .stMarkdown, .stPlotlyChart,
 .stCaption, div[data-testid="stVerticalBlock"] {
@@ -1577,7 +1587,7 @@ div[data-testid="block-container"] {
 .stPlotlyChart iframe,
 div[data-testid="stPlotlyChart"],
 div[data-testid="stPlotlyChart"] > div {
-    background: #0d1117 !important;
+    background: #020810 !important;
     border: none !important;
     box-shadow: none !important;
 }
@@ -1591,8 +1601,8 @@ div[data-testid="stPlotlyChart"] > div {
     width: 100%;
     overflow: hidden;
     border-radius: 12px;
-    border: 1px solid rgba(148,163,184,0.24);
-    background: rgba(6,11,20,0.92);
+    border: 1px solid rgba(74,174,255,0.18);
+    background: #020810;
     padding: 10px 0;
 }
 .wm-stock-strip {
@@ -1741,7 +1751,7 @@ st.markdown("""
     cursor: pointer;
 }
 .wm-progress-dot.active {
-    background: #ff5b1f;
+    background: #4aaeff;
     height: 24px;
     border-radius: 3px;
     width: 6px;
@@ -1754,20 +1764,20 @@ st.markdown("""
     letter-spacing: 0.28em;
 }
 .sv {
-    opacity: 0;
-    transform: translateY(22px) scale(0.99);
-    transition: opacity 0.65s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: transform, opacity;
+  opacity: 0;
+  transform: translateY(28px) scale(0.97);
+  transition: opacity 0.7s ease, transform 0.75s cubic-bezier(0.16,1,0.3,1);
+  will-change: transform, opacity;
 }
 .sv.sv-visible {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 .sv.sv-past {
-    opacity: 0;
-    transform: translateY(-10%) scale(0.94);
-    transition: opacity 0.4s ease, transform 0.45s ease;
-    pointer-events: none;
+  opacity: 0.12;
+  transform: translateY(-6%) scale(0.90);
+  transition: opacity 0.45s ease, transform 0.5s ease;
+  pointer-events: none;
 }
 </style>
 <div class="wm-progress-nav" id="wm-progress-nav">
@@ -1855,20 +1865,21 @@ st.components.v1.html(
 })();
 </script>
 <style>
-html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
+html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 .sv {
   opacity: 0;
-  transform: translateY(20px) scale(0.98);
-  transition: opacity 0.7s ease, transform 0.7s ease;
+  transform: translateY(28px) scale(0.97);
+  transition: opacity 0.7s ease, transform 0.75s cubic-bezier(0.16,1,0.3,1);
+  will-change: transform, opacity;
 }
 .sv.sv-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
 .sv.sv-past {
-  opacity: 0;
-  transform: translateY(-10%) scale(0.95);
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  opacity: 0.12;
+  transform: translateY(-6%) scale(0.90);
+  transition: opacity 0.45s ease, transform 0.5s ease;
   pointer-events: none;
 }
 .human-voice-fix {
@@ -1890,7 +1901,7 @@ def _section(label: str, headline: str, body: str, section_class: str = ""):
             f"""
         <div class="{class_attr}" style="padding:56px 0 20px;background:transparent;">
           <div class="section-label">{escape(str(label))}</div>
-          <div class="section-title">{escape(str(headline))}</div>
+          <div class="section-title" style="border-left:3px solid rgba(74,174,255,0.4);padding-left:16px;">{escape(str(headline))}</div>
           <div class="section-desc">{body}</div>
         </div>
         """,
@@ -1943,8 +1954,8 @@ def _yoy_vec(current_series, prev_series):
 
 def _apply_dark_chart_layout(fig, *, height=360, margin=None, extra_layout=None):
     base_layout = dict(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor='#020810',
+        plot_bgcolor='#020810',
         font=dict(color="#ffffff"),
         xaxis=dict(
             color="#aaaaaa",
@@ -2062,8 +2073,8 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
     _pulse_track = "".join(pulse_items + pulse_items)
     st.components.v1.html(
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
-        "html,body{margin:0;padding:0;background:#0d1117;}*{box-sizing:border-box;}"
-        ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(148,163,184,0.24);background:rgba(6,11,20,0.92);padding:12px 0;}"
+        "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
+        ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(74,174,255,0.18);background:#020810;padding:12px 0;}"
         ".track{display:flex;align-items:flex-start;gap:12px;width:max-content;animation:scroll 42s linear infinite;}"
         ".item{width:380px;height:170px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;}"
         ".item-quote{font-style:italic;font-size:0.83rem;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;}"
@@ -2147,8 +2158,8 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
     _stock_track = "".join(items + items)
     st.components.v1.html(
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
-        "html,body{margin:0;padding:0;background:#0d1117;}*{box-sizing:border-box;}"
-        ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(148,163,184,0.24);background:rgba(6,11,20,0.92);padding:7px 0;}"
+        "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
+        ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(74,174,255,0.15);background:#020810;padding:7px 0;}"
         ".track{display:flex;align-items:stretch;gap:12px;width:max-content;animation:scroll 36s linear infinite;}"
         ".item{width:220px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:7px 10px;}"
         ".logo{width:32px;height:32px;object-fit:contain;border-radius:50%;background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.26);padding:3px;flex-shrink:0;}"
@@ -2287,24 +2298,24 @@ if mcap_yoy is not None:
 
 st.components.v1.html(
     "<style>@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap');"
-    "html,body{margin:0;padding:0;background:#0d1117;}*{box-sizing:border-box;}</style>"
-    "<div style='background:linear-gradient(160deg,#0d1117 0%,#0f1f35 50%,#0d1117 100%);padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
-    "<div style='color:#ff5b1f;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;'>The Attention Economy</div>"
+    "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}</style>"
+    "<div style='background:linear-gradient(160deg,#020810 0%,#071828 50%,#020810 100%);padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
+    "<div style='color:#4aaeff;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;'>The Attention Economy</div>"
     "<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:40px;font-family:Syne,sans-serif;'>14 companies.<br>One dashboard.</div>"
     "<div style='display:flex;gap:16px;margin-bottom:40px;flex-wrap:wrap;'>"
-    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:20px 16px;'>"
+    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Global Ad Spend</div>"
-    f"<div style='color:#ff5b1f;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi1_val}</div>"
+    f"<div style='color:#4aaeff;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi1_val}</div>"
     f"<div style='margin-top:4px;'>{kpi1_yoy}</div>"
     f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year_groupm} &middot; Global Aggregates</div></div>"
-    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:20px 16px;'>"
+    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Tracked Revenue</div>"
-    f"<div style='color:#ff5b1f;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi2_val}</div>"
+    f"<div style='color:#4aaeff;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi2_val}</div>"
     f"<div style='margin-top:4px;'>{kpi2_yoy}</div>"
     f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year} &middot; 14 companies</div></div>"
-    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:20px 16px;'>"
+    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Combined Market Cap</div>"
-    f"<div style='color:#ff5b1f;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi3_val}</div>"
+    f"<div style='color:#4aaeff;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi3_val}</div>"
     f"<div style='margin-top:4px;'>{kpi3_yoy}</div>"
     f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year} &middot; 14 companies</div></div>"
     "</div>"
@@ -2360,10 +2371,10 @@ try:
                     height=520,
                     margin=dict(l=0, r=0, t=0, b=0),
                     extra_layout=dict(
-                        paper_bgcolor="#0d1117",
-                        plot_bgcolor="#0d1117",
+                        paper_bgcolor="#020810",
+                        plot_bgcolor="#020810",
                         geo=dict(
-                            bgcolor="#0d1117",
+                            bgcolor="#020810",
                             showland=True,
                             landcolor="#1a2332",
                             showframe=False,
@@ -2382,7 +2393,7 @@ try:
                 map_fig.update_geos(
                     showocean=True,
                     oceancolor="#060b14",
-                    bgcolor="#0d1117",
+                    bgcolor="#020810",
                     lataxis_showgrid=False,
                     lonaxis_showgrid=False,
                 )
@@ -2398,11 +2409,11 @@ def _build_ss_html(ss_data_json: str) -> str:
     return f"""
 <div id="wm-ss-root">
 <style>
-html,body{{margin:0;padding:0;background:#0d1117;border:none;outline:none;}}
+html,body{{margin:0;padding:0;background:#020810;border:none;outline:none;}}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-ss-root{{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}}
+#wm-ss-root{{background:#020810;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}}
 #wm-ss-root *{{box-sizing:border-box;}}
-.wm-ss-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}}
+.wm-ss-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}}
 .wm-ss-headline{{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;line-height:1.14;margin:0 0 8px;font-weight:800;}}
 .wm-ss-body{{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 20px;}}
 .wm-ss-main{{display:flex;gap:24px;align-items:center;min-height:280px;}}
@@ -2472,7 +2483,7 @@ const ctx=canvas.getContext('2d');
 let currentAngles=null,rafId=null,stepIdx=0,pauseTimer=null;
 function getAngles(yr){{const d=DATA[yr];const total=KEYS.reduce((s,k)=>s+d[k],0);let a=-Math.PI/2;return KEYS.map(k=>{{const slice=total>0?(d[k]/total)*Math.PI*2:0;const start=a;a+=slice;return{{start,end:a,color:COLORS[k]}};}}); }}
 function lerp(a,b,t){{return a+(b-a)*t;}}
-function drawDonut(angles){{ctx.clearRect(0,0,280,280);const cx=140,cy=140,r=120,ir=72;angles.forEach(s=>{{ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,s.start,s.end);ctx.closePath();ctx.fillStyle=s.color;ctx.fill();}});ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='#0d1117';ctx.fill();}}
+function drawDonut(angles){{ctx.clearRect(0,0,280,280);const cx=140,cy=140,r=120,ir=72;angles.forEach(s=>{{ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,s.start,s.end);ctx.closePath();ctx.fillStyle=s.color;ctx.fill();}});ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='#020810';ctx.fill();}}
 function animateTo(from,to,onDone){{let t=0;function step(){{t=Math.min(t+0.04,1);const interp=from.map((s,i)=>(({{start:lerp(s.start,to[i].start,t),end:lerp(s.end,to[i].end,t),color:to[i].color}})));drawDonut(interp);if(t<1){{rafId=requestAnimationFrame(step);}}else{{onDone();}}}}rafId=requestAnimationFrame(step);}}
 function formatB(yr){{const total=KEYS.reduce((s,k)=>s+DATA[yr][k],0);return'$'+(total/1000).toFixed(0)+'B total';}}
 function runStep(){{if(stepIdx>=YEARS.length){{stepIdx=0;}}const yr=YEARS[stepIdx];const to=getAngles(yr);document.getElementById('wm-ss-yr').textContent=yr;document.getElementById('wm-ss-lbl').textContent=LABELS[yr]||'';document.getElementById('wm-ss-tot').textContent=formatB(yr);const lastYr=YEARS[YEARS.length-1];const pause=yr===lastYr?2000:700;animateTo(currentAngles||to,to,()=>{{currentAngles=to;stepIdx++;pauseTimer=setTimeout(runStep,pause);}});}}
@@ -2484,101 +2495,148 @@ if(YEARS.length>0){{currentAngles=getAngles(YEARS[0]);drawDonut(currentAngles);d
 st.components.v1.html(_build_ss_html(_ss_data_json), height=540)
 _separator()
 
-@st.cache_data(show_spinner=False)
-def _build_attn_html(ad_json_str: str, groupm_json_str: str) -> str:
-    # ad_json_str and groupm_json_str kept as params for cache key stability
-    del ad_json_str, groupm_json_str
+def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str = '[]') -> str:
     return (
-    """
-<div id="wm-attn-root">
+        """<!DOCTYPE html><html><head><meta charset='utf-8'>
 <style>
-html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-attn-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:0 24px;}
-#wm-attn-root *{box-sizing:border-box;}
-.wa-scene{padding:48px 0 32px;}
-.wa-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
-.wa-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.14;margin:0 0 8px;}
-.wa-body{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 32px;}
-.wa-col-hdr{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#8b949e;margin-bottom:16px;font-family:'Syne',sans-serif;font-weight:700;}
-.wa-bars{display:flex;flex-direction:column;gap:12px;width:100%;}
-.wb-row{display:flex;align-items:center;gap:10px;opacity:0;transform:translateY(10px);transition:opacity .4s ease,transform .4s ease;width:100%;}
-.wb-row.wb-r{transform:translateY(10px);}
-.wb-row.vis{opacity:1;transform:translateY(0);}
-.wb-n{font-size:13px;font-weight:700;color:#c9d1d9;min-width:90px;white-space:nowrap;font-family:'Syne',sans-serif;}
-.wb-track{flex:1;height:22px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;position:relative;}
-.wb-fill{height:100%;width:0;background:var(--c);border-radius:6px;transition:width 1.2s cubic-bezier(.22,1,.36,1);}
-.wb-v{font-size:17px;font-weight:800;color:#ff5b1f;min-width:68px;text-align:right;font-family:'Syne',sans-serif;}
-.wb-s{font-size:11px;color:#8b949e;min-width:92px;white-space:nowrap;}
-.wa-hero-stats{display:flex;gap:40px;margin-bottom:28px;padding:18px 0;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);opacity:0;transition:opacity .9s ease .1s;flex-wrap:wrap;}
-.wa-hs-label{font-size:10px;letter-spacing:.22em;text-transform:uppercase;font-family:'Syne',sans-serif;font-weight:700;margin-bottom:3px;}
-.wa-hs-num{font-size:40px;font-weight:800;color:#e6edf3;font-family:'Syne',sans-serif;line-height:1;}
-.wa-hs-unit{font-size:16px;color:#8b949e;font-weight:500;}
-</style>
-<div class="wa-scene" id="wa-s1">
-  <div class="wa-label">THE SCALE OF ATTENTION</div>
-  <div class="wa-headline">Humanity gives these companies its most precious resource.</div>
-  <div class="wa-body">Every day. Every minute. Here is where billions of hours go — and who gets paid for them.</div>
-  <div class="wa-hero-stats" id="wa-hero-stats">
-    <div><div class="wa-hs-label" style="color:#ff5b1f;">Platforms</div><div class="wa-hs-num">11</div></div>
-    <div><div class="wa-hs-label" style="color:#ff5b1f;">Top Engagement</div><div class="wa-hs-num">120<span class="wa-hs-unit"> min/day</span></div></div>
-    <div><div class="wa-hs-label" style="color:#10b981;">Best Yield</div><div class="wa-hs-num">$0.0066<span class="wa-hs-unit">/min</span></div></div>
-    <div><div class="wa-hs-label" style="color:#10b981;">Yield Spread</div><div class="wa-hs-num">4×<span class="wa-hs-unit"> lowest→highest</span></div></div>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;height:100%;overflow:hidden;}
+#wa-attn-root{position:relative;width:100%;height:520px;background:radial-gradient(ellipse at 20% 50%,#0a1628,#020810);overflow:hidden;display:flex;align-items:stretch;}
+.glow-yt{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(255,0,51,0.09),transparent 70%);top:-80px;right:5%;pointer-events:none;filter:blur(4px);}
+.glow-sp{position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(29,185,84,0.07),transparent 70%);bottom:0;right:35%;pointer-events:none;filter:blur(4px);}
+/* dot grid */
+#wa-attn-root::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(74,174,255,0.12) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;}
+#wa-attn-left{position:relative;z-index:2;width:40%;padding:40px 32px;display:flex;flex-direction:column;justify-content:center;flex-shrink:0;}
+.attn-label{color:#4aaeff;font-size:10px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;margin-bottom:14px;}
+.attn-headline{font-family:'Syne','DM Sans',sans-serif;font-size:clamp(28px,3.5vw,44px);font-weight:900;line-height:1.1;color:#e6edf3;margin-bottom:16px;}
+.attn-body{color:#8899aa;font-size:13px;line-height:1.6;margin-bottom:24px;}
+.attn-stat-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8899aa;margin-bottom:4px;}
+.attn-stat-val{font-family:'Syne',sans-serif;font-size:clamp(32px,4vw,52px);font-weight:900;color:#ff0033;line-height:1;}
+.attn-legend{margin-top:24px;display:flex;flex-direction:column;gap:7px;}
+.attn-leg-row{display:flex;align-items:center;gap:8px;font-size:11px;color:#8899aa;}
+.attn-leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+#wa-attn-bubbles{position:absolute;right:0;top:0;width:60%;height:100%;z-index:1;}
+.wa-bubble{position:absolute;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transform:scale(0);opacity:0;padding:14px;text-align:center;backdrop-filter:blur(8px);}
+.wa-bubble.pop{animation-fill-mode:forwards;}
+.wa-bubble .bletter{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.2);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#ffffff;margin-bottom:6px;}
+.wa-bubble .bname{font-weight:700;text-align:center;line-height:1.15;color:#fff;}
+.wa-bubble .brev{font-size:.74em;opacity:.78;color:#fff;margin-top:3px;}
+.wa-bubble .busers{font-size:.62em;opacity:.58;color:#fff;margin-top:3px;}
+@keyframes floatA{0%,100%{transform:scale(1) translateY(0);}50%{transform:scale(1) translateY(-10px);}}
+@keyframes floatB{0%,100%{transform:scale(1) translateY(0) rotate(0deg);}33%{transform:scale(1) translateY(-7px) rotate(-.4deg);}66%{transform:scale(1) translateY(5px) rotate(.4deg);}}
+@keyframes floatC{0%,100%{transform:scale(1) translateY(0);}50%{transform:scale(1) translateY(-14px);}}
+@keyframes popIn{0%{transform:scale(0);opacity:0;}70%{transform:scale(1.08);opacity:1;}100%{transform:scale(1);opacity:1;}}
+</style></head><body>
+<div id='wa-attn-root'>
+  <div class='glow-yt'></div><div class='glow-sp'></div>
+  <div id='wa-attn-left'>
+    <div class='attn-label'>Section 01 — Attention Economy</div>
+    <div class='attn-headline'>Who Owns<br>Your Time</div>
+    <div class='attn-body'>YouTube alone consumes 1 billion hours of human attention every day. Each bubble = a platform. Size = daily minutes watched globally.</div>
+    <div class='attn-stat-label'>YouTube daily</div>
+    <div id='wa-attn-counter' class='attn-stat-val'>0B hours</div>
+    <div class='attn-legend' id='wa-attn-legend'></div>
   </div>
-  <div style="display:flex;gap:32px;margin-top:8px;width:100%;">
-    <div style="flex:1;min-width:0;">
-      <div class="wa-col-hdr">Minutes per user · per day</div>
-      <div class="wa-bars" id="wa-min-bars">
-        <div class="wb-row" data-delay="350"  data-w="100"  style="--c:rgba(229,9,20,0.8)"><span class="wb-n">Netflix</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">120 min</span><span class="wb-s">301M subs</span></div>
-        <div class="wb-row" data-delay="410"  data-w="42"   style="--c:rgba(255,91,31,0.8)"><span class="wb-n">Spotify</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">50 min</span><span class="wb-s">600M MAUs</span></div>
-        <div class="wb-row" data-delay="470"  data-w="50"   style="--c:rgba(100,65,165,0.8)"><span class="wb-n">WBD / Max</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">60 min</span><span class="wb-s">97M subs</span></div>
-        <div class="wb-row" data-delay="530"  data-w="50"   style="--c:rgba(0,100,180,0.8)"><span class="wb-n">Disney+</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">60 min</span><span class="wb-s">149M subs</span></div>
-        <div class="wb-row" data-delay="590"  data-w="50"   style="--c:rgba(0,84,160,0.8)"><span class="wb-n">Paramount+</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">60 min</span><span class="wb-s">71M subs</span></div>
-        <div class="wb-row" data-delay="650"  data-w="50"   style="--c:rgba(210,32,42,0.8)"><span class="wb-n">Peacock</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">60 min</span><span class="wb-s">35M subs</span></div>
-        <div class="wb-row" data-delay="710"  data-w="32"   style="--c:rgba(255,153,0,0.85)"><span class="wb-n">Amazon PV</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">40 min</span><span class="wb-s">200M actives</span></div>
-        <div class="wb-row" data-delay="770"  data-w="32"   style="--c:rgba(24,119,242,0.85)"><span class="wb-n">Meta Fb</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">39 min</span><span class="wb-s">2.1B DAUs</span></div>
-        <div class="wb-row" data-delay="830"  data-w="26"   style="--c:rgba(225,48,108,0.85)"><span class="wb-n">Instagram</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">31 min</span><span class="wb-s">2.0B MAUs</span></div>
-        <div class="wb-row" data-delay="890"  data-w="20"   style="--c:rgba(255,0,0,0.75)"><span class="wb-n">YouTube</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">24 min</span><span class="wb-s">2.5B MAUs</span></div>
-        <div class="wb-row" data-delay="950"  data-w="12"   style="--c:rgba(145,70,255,0.8)"><span class="wb-n">Twitch</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-v">14 min</span><span class="wb-s">240M MAUs</span></div>
-      </div>
-    </div>
-    <div style="flex:1;min-width:0;">
-      <div class="wa-col-hdr" style="text-align:right;">$ earned per minute watched · yield rank</div>
-      <div class="wa-bars" id="wa-rev-bars" style="align-items:flex-end;">
-        <div class="wb-row wb-r" data-delay="400"  data-w="100" style="--c:rgba(0,100,180,0.9)"><span class="wb-v" style="text-align:right;">$0.0066</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Disney+</span><span class="wb-s" style="text-align:right;">$21.9B ÷ 3.3T min</span></div>
-        <div class="wb-row wb-r" data-delay="460"  data-w="85"  style="--c:rgba(210,32,42,0.85)"><span class="wb-v" style="text-align:right;">$0.0056</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Peacock</span><span class="wb-s" style="text-align:right;">$5.0B ÷ 0.9T min</span></div>
-        <div class="wb-row wb-r" data-delay="520"  data-w="73"  style="--c:rgba(0,84,160,0.8)"><span class="wb-v" style="text-align:right;">$0.0048</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Paramount+</span><span class="wb-s" style="text-align:right;">$7.6B ÷ 1.6T min</span></div>
-        <div class="wb-row wb-r" data-delay="580"  data-w="70"  style="--c:rgba(100,65,165,0.8)"><span class="wb-v" style="text-align:right;">$0.0046</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">WBD / Max</span><span class="wb-s" style="text-align:right;">$10.2B ÷ 2.2T min</span></div>
-        <div class="wb-row wb-r" data-delay="640"  data-w="67"  style="--c:rgba(255,153,0,0.85)"><span class="wb-v" style="text-align:right;">$0.0044</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Amazon PV</span><span class="wb-s" style="text-align:right;">$13.5B ÷ 3.1T min</span></div>
-        <div class="wb-row wb-r" data-delay="700"  data-w="50"  style="--c:rgba(225,48,108,0.85)"><span class="wb-v" style="text-align:right;">$0.0033</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Instagram</span><span class="wb-s" style="text-align:right;">$73B ÷ 21.9T min</span></div>
-        <div class="wb-row wb-r" data-delay="760"  data-w="44"  style="--c:rgba(229,9,20,0.8)"><span class="wb-v" style="text-align:right;">$0.0029</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Netflix</span><span class="wb-s" style="text-align:right;">$33.7B ÷ 11.8T min</span></div>
-        <div class="wb-row wb-r" data-delay="820"  data-w="42"  style="--c:rgba(24,119,242,0.85)"><span class="wb-v" style="text-align:right;">$0.0028</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Meta Fb</span><span class="wb-s" style="text-align:right;">$90B ÷ 31.8T min</span></div>
-        <div class="wb-row wb-r" data-delay="880"  data-w="36"  style="--c:rgba(30,215,96,0.85)"><span class="wb-v" style="text-align:right;">$0.0024</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Spotify</span><span class="wb-s" style="text-align:right;">$15.6B ÷ 6.5T min</span></div>
-        <div class="wb-row wb-r" data-delay="940"  data-w="33"  style="--c:rgba(145,70,255,0.8)"><span class="wb-v" style="text-align:right;">$0.0022</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">Twitch</span><span class="wb-s" style="text-align:right;">$2.8B ÷ 1.25T min</span></div>
-        <div class="wb-row wb-r" data-delay="1000" data-w="24"  style="--c:rgba(255,0,0,0.75)"><span class="wb-v" style="text-align:right;">$0.0016</span><div class="wb-track"><div class="wb-fill"></div></div><span class="wb-n" style="text-align:right;">YouTube</span><span class="wb-s" style="text-align:right;">$36.1B ÷ 21.9T min</span></div>
-      </div>
-    </div>
-  </div>
+  <div id='wa-attn-bubbles'></div>
 </div>
 <script>
-window.addEventListener('load',function(){
-  var heroStats=document.getElementById('wa-hero-stats');
-  if(heroStats){heroStats.style.opacity='1';}
-  setTimeout(function(){
-    document.querySelectorAll('.wb-row').forEach(function(el){
-      var d=parseInt(el.dataset.delay||0);
-      var w=el.dataset.w||'0';
-      setTimeout(function(){
-        el.classList.add('vis');
-        var fill=el.querySelector('.wb-fill');
-        if(fill)fill.style.width=w+'%';
-      },d);
-    });
-  },280);
+var RAW="""
+        + human_json_str
+        + """;
+var FALLBACK_ATTN=[
+  {name:'YouTube',  color:'#FF0033', mins:1000, revenue:36.1, users:'2.5B'},
+  {name:'Netflix',  color:'#E50914', mins:120,  revenue:33.7, users:'301M'},
+  {name:'Disney+',  color:'#113CCF', mins:68,   revenue:14.5, users:'154M'},
+  {name:'Amazon',   color:'#FF9900', mins:55,   revenue:10.2, users:'200M+'},
+  {name:'Spotify',  color:'#1DB954', mins:30,   revenue:15.7, users:'678M'},
+  {name:'Twitch',   color:'#9147FF', mins:420,  revenue:2.8,  users:'240M'},
+  {name:'Roku',     color:'#6C2BD9', mins:25,   revenue:3.9,  users:'89M'},
+  {name:'Paramount',color:'#0064FF', mins:35,   revenue:6.8,  users:'71M'}
+];
+var FALLBACK_BY_NAME = FALLBACK_ATTN.reduce(function(acc, item) { acc[item.name] = item; return acc; }, {});
+function fallbackKey(name) {
+  var lower = String(name || '').toLowerCase();
+  if (lower.indexOf('youtube') !== -1) return 'YouTube';
+  if (lower.indexOf('netflix') !== -1) return 'Netflix';
+  if (lower.indexOf('disney') !== -1 || lower.indexOf('hulu') !== -1 || lower.indexOf('espn') !== -1) return 'Disney+';
+  if (lower.indexOf('amazon') !== -1) return 'Amazon';
+  if (lower.indexOf('spotify') !== -1) return 'Spotify';
+  if (lower.indexOf('twitch') !== -1) return 'Twitch';
+  if (lower.indexOf('roku') !== -1) return 'Roku';
+  if (lower.indexOf('paramount') !== -1) return 'Paramount';
+  return '';
+}
+var DATA=FALLBACK_ATTN.map(function(item){ return Object.assign({}, item); });
+if (Array.isArray(RAW) && RAW.length > 0) {
+  RAW.forEach(function(d){
+    var key = fallbackKey(d.name);
+    if (!key) return;
+    var slot = DATA.find(function(item){ return item.name === key; });
+    if (!slot) return;
+    var rawMins = Number(d.mins || d.val || 0);
+    slot.color = d.color || slot.color;
+    slot.mins = rawMins > 0 ? rawMins : slot.mins;
+    slot.revenue = Number(d.revenue || slot.revenue || 0);
+    slot.users = d.users || d.label || slot.users;
+  });
+}
+var ATTN_POS = [
+  {l:'5%',  t:'8%'},
+  {l:'38%', t:'5%'},
+  {l:'62%', t:'18%'},
+  {l:'72%', t:'2%'},
+  {l:'15%', t:'52%'},
+  {l:'44%', t:'48%'},
+  {l:'68%', t:'50%'},
+  {l:'30%', t:'70%'}
+];
+var FLOATS=['floatA','floatB','floatC'];
+var rawMaxMins=Math.max.apply(null,DATA.map(function(d){return d.mins||1;}));
+var bfield=document.getElementById('wa-attn-bubbles');
+var legend=document.getElementById('wa-attn-legend');
+DATA.forEach(function(item,i){
+  var normMins = rawMaxMins > 0 ? ((item.mins || 1) / rawMaxMins) * 1000 : (item.mins || 1);
+  var size=Math.round(44+Math.sqrt(normMins/1000)*160);
+  var pos=ATTN_POS[i]||{l:(10+i*11)+'%',t:'20%'};
+  var fs=Math.max(9,Math.round(size/10));
+  var badge=(item.name||'?').replace(/[^A-Za-z0-9]+/g,' ').trim().split(' ').slice(0,2).map(function(p){return p.charAt(0).toUpperCase();}).join('').slice(0,2) || '?';
+  var revText = item.revenue ? '$'+ (item.revenue >= 10 ? item.revenue.toFixed(1) : item.revenue.toFixed(1)) +'B' : '';
+  var b=document.createElement('div');
+  b.className='wa-bubble';
+  b.style.cssText='width:'+size+'px;height:'+size+'px;left:'+pos.l+';top:'+pos.t+';background:radial-gradient(circle at 35% 35%,'+item.color+'cc,'+item.color+'66);border:1.5px solid '+item.color+'55;box-shadow:0 0 '+Math.round(size/3)+'px '+item.color+'44;';
+  b.innerHTML='<div class="bletter">'+badge+'</div><div class="bname" style="font-size:'+fs+'px;">'+item.name+'</div>'+(revText?'<div class="brev" style="font-size:'+(fs-2)+'px;">'+revText+'</div>':'')+(item.users?'<div class="busers" style="font-size:'+(Math.max(fs-3,8))+'px;">'+item.users+'</div>':'');
+  bfield.appendChild(b);
+  var delay=i*80;
+  var floatAnim=FLOATS[i%3];
+  var floatDur=3000+i*220;
+  setTimeout(function(el,fa,fd){
+    el.style.animation='popIn 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards,'+fa+' '+fd+'ms ease-in-out '+(600+el._idx*80)+'ms infinite';
+    el.classList.add('pop');
+  },delay,b,floatAnim,floatDur);
+  b._idx=i;
+  /* legend row */
+  if(i<5){
+    var row=document.createElement('div');
+    row.className='attn-leg-row';
+    row.innerHTML='<div class="attn-leg-dot" style="background:'+item.color+';"></div><span>'+item.name+(item.users?' — '+item.users:'')+'</span>';
+    legend.appendChild(row);
+  }
 });
+/* count-up */
+function countUp(el,target,dur){
+  var start=performance.now();
+  function step(now){
+    var p=Math.min((now-start)/dur,1);
+    var ease=1-Math.pow(1-p,3);
+    var value = (ease * target);
+    el.textContent=(p < 1 ? value.toFixed(1) : Math.round(value).toString())+'B hours';
+    if(p<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+setTimeout(function(){countUp(document.getElementById('wa-attn-counter'),1,2000);},400);
 </script>
-</div>
-"""
+</body></html>"""
     )
 
 
@@ -2587,28 +2645,44 @@ def _build_duopoly_html(ad_json_str: str, groupm_json_str: str) -> str:
     """
 <div id="wm-duo-root">
 <style>
-html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
+html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-duo-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;min-height:440px;height:440px;padding:0 24px;display:flex;flex-direction:column;}
+#wm-duo-root{background:#020810;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;min-height:440px;height:440px;padding:0 24px;display:flex;flex-direction:column;}
 #wm-duo-root *{box-sizing:border-box;}
-.wa-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
+.wa-label{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
 .wa-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.14;margin:0 0 8px;}
 .wa-body{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 16px;}
+.wa-left{width:260px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 24px 16px 0;border-right:1px solid rgba(255,255,255,0.07);min-height:380px;height:380px;position:relative;overflow:hidden;}
+.wa-duo-node{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:50%;font-family:'Syne',sans-serif;font-weight:800;color:#ffffff;border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(8px);box-shadow:0 0 28px rgba(74,174,255,0.18);transition:width 0.9s cubic-bezier(.22,1,.36,1),height 0.9s cubic-bezier(.22,1,.36,1),transform 0.9s cubic-bezier(.22,1,.36,1),box-shadow 0.9s cubic-bezier(.22,1,.36,1),opacity 0.4s ease;}
+#wa-node-alp{left:20px;top:54px;background:radial-gradient(circle at 35% 35%,rgba(66,133,244,0.95),rgba(66,133,244,0.35));}
+#wa-node-meta{right:16px;bottom:86px;background:radial-gradient(circle at 35% 35%,rgba(0,130,251,0.95),rgba(0,130,251,0.35));}
+.wa-duo-link{position:absolute;inset:0;pointer-events:none;opacity:0.45;}
+.wa-duo-link path{fill:none;stroke:rgba(74,174,255,0.55);stroke-width:1.5;stroke-dasharray:5 7;}
+.wa-duo-node-label{position:absolute;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8b949e;}
+#wa-node-alp-label{left:28px;top:34px;}
+#wa-node-meta-label{right:22px;bottom:60px;}
 </style>
 <div style="padding:24px 0 16px;">
   <div class="wa-label">THE AD DUOPOLY</div>
   <div class="wa-headline">Two companies. Most of the money.</div>
   <div class="wa-body">Watch how Alphabet and Meta came to dominate digital advertising &#8212; from 2010 to today.</div>
   <div style="display:flex;width:100%;height:380px;align-items:stretch;gap:0;margin-top:8px;flex:1;">
-    <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 24px 16px 0;border-right:1px solid rgba(255,255,255,0.07);min-height:380px;height:380px;">
+    <div class="wa-left">
+      <svg class="wa-duo-link" viewBox="0 0 260 380" preserveAspectRatio="none">
+        <path d="M58 88 C104 44, 154 62, 198 168"></path>
+      </svg>
+      <div class="wa-duo-node-label" id="wa-node-alp-label">Alphabet</div>
+      <div class="wa-duo-node-label" id="wa-node-meta-label">Meta</div>
+      <div class="wa-duo-node" id="wa-node-alp">A</div>
+      <div class="wa-duo-node" id="wa-node-meta">M</div>
       <canvas id="wa-duo-canvas" width="220" height="220"></canvas>
       <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:#e6edf3;line-height:1;margin-top:10px;transition:opacity .2s ease;">&#8212;</div>
-      <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#ff5b1f;line-height:1;margin-top:4px;">&#8212;%</div>
+      <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#4aaeff;line-height:1;margin-top:4px;">&#8212;%</div>
       <div style="color:#8b949e;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-top:2px;">Duopoly share</div>
       <div id="wa-dup-tot" style="font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:#8b949e;margin-top:10px;">Total: &#8212;</div>
-      <div style="height:2px;width:85%;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:10px;"><div id="wa-dup-prog" style="height:100%;background:#ff5b1f;border-radius:2px;width:0%;transition:width 1s ease;"></div></div>
+      <div style="height:2px;width:85%;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:10px;"><div id="wa-dup-prog" style="height:100%;background:linear-gradient(90deg,#4285f4,#0082fb);border-radius:2px;width:0%;transition:width 1s ease;"></div></div>
       <div style="display:flex;gap:12px;margin-top:10px;">
-        <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:#ff5b1f;flex-shrink:0;"></div>Duopoly</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:linear-gradient(90deg,#4285f4,#0082fb);flex-shrink:0;"></div>Duopoly</div>
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);flex-shrink:0;"></div>Rest</div>
       </div>
     </div>
@@ -2627,13 +2701,15 @@ var GROUPM_DATA="""
     + groupm_json_str
     + """;
 var COMPANY_COLORS={
-  'Alphabet':'#4285f4','Meta':'#0866ff','Amazon':'#ff9900','Microsoft':'#00a4ef',
+  'Alphabet':'#4285f4','Meta':'#0082fb','Amazon':'#ff9900','Microsoft':'#00a4ef',
   'TikTok':'#ee1d52','Netflix':'#e50914','Apple':'#a0a0a0','Spotify':'#1ed760',
   'Twitter/X':'#1da1f2','Snapchat':'#ffd100','Disney':'#6482fa',
   'Comcast':'#d2202a','WBD':'#8b5cf6','Paramount':'#0054a0'
 };
 var duoCanvas=document.getElementById('wa-duo-canvas');
 var duoCtx=duoCanvas?duoCanvas.getContext('2d'):null;
+var alpNode=document.getElementById('wa-node-alp');
+var metaNode=document.getElementById('wa-node-meta');
 function drawDuoDonut(alpPct,metaPct){
   if(!duoCtx)return;
   var cx=110,cy=110,r=96,ir=60;
@@ -2647,9 +2723,25 @@ function drawDuoDonut(alpPct,metaPct){
   var s2=s1+alpA+gap,e2=s2+metaA-gap;
   var s3=s2+metaA+gap,e3=start+Math.PI*2-gap;
   if(alpA>0.01){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s1,e1);duoCtx.closePath();duoCtx.fillStyle='#4285f4';duoCtx.fill();}
-  if(metaA>0.01){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s2,e2);duoCtx.closePath();duoCtx.fillStyle='#0866ff';duoCtx.fill();}
+  if(metaA>0.01){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s2,e2);duoCtx.closePath();duoCtx.fillStyle='#0082fb';duoCtx.fill();}
   if(restA>0.01&&(alpPct+metaPct)<0.99){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s3,e3);duoCtx.closePath();duoCtx.fillStyle='rgba(255,255,255,0.1)';duoCtx.fill();}
-  duoCtx.beginPath();duoCtx.arc(cx,cy,ir,0,Math.PI*2);duoCtx.fillStyle='#0d1117';duoCtx.fill();
+  duoCtx.beginPath();duoCtx.arc(cx,cy,ir,0,Math.PI*2);duoCtx.fillStyle='#020810';duoCtx.fill();
+}
+function updateConstellation(alpVal, metaVal, total){
+  var maxVal = Math.max(alpVal || 0, metaVal || 0, 1);
+  [
+    {el: alpNode, val: alpVal || 0, base: 56, max: 128, glow: 'rgba(66,133,244,0.38)'},
+    {el: metaNode, val: metaVal || 0, base: 50, max: 118, glow: 'rgba(0,130,251,0.34)'}
+  ].forEach(function(node) {
+    if (!node.el) return;
+    var size = Math.round(node.base + Math.sqrt((node.val || 0) / maxVal) * (node.max - node.base));
+    node.el.style.width = size + 'px';
+    node.el.style.height = size + 'px';
+    node.el.style.fontSize = Math.max(13, Math.round(size / 2.7)) + 'px';
+    node.el.style.transform = 'translateZ(0)';
+    node.el.style.boxShadow = '0 0 ' + Math.round(size / 1.8) + 'px ' + node.glow;
+    node.el.style.opacity = total > 0 ? '1' : '0.55';
+  });
 }
 var FALLBACK_DATA={
   2010:{"Alphabet":29,"Meta":2,"Amazon":0.8,"Microsoft":2.5},
@@ -2685,6 +2777,7 @@ function updateYear(yr){
   var alpFrac=total>0?Math.min(alpVal/total,1):0;
   var metaFrac=total>0?Math.min(metaVal/total,1-alpFrac):0;
   drawDuoDonut(alpFrac,metaFrac);
+  updateConstellation(alpVal, metaVal, total);
   var barsEl=document.getElementById('wa-dup-bars');
   if(barsEl){
     var entries=Object.keys(data).map(function(k){return{name:k,val:data[k]||0};}).filter(function(e){return e.val>0;});
@@ -2739,27 +2832,46 @@ if not _human_df.empty:
     _h_plat = _find_col(_human_df, ["platform"]) or _find_col(_human_df, ["company"]) or _find_col(_human_df, ["name"])
     _h_usr = (_find_col(_human_df, ["user"]) or _find_col(_human_df, ["subscrib"])
               or _find_col(_human_df, ["mau"]) or _find_col(_human_df, ["active"]))
+    _h_mins = (_find_col(_human_df, ["total", "minutes"]) or _find_col(_human_df, ["minutes", "watched"])
+               or _find_col(_human_df, ["minute"]) or _find_col(_human_df, ["avg", "time"]))
+    _h_rev = _find_col(_human_df, ["revenue"])
     _h_lbl = _find_col(_human_df, ["label"]) or _find_col(_human_df, ["note"])
     if _h_plat and _h_usr:
-        _human_df[_h_usr] = pd.to_numeric(_human_df[_h_usr], errors="coerce")
+        _human_df[_h_usr] = _human_df[_h_usr].apply(_parse_human_count_millions)
+        if _h_mins:
+            _human_df[_h_mins] = _human_df[_h_mins].apply(_parse_trillion_minutes)
+        if _h_rev:
+            _human_df[_h_rev] = _human_df[_h_rev].apply(_parse_billions)
         _human_df = _human_df.dropna(subset=[_h_plat, _h_usr])
         _human_df = _human_df[_human_df[_h_usr] > 0].sort_values(_h_usr, ascending=False)
         for _, _hr in _human_df.iterrows():
             _hname = str(_hr[_h_plat]).strip()
             _hval = float(_hr[_h_usr])
+            _hmins = float(_hr.get(_h_mins, np.nan)) if _h_mins and not pd.isna(_hr.get(_h_mins, np.nan)) else np.nan
+            _hrev = float(_hr.get(_h_rev, np.nan)) if _h_rev and not pd.isna(_hr.get(_h_rev, np.nan)) else np.nan
             _hlbl = (str(_hr[_h_lbl]).strip() if _h_lbl and not pd.isna(_hr.get(_h_lbl, np.nan)) else
                      (f"{_hval/1000:.1f}B" if _hval >= 1000 else f"{_hval:.0f}M"))
-            _human_companies.append({"name": _hname, "val": _hval, "color": _company_color(_hname), "label": _hlbl})
+            _human_companies.append(
+                {
+                    "name": _hname,
+                    "val": _hval,
+                    "mins": _hmins if not np.isnan(_hmins) else None,
+                    "revenue": _hrev if not np.isnan(_hrev) else None,
+                    "users": _hlbl,
+                    "color": _company_color(_hname),
+                    "label": _hlbl,
+                }
+            )
 if not _human_companies:
     _human_companies = [
-        {"name": "YouTube", "val": 2500, "color": "#ff0000", "label": "2.5B users"},
-        {"name": "Spotify", "val": 675, "color": "#1db954", "label": "675M users"},
-        {"name": "Netflix", "val": 301, "color": "#e50914", "label": "301M subs"},
-        {"name": "Disney+", "val": 174, "color": "#113ccf", "label": "174M subs"},
-        {"name": "Amazon", "val": 200, "color": "#ff9900", "label": "200M Prime"},
-        {"name": "Max (WBD)", "val": 116, "color": "#0047ab", "label": "116M subs"},
-        {"name": "Paramount+", "val": 77, "color": "#0033a0", "label": "77M subs"},
-        {"name": "Roku", "val": 89, "color": "#6f1ab1", "label": "89M accounts"},
+        {"name": "YouTube", "val": 2500, "mins": 1000, "revenue": 36.1, "users": "2.5B users", "color": "#ff0000", "label": "2.5B users"},
+        {"name": "Spotify", "val": 675, "mins": 30, "revenue": 15.7, "users": "675M users", "color": "#1db954", "label": "675M users"},
+        {"name": "Netflix", "val": 301, "mins": 120, "revenue": 33.7, "users": "301M subs", "color": "#e50914", "label": "301M subs"},
+        {"name": "Disney+", "val": 174, "mins": 68, "revenue": 14.5, "users": "174M subs", "color": "#113ccf", "label": "174M subs"},
+        {"name": "Amazon", "val": 200, "mins": 55, "revenue": 10.2, "users": "200M Prime", "color": "#ff9900", "label": "200M Prime"},
+        {"name": "Max (WBD)", "val": 116, "mins": 42, "revenue": 10.2, "users": "116M subs", "color": "#0047ab", "label": "116M subs"},
+        {"name": "Paramount+", "val": 77, "mins": 35, "revenue": 6.8, "users": "77M subs", "color": "#0033a0", "label": "77M subs"},
+        {"name": "Roku", "val": 89, "mins": 25, "revenue": 3.9, "users": "89M accounts", "color": "#6f1ab1", "label": "89M accounts"},
     ]
 _human_json = json.dumps(_human_companies)
 _human_height = int(min(720, max(320, 160 + len(_human_companies) * 50)))
@@ -2768,9 +2880,9 @@ st.components.v1.html(
 <div id="wm-human-root">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
-html,body{{margin:0;padding:0;background:#0d1117;}}
-#wm-human-root{{background:#0d1117;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
-.wh-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
+html,body{{margin:0;padding:0;background:#020810;}}
+#wm-human-root{{background:#020810;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
+.wh-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
 .wh-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}}
 .wh-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
 .wh-row{{display:flex;align-items:center;gap:16px;margin-bottom:18px;}}
@@ -2811,8 +2923,8 @@ io.observe(rows);
 )
 _separator()
 
-_attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str)
-st.components.v1.html(_attn_html, height=1400)
+_attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str, _human_json)
+st.components.v1.html(_attn_html, height=520)
 _duo_html = _build_duopoly_html(_ad_json_str, _global_adv_json_str)
 st.components.v1.html(_duo_html, height=480, scrolling=False)
 
@@ -2821,7 +2933,7 @@ _separator()
 _CONC_SEG_ORDER = ["Alphabet", "Meta", "Amazon", "Apple + MSFT", "Other Digital",
                    "TV (Free + Pay)", "Print", "Radio", "OOH", "Cinema"]
 _CONC_SEG_COLORS = {
-    "Alphabet": "#1a73e8", "Meta": "#0866ff", "Amazon": "#ff9900",
+    "Alphabet": "#4285f4", "Meta": "#0082fb", "Amazon": "#ff9900",
     "Apple + MSFT": "#ff4202", "Other Digital": "#4a4a4a",
     "TV (Free + Pay)": "#444444", "Print": "#333333",
     "Radio": "#282828", "OOH": "#1e1e1e", "Cinema": "#141414",
@@ -2835,6 +2947,49 @@ def _safe_float(v) -> float:
         return 0.0 if math.isnan(r) else r
     except Exception:
         return 0.0
+
+
+def _parse_human_count_millions(value) -> float:
+    if pd.isna(value):
+        return float("nan")
+    if isinstance(value, (int, float, np.number)):
+        return float(value)
+    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
+    if not match:
+        return float("nan")
+    number = float(match.group(1))
+    suffix = (match.group(2) or "m").lower()
+    scale = {"t": 1_000_000.0, "b": 1_000.0, "m": 1.0, "k": 0.001}.get(suffix, 1.0)
+    return number * scale
+
+
+def _parse_billions(value) -> float:
+    if pd.isna(value):
+        return float("nan")
+    if isinstance(value, (int, float, np.number)):
+        number = float(value)
+        return number / 1000.0 if abs(number) >= 1000 else number
+    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
+    if not match:
+        return float("nan")
+    number = float(match.group(1))
+    suffix = (match.group(2) or "b").lower()
+    scale = {"t": 1_000.0, "b": 1.0, "m": 0.001, "k": 0.000001}.get(suffix, 1.0)
+    return number * scale
+
+
+def _parse_trillion_minutes(value) -> float:
+    if pd.isna(value):
+        return float("nan")
+    if isinstance(value, (int, float, np.number)):
+        return float(value)
+    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
+    if not match:
+        return float("nan")
+    number = float(match.group(1))
+    suffix = (match.group(2) or "t").lower()
+    scale = {"t": 1.0, "b": 0.001, "m": 0.000001, "k": 0.000000001}.get(suffix, 1.0)
+    return number * scale
 
 _conc_all_years: dict = {}
 _conc_anim_start = 2010
@@ -2912,10 +3067,10 @@ _conc_seg_order_json = json.dumps(_CONC_SEG_ORDER)
 st.components.v1.html(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap');
-html,body{{margin:0;padding:0;background:#0d1117;}}
+html,body{{margin:0;padding:0;background:#020810;}}
 *{{box-sizing:border-box;}}
-#conc-root{{background:#0d1117;padding:32px 24px 40px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
-.wc-label{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
+#conc-root{{background:#020810;padding:32px 24px 40px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
+.wc-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
 .wc-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#e6edf3;margin:0 0 6px;}}
 .wc-sub{{color:#8b949e;font-size:14px;margin:0 0 20px;}}
 /* controls */
@@ -2926,7 +3081,7 @@ html,body{{margin:0;padding:0;background:#0d1117;}}
 #conc-play{{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);color:#e6edf3;
   border-radius:6px;padding:5px 16px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.05em;}}
 #conc-play:hover{{background:rgba(255,255,255,0.14);}}
-#conc-slider{{flex:1;accent-color:#ff5b1f;cursor:pointer;height:3px;}}
+#conc-slider{{flex:1;accent-color:#4aaeff;cursor:pointer;height:3px;}}
 /* above-bar callout area */
 #conc-above{{position:relative;width:100%;height:0;overflow:visible;}}
 .cab{{position:absolute;border-radius:6px;padding:6px 10px;white-space:nowrap;pointer-events:none;
@@ -3113,10 +3268,10 @@ st.components.v1.html(
 <div id="wm-rev-root">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-html,body{margin:0;padding:0;background:#0d1117;border:none;outline:none;}
-#wm-rev-root{background:#0d1117;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
+html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
+#wm-rev-root{background:#020810;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
 #wm-rev-root *{box-sizing:border-box;}
-.wr-label{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
+.wr-label{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
 .wr-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}
 .wr-sub{color:#8b949e;font-size:14px;margin:0 0 36px;}
 .wr-grid{display:flex;gap:0;align-items:flex-end;justify-content:space-between;width:100%;}
@@ -3642,12 +3797,12 @@ try:
               html, body {{
                 margin: 0;
                 padding: 0;
-                background: #0d1117;
+                background: #020810;
                 border: none;
                 outline: none;
               }}
             </style>
-            <div style="background:#0d1117;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
+            <div style="background:#020810;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
               {rows_html}
               <div style="color:rgba(255,255,255,0.3);font-size:0.72rem;margin-top:14px;">
                 Based on {effective_year} annual revenue ÷ seconds per year. Updates every 120ms since you opened this page.
@@ -3694,7 +3849,7 @@ _separator()
 st.markdown(
     """
     <div style="padding:64px 0 32px;text-align:center;">
-      <div style="color:#ff5b1f;font-size:0.7rem;letter-spacing:0.28em;
+      <div style="color:#4aaeff;font-size:0.7rem;letter-spacing:0.28em;
                   text-transform:uppercase;margin-bottom:12px;">Your Turn</div>
       <div style="color:white;font-size:2.2rem;font-weight:800;
                   margin-bottom:8px;">Go deeper.</div>
