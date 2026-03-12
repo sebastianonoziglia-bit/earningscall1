@@ -5295,7 +5295,7 @@ def main():
     )
     st.markdown(
         f"<p style='color:#8b949e;font-size:13px;margin-top:-6px;'>"
-        f"<b style='color:#e6edf3;'>{_hm_period_label}</b> &nbsp;·&nbsp; "
+        f"<b style='color:#8b949e;'>{_hm_period_label}</b> &nbsp;·&nbsp; "
         f"Value shown · Color = YoY change · 9 metrics · Stock tabs show price return %</p>",
         unsafe_allow_html=True,
     )
@@ -5454,8 +5454,8 @@ def main():
 
     def _cg_time(text):
         return (
-            f"<td style='background:transparent;color:#e6edf3;text-align:center;"
-            f"padding:7px 10px;font-size:12px;font-weight:700;border:none;"
+            f"<td style='background:transparent;color:#8b949e;text-align:center;"
+            f"padding:7px 10px;font-size:12px;font-weight:600;border:none;"
             f"border-bottom:1px solid rgba(255,255,255,0.05);white-space:nowrap;'>{text}</td>"
         )
 
@@ -5710,11 +5710,11 @@ html,body{background:#0d1117;color:#e6edf3;font-family:'DM Sans','Montserrat',sa
 .cg-wrap{background:#0d1117;border:none;overflow:hidden;}
 .cg-tabs{display:flex;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,0.1);background:transparent;}
 .cg-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:.04em;transition:all .2s;}
-.cg-tab.active,.cg-tab:hover{color:#e6edf3;border-bottom-color:#ff5b1f;}
+.cg-tab.active,.cg-tab:hover{color:#8b949e;border-bottom-color:#ff5b1f;}
 .cg-pills{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 8px;}
 .cg-pill{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b949e;padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
 .cg-pill.active,.cg-pill:hover{background:#ff5b1f;border-color:#ff5b1f;color:#fff;}
-.cg-note{padding:6px 0 2px;font-size:10px;color:#555;letter-spacing:.05em;}
+.cg-note{padding:6px 0 2px;font-size:10px;color:#8b949e;letter-spacing:.05em;}
 .cg-panel{display:none;}.cg-panel.active{display:block;}
 .cg-body{padding:10px 0;}
 </style></head><body><div class="cg-wrap">
