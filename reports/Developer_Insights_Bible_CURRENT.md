@@ -1,8 +1,8 @@
 # Developer Insights Bible — The Attention Economy
 ## Complete Technical Handover Document
 
-**Generated:** 2026-03-12 14:22:49 UTC
-**Git branch:** `main` — commit `7442c8b`
+**Generated:** 2026-03-12 14:24:48 UTC
+**Git branch:** `main` — commit `304d7a7`
 **Repository root:** `/Users/sebbo/Desktop/Replit revival`
 **HuggingFace Space:** `https://sebbo89-earningscall2.hf.space/`
 **HF Space repo:** `https://huggingface.co/spaces/sebbo89/Earningscall2`
@@ -105,13 +105,13 @@ with chart text tuned for dark background rendering.
 8. `Concentration` — bitcoin-style horizontal bar showing duopoly + human sidebars
 9. `Revenue Anatomy` — full-width flex bars per company (total + ad% breakdown)
 10. `The World` — *Every dollar. Every country.* (`app/Welcome.py:2335`)
-11. `The Money Printer` — *When liquidity expands, ad markets follow.* (`app/Welcome.py:3348`)
-12. `The Structural Shift` — *The ad market didn't just grow. It transformed.* (`app/Welcome.py:3397`)
-13. `The Landscape` — *Not all Big Tech is equal. Who won?* (`app/Welcome.py:3465`)
-14. `The Market Bet` — *Starting from the same base of 100, who compounded fastest?* (`app/Welcome.py:3562`)
-15. `The Wealth Machine` — *The market cap story, then vs now.* (`app/Welcome.py:3648`)
-16. `The Clock` — *Every second you stay on this page, revenue keeps running.* (`app/Welcome.py:3689`)
-17. `The Human Voice` — *Here's what management teams are saying.* (`app/Welcome.py:3835`)
+11. `The Money Printer` — *When liquidity expands, ad markets follow.* (`app/Welcome.py:3349`)
+12. `The Structural Shift` — *The ad market didn't just grow. It transformed.* (`app/Welcome.py:3398`)
+13. `The Landscape` — *Not all Big Tech is equal. Who won?* (`app/Welcome.py:3466`)
+14. `The Market Bet` — *Starting from the same base of 100, who compounded fastest?* (`app/Welcome.py:3563`)
+15. `The Wealth Machine` — *The market cap story, then vs now.* (`app/Welcome.py:3649`)
+16. `The Clock` — *Every second you stay on this page, revenue keeps running.* (`app/Welcome.py:3690`)
+17. `The Human Voice` — *Here's what management teams are saying.* (`app/Welcome.py:3836`)
 18. Market tape (stock strip, `_render_stock_price_strip`)
 19. Gateway section (→ Overview / Earnings / Genie)
 
@@ -394,7 +394,7 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | File | Lines | Functions | Classes |
 |---|---|---|---|
 | `app.py` | 5 | 0 | 0 |
-| `app/Welcome.py` | 3879 | 63 | 0 |
+| `app/Welcome.py` | 3880 | 63 | 0 |
 | `app/pages/00_Overview.py` | 11657 | 155 | 0 |
 | `app/pages/01_Earnings.py` | 5425 | 1 | 0 |
 | `app/pages/02_Stocks.py` | 957 | 13 | 0 |
@@ -461,7 +461,7 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | `_build_ss_html` | 2408 | 1 | 2 |
 | `_build_attn_html` | 2498 | 1 | 2 |
 | `_build_duopoly_html` | 2643 | 1 | 2 |
-| `_safe_float` | 2943 | 10 | 11 |
+| `_safe_float` | 2828 | 10 | 11 |
 
 **Possibly legacy** (call count = 0 within Welcome.py):
 | Function | Line | Internal Calls | Name References |
@@ -483,9 +483,9 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | `_pick_primary_company_for_insight` | 1068 | 0 | 1 |
 | `_get_best_quote_for_insight` | 1099 | 0 | 1 |
 | `_build_rank_cards` | 1517 | 0 | 1 |
-| `_parse_human_count_millions` | 2952 | 0 | 2 |
-| `_parse_billions` | 2966 | 0 | 2 |
-| `_parse_trillion_minutes` | 2981 | 0 | 2 |
+| `_parse_human_count_millions` | 2837 | 0 | 2 |
+| `_parse_billions` | 2851 | 0 | 2 |
+| `_parse_trillion_minutes` | 2866 | 0 | 2 |
 
 ## 14) Chart & Component Footprint
 
@@ -510,9 +510,9 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 
 | Check | Status | Time | Details |
 |---|---|---|---|
-| `Workbook resolver` | ok | 0.66s | resolved=True; path=/Users/sebbo/Desktop/Replit revival/app/attached_assets/Earnings + stocks  copy.xlsx |
+| `Workbook resolver` | ok | 0.67s | resolved=True; path=/Users/sebbo/Desktop/Replit revival/app/attached_assets/Earnings + stocks  copy.xlsx |
 | `FinancialDataProcessor.load_data()` | ok | 1.23s | metrics_rows=175; segments_rows=557; has_data_path=True |
-| `SQLite intelligence tables` | ok | 0.09s | db_found=False |
+| `SQLite intelligence tables` | ok | 0.06s | db_found=False |
 
 - Slowest successful probe: **FinancialDataProcessor.load_data()** at `1.23s`
 
@@ -520,6 +520,7 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 
 | SHA | Date | Commit Message |
 |---|---|---|
+| 304d7a7 | 2026-03-12 | feat: dark blue redesign, bubble sections, scroll parallax |
 | 7442c8b | 2026-03-12 | fix: mute heatmap text to #8b949e — matches pill label tone |
 | cdd3a4e | 2026-03-11 | fix: heatmap dark bg, remove axis lines, premium dark hover box |
 | 810a7e6 | 2026-03-11 | feat: Earnings dark theme hardening + heatmap contrast + insight + subtitle |
@@ -534,7 +535,6 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | c32dd42 | 2026-03-11 | fix: donut annotations no axref, duopoly canvas sizing, scroll CSS refinement |
 | 7226d1d | 2026-03-11 | fix: donut labels clipping + animation update + GOOGLE_SHEET_URL data source |
 | af6b55d | 2026-03-11 | feat: scroll-driven narrative, duopoly fix, nav highlight fix |
-| 689a7d8 | 2026-03-11 | fix: use CSS class for $942B highlight — inline style was being stripped |
 
 ## 18) Regeneration & Artifact Policy
 

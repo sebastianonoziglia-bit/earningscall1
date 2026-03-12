@@ -2824,6 +2824,58 @@ if(YEARS.length>0){
 """
     )
 
+
+def _safe_float(v) -> float:
+    import math
+    try:
+        r = float(pd.to_numeric(pd.Series([v]), errors="coerce").iloc[0])
+        return 0.0 if math.isnan(r) else r
+    except Exception:
+        return 0.0
+
+
+def _parse_human_count_millions(value) -> float:
+    if pd.isna(value):
+        return float("nan")
+    if isinstance(value, (int, float, np.number)):
+        return float(value)
+    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
+    if not match:
+        return float("nan")
+    number = float(match.group(1))
+    suffix = (match.group(2) or "m").lower()
+    scale = {"t": 1_000_000.0, "b": 1_000.0, "m": 1.0, "k": 0.001}.get(suffix, 1.0)
+    return number * scale
+
+
+def _parse_billions(value) -> float:
+    if pd.isna(value):
+        return float("nan")
+    if isinstance(value, (int, float, np.number)):
+        number = float(value)
+        return number / 1000.0 if abs(number) >= 1000 else number
+    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
+    if not match:
+        return float("nan")
+    number = float(match.group(1))
+    suffix = (match.group(2) or "b").lower()
+    scale = {"t": 1_000.0, "b": 1.0, "m": 0.001, "k": 0.000001}.get(suffix, 1.0)
+    return number * scale
+
+
+def _parse_trillion_minutes(value) -> float:
+    if pd.isna(value):
+        return float("nan")
+    if isinstance(value, (int, float, np.number)):
+        return float(value)
+    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
+    if not match:
+        return float("nan")
+    number = float(match.group(1))
+    suffix = (match.group(2) or "t").lower()
+    scale = {"t": 1.0, "b": 0.001, "m": 0.000001, "k": 0.000000001}.get(suffix, 1.0)
+    return number * scale
+
 # Beat — The Human Side (before Scale of Attention)
 _human_df = _read_excel_sheet_cached(excel_path, "Company_minute&dollar_earned", source_stamp) if excel_path else pd.DataFrame()
 _human_companies: list[dict] = []
@@ -2939,57 +2991,6 @@ _CONC_SEG_COLORS = {
     "Radio": "#282828", "OOH": "#1e1e1e", "Cinema": "#141414",
 }
 _CONC_DIG_PATTERNS = ["Search", "Social", "Display", "Video", "Digital OOH", "Other Desktop", "Other Mobile"]
-
-def _safe_float(v) -> float:
-    import math
-    try:
-        r = float(pd.to_numeric(pd.Series([v]), errors="coerce").iloc[0])
-        return 0.0 if math.isnan(r) else r
-    except Exception:
-        return 0.0
-
-
-def _parse_human_count_millions(value) -> float:
-    if pd.isna(value):
-        return float("nan")
-    if isinstance(value, (int, float, np.number)):
-        return float(value)
-    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
-    if not match:
-        return float("nan")
-    number = float(match.group(1))
-    suffix = (match.group(2) or "m").lower()
-    scale = {"t": 1_000_000.0, "b": 1_000.0, "m": 1.0, "k": 0.001}.get(suffix, 1.0)
-    return number * scale
-
-
-def _parse_billions(value) -> float:
-    if pd.isna(value):
-        return float("nan")
-    if isinstance(value, (int, float, np.number)):
-        number = float(value)
-        return number / 1000.0 if abs(number) >= 1000 else number
-    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
-    if not match:
-        return float("nan")
-    number = float(match.group(1))
-    suffix = (match.group(2) or "b").lower()
-    scale = {"t": 1_000.0, "b": 1.0, "m": 0.001, "k": 0.000001}.get(suffix, 1.0)
-    return number * scale
-
-
-def _parse_trillion_minutes(value) -> float:
-    if pd.isna(value):
-        return float("nan")
-    if isinstance(value, (int, float, np.number)):
-        return float(value)
-    match = re.search(r"([-+]?\d*\.?\d+)\s*([tbmk])?", str(value).replace(",", ""), re.I)
-    if not match:
-        return float("nan")
-    number = float(match.group(1))
-    suffix = (match.group(2) or "t").lower()
-    scale = {"t": 1.0, "b": 0.001, "m": 0.000001, "k": 0.000000001}.get(suffix, 1.0)
-    return number * scale
 
 _conc_all_years: dict = {}
 _conc_anim_start = 2010
