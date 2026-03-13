@@ -10468,3 +10468,1190 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# ── Heatmap Comparison ─────────────────────────────────────────────────────
+
+import logging as _hm_logging
+import os as _hm_os
+from utils.workbook_market_data import load_combined_stock_market_data as _hm_load_combined_stock
+
+_hm_logger = _hm_logging.getLogger(__name__)
+
+# Renamed constants to avoid collision with Overview.py's COMPANY_TICKERS
+_HM_AVAILABLE_METRICS = {
+    "Revenue": "revenue",
+    "Net Income": "net_income",
+    "Operating Income": "operating_income",
+    "Cost of Revenue": "cost_of_revenue",
+    "R&D": "rd",
+    "CapEx": "capex",
+    "Total Assets": "total_assets",
+    "Debt": "debt",
+    "Cash Balance": "cash_balance",
+    "Market Cap": "market_cap",
+}
+
+HEATMAP_COLORSCALE = [
+    [0.0, "#EAF2FF"],
+    [0.5, "#8BB6FF"],
+    [1.0, "#1B73FF"],
+]
+
+_HM_HOVERLABEL = dict(
+    bgcolor="rgba(10, 14, 26, 0.97)",
+    bordercolor="rgba(99, 179, 237, 0.45)",
+    font=dict(family='"DM Sans","Montserrat",system-ui,sans-serif', size=13, color="#e2e8f0"),
+    align="left",
+    namelength=-1,
+)
+
+_HM_PLOTLY_CONFIG = {
+    "displayModeBar": False,
+    "scrollZoom": False,
+    "doubleClick": False,
+    "showTips": False,
+    "showAxisDragHandles": False,
+    "modeBarButtonsToRemove": [
+        "zoom2d",
+        "pan2d",
+        "select2d",
+        "lasso2d",
+        "zoomIn2d",
+        "zoomOut2d",
+        "autoScale2d",
+        "resetScale2d",
+    ],
+}
+
+# Heatmap-specific company tickers (maps to lists for filter_stock_for_company)
+_HM_COMPANY_TICKERS = {
+    "Alphabet": ["GOOGL", "GOOG"],
+    "Google": ["GOOGL", "GOOG"],
+    "Apple": ["AAPL"],
+    "Meta": ["META", "FB"],
+    "Meta Platforms": ["META", "FB"],
+    "Microsoft": ["MSFT"],
+    "Amazon": ["AMZN"],
+    "Netflix": ["NFLX"],
+    "Disney": ["DIS"],
+    "Comcast": ["CMCSA"],
+    "Warner Bros. Discovery": ["WBD"],
+    "Warner Bros Discovery": ["WBD"],
+    "Paramount": ["PARA"],
+    "Paramount Global": ["PARA"],
+    "Spotify": ["SPOT"],
+    "Roku": ["ROKU"],
+}
+
+_HM_COMPANY_ALIASES = {
+    "Google": "Alphabet",
+    "Meta Platforms": "Meta",
+    "Amazon.com": "Amazon",
+    "Amazon.com, Inc.": "Amazon",
+    "Warner Bros. Discovery": "Warner Bros Discovery",
+    "Warner Bros": "Warner Bros Discovery",
+    "Paramount Global": "Paramount",
+}
+
+_HM_QUARTERLY_COMPANY_MAP = {
+    "Meta": "Meta Platforms",
+    "Paramount": "Paramount Global",
+    "Warner Bros": "Warner Bros. Discovery",
+    "Warner Bros.": "Warner Bros. Discovery",
+}
+
+_DISNEY_PARKS_LABEL = "Parks, Experiences & Products"
+
+
+def _hm_get_file_mtime(path):
+    if not path:
+        return 0
+    try:
+        return _hm_os.path.getmtime(path)
+    except OSError:
+        return 0
+
+
+def _hm_normalize_company(company):
+    return _HM_COMPANY_ALIASES.get(company, company)
+
+
+def _hm_normalize_segment(segment):
+    return str(segment).strip().lower()
+
+
+def _hm_normalize_segment_label(company, segment):
+    if segment is None or (isinstance(segment, float) and pd.isna(segment)):
+        return ""
+    label = str(segment).strip()
+    key = _hm_normalize_segment(label)
+    normalized_company = _hm_normalize_company(company)
+
+    if key in {"total", "totale", "total revenue", "total revenues", "revenue total"}:
+        return ""
+    if key.startswith("total ") or key.endswith(" total"):
+        return ""
+
+    if normalized_company == "Alphabet":
+        if "youtube" in key:
+            return "YouTube ads"
+        if "search" in key:
+            return "Google Search & other"
+        if "cloud" in key:
+            return "Google Cloud"
+        if "network" in key:
+            return "Google Network"
+        if any(k in key for k in ("subs", "subscription", "platform", "device")):
+            return "Google subs, platforms and devices"
+        if "other bets" in key:
+            return "Other bets"
+        if "hedging" in key:
+            return "Hedging gains"
+
+    if normalized_company == "Spotify":
+        if "premium" in key:
+            return "Premium"
+        if "ad" in key:
+            return "Ad Supported"
+
+    if normalized_company == "Roku":
+        if "platform" in key:
+            return "Platform"
+        if "player" in key or "device" in key:
+            return "Player"
+
+    if normalized_company == "Amazon":
+        if "aws" in key or "web service" in key:
+            return "AWS"
+        if "online" in key and "store" in key:
+            return "Online Stores"
+        if "physical" in key and "store" in key:
+            return "Physical Stores"
+        if "subscription" in key or "prime" in key:
+            return "Subscription Services"
+        if (
+            "advert" in key
+            or "adv service" in key
+            or "ad service" in key
+            or key in {"adv", "ads", "ad"}
+        ):
+            return "Advertising"
+        if (
+            ("third" in key and ("party" in key or "seller" in key or "reseller" in key))
+            or "3p" in key
+            or "third-party seller services" in key
+        ):
+            return "Third-Party Seller Services"
+        if "other" in key:
+            return "Other"
+
+    if normalized_company == "Warner Bros Discovery":
+        if "distrib" in key:
+            return "Distribution"
+        if "advert" in key:
+            return "Advertising"
+        if "content" in key or "studio" in key:
+            return "Content"
+        if "other" in key or "corporate" in key or "elimination" in key:
+            return "Other"
+
+    if normalized_company == "Disney":
+        parks_keywords = [
+            "parks",
+            "experiences",
+            "resorts",
+            "domestic parks",
+            "international parks",
+            "consumer products",
+            "interactive media",
+        ]
+        if any(keyword in key for keyword in parks_keywords):
+            return _DISNEY_PARKS_LABEL
+    return label
+
+
+def _hm_get_company_segments(segments_df, company):
+    if segments_df is None or segments_df.empty:
+        return []
+    df = segments_df[segments_df["company"] == company]
+    if df.empty:
+        return []
+    labels = []
+    for segment in df["segment"].dropna().tolist():
+        label = _hm_normalize_segment_label(company, segment)
+        if not label or label == "Total Revenue":
+            continue
+        labels.append(label)
+    return sorted(set(labels), key=str.lower)
+
+
+def _hm_format_compact_value(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return "N/A"
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return "N/A"
+    abs_val = abs(value)
+    if abs_val >= 1_000_000_000_000:
+        scaled = value / 1_000_000_000_000
+        suffix = "T"
+    elif abs_val >= 1_000_000_000:
+        scaled = value / 1_000_000_000
+        suffix = "B"
+    elif abs_val >= 1_000_000:
+        scaled = value / 1_000_000
+        suffix = "M"
+    elif abs_val >= 1_000:
+        scaled = value / 1_000
+        suffix = "K"
+    else:
+        scaled = value
+        suffix = ""
+    if abs(scaled) >= 100:
+        formatted = f"{scaled:.0f}"
+    elif abs(scaled) >= 10:
+        formatted = f"{scaled:.1f}"
+    else:
+        formatted = f"{scaled:.2f}"
+    formatted = formatted.replace(".00", "").replace(".0", "")
+    return f"{formatted}{suffix}"
+
+
+def _hm_format_number(value):
+    if value is None or value == "" or value == "N/A":
+        return "N/A"
+    try:
+        value = float(value)
+        if abs(value) >= 1000:
+            value_in_billions = value / 1000
+            if value_in_billions == int(value_in_billions):
+                return f"{int(value_in_billions)}B"
+            else:
+                return f"{value_in_billions:.1f}B".replace(".0B", "B")
+        else:
+            if value == int(value):
+                return f"{int(value)}M"
+            else:
+                return f"{value:.1f}M".replace(".0M", "M")
+    except Exception:
+        return "N/A"
+
+
+def _hm_format_metric_value(value, scale="millions"):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return "N/A"
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return "N/A"
+    if scale == "raw":
+        return _hm_format_compact_value(numeric_value)
+    if abs(numeric_value) >= 1e9:
+        return _hm_format_compact_value(numeric_value)
+    return _hm_format_number(numeric_value)
+
+
+def _hm_format_stock_value(value):
+    if value is None or pd.isna(value):
+        return "N/A"
+    return f"${value:,.2f}"
+
+
+def _hm_format_change_value(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return "—"
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    sign = "+" if value > 0 else ""
+    return f"{sign}{value:.1f}%"
+
+
+def _hm_infer_metric_scale(df):
+    if df is None or df.empty:
+        return "millions"
+    try:
+        values = pd.to_numeric(pd.Series(df.to_numpy().ravel()), errors="coerce").dropna()
+    except Exception:
+        return "millions"
+    if values.empty:
+        return "millions"
+    max_abs = values.abs().max()
+    return "raw" if max_abs >= 1e7 else "millions"
+
+
+def _hm_normalize_heatmap(pivot_df):
+    if pivot_df is None or pivot_df.empty:
+        return pivot_df
+    values = [
+        value
+        for value in pivot_df.to_numpy().flatten().tolist()
+        if value is not None and not pd.isna(value)
+    ]
+    if not values:
+        return pivot_df
+    min_val = min(values)
+    max_val = max(values)
+    if max_val == min_val:
+        normalized = pivot_df.copy().astype(float)
+        normalized = normalized.applymap(
+            lambda v: 0.5 if not pd.isna(v) else None
+        )
+        return normalized
+    normalized = (pivot_df - min_val) / (max_val - min_val)
+    return normalized
+
+
+def _hm_compute_heatmap_change(pivot_df):
+    if pivot_df is None or pivot_df.empty:
+        return pivot_df
+    ordered = pivot_df.copy()
+    ordered = ordered.reindex(columns=list(ordered.columns))
+    change = ordered.pct_change(axis=1) * 100
+    change = change.replace([np.inf, -np.inf], np.nan)
+    return change
+
+
+def _hm_get_default_company_selection(available_companies, selected_company):
+    if not available_companies:
+        return []
+    if selected_company in available_companies:
+        return [selected_company]
+    return [available_companies[0]]
+
+
+def _hm_filter_stock_for_company(stock_df, company):
+    """Filter stock rows using ticker or company name."""
+    if stock_df.empty:
+        return stock_df
+    keys = _HM_COMPANY_TICKERS.get(company, [])
+    asset = stock_df["asset"].fillna("").str.upper()
+    tag = stock_df["tag"].fillna("").str.upper()
+    name_match = stock_df["asset"].fillna("").str.contains(company, case=False, regex=False)
+    ticker_match = asset.isin(keys) | tag.isin(keys)
+    return stock_df[name_match | ticker_match]
+
+
+def _hm_parse_quarter_label(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    label = str(value).strip()
+    if not label:
+        return None
+    patterns = [
+        re.compile(r"^([1-4])Q(\d{2,4})$", re.IGNORECASE),
+        re.compile(r"^Q([1-4])\s*(\d{2,4})$", re.IGNORECASE),
+        re.compile(r"^(\d{2,4})\s*Q([1-4])$", re.IGNORECASE),
+    ]
+    for pattern in patterns:
+        match = pattern.match(label)
+        if match:
+            first = match.group(1)
+            second = match.group(2)
+            if len(first) >= 3 or int(first) > 4:
+                year = int(first)
+                quarter = int(second)
+            else:
+                quarter = int(first)
+                year = int(second)
+            if year < 100:
+                year += 2000
+            return year, quarter
+    return None
+
+
+@st.cache_data(show_spinner=False)
+def _hm_load_stock_data(excel_path, source_stamp=0):
+    """Load stock data only when needed."""
+    if not excel_path:
+        return pd.DataFrame()
+    try:
+        merged = _hm_load_combined_stock(
+            excel_path=excel_path,
+            source_stamp=int(source_stamp or 0),
+            include_baseline=True,
+            include_daily=True,
+            include_minute=True,
+        )
+        if merged is None or merged.empty:
+            return pd.DataFrame()
+        df = merged.copy()
+        if "tag" not in df.columns:
+            df["tag"] = ""
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        df["price"] = pd.to_numeric(df["price"], errors="coerce")
+        df["asset"] = df["asset"].fillna("").astype(str).str.strip()
+        df["tag"] = df["tag"].fillna("").astype(str).str.strip().str.upper()
+        df = df.dropna(subset=["date", "price"])
+        df = df[df["asset"] != ""]
+        if df.empty:
+            return pd.DataFrame()
+        merged = df[[c for c in ["date", "price", "volume", "asset", "tag", "source_sheet"] if c in df.columns]].copy()
+        return merged
+    except Exception as exc:
+        _hm_logger.warning("Stock data load failed: %s", exc)
+        return pd.DataFrame()
+
+
+@st.cache_data(show_spinner=False)
+def _hm_load_quarterly_segments(excel_path, file_mtime=0):
+    if not excel_path:
+        return pd.DataFrame()
+    try:
+        xls = pd.ExcelFile(excel_path)
+    except Exception as exc:
+        _hm_logger.warning("Quarterly segments load failed: %s", exc)
+        return pd.DataFrame()
+
+    frames = []
+    for sheet in xls.sheet_names:
+        if "Quarterly Segments" not in sheet:
+            continue
+        if "Gran" in sheet:
+            continue
+        try:
+            df = pd.read_excel(xls, sheet_name=sheet)
+        except Exception as exc:
+            _hm_logger.warning("Quarterly segments read failed for %s: %s", sheet, exc)
+            continue
+        if df is None or df.empty:
+            continue
+        company_name = sheet.replace("Quarterly Segments", "").strip()
+        company_name = _HM_QUARTERLY_COMPANY_MAP.get(company_name, company_name)
+        company_name = _hm_normalize_company(company_name)
+        df = df.rename(columns={df.columns[0]: "Quarter"})
+        df = df.melt(id_vars=["Quarter"], var_name="segment", value_name="revenue")
+        df["segment"] = df["segment"].astype(str).str.strip()
+        df = df[~df["segment"].str.contains("total", case=False, na=False)]
+        df["quarter"] = df["Quarter"].astype(str).str.strip()
+        parsed = df["quarter"].apply(_hm_parse_quarter_label)
+        df["year"] = parsed.apply(lambda item: item[0] if item else None)
+        df["quarter_num"] = parsed.apply(lambda item: item[1] if item else None)
+        df = df.dropna(subset=["year", "quarter_num"])
+        df["year"] = df["year"].astype(int)
+        df["quarter_num"] = df["quarter_num"].astype(int)
+        df["revenue"] = pd.to_numeric(df["revenue"], errors="coerce")
+        df = df.dropna(subset=["revenue"])
+        df["company"] = company_name
+        df["segment"] = df["segment"].apply(
+            lambda value: _hm_normalize_segment_label(company_name, value)
+        )
+        df = df[df["segment"].notna() & (df["segment"].astype(str).str.strip() != "")]
+        df = (
+            df.groupby(["company", "segment", "year", "quarter_num"], as_index=False)
+            .agg(
+                revenue=("revenue", "max"),
+                quarter=("quarter", "first"),
+            )
+        )
+        df["quarter"] = df["quarter"].fillna(
+            df["year"].astype(int).astype(str) + " Q" + df["quarter_num"].astype(int).astype(str)
+        )
+        frames.append(df[["company", "quarter", "year", "quarter_num", "segment", "revenue"]])
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
+
+
+@st.cache_data(show_spinner=False)
+def _hm_load_quarterly_company_metrics(excel_path, file_mtime=0):
+    if not excel_path:
+        return pd.DataFrame()
+    segments_df = _hm_load_quarterly_segments(excel_path, file_mtime)
+    if segments_df is None or segments_df.empty:
+        return pd.DataFrame()
+
+    revenue_quarterly = (
+        segments_df.groupby(["company", "year", "quarter_num"], as_index=False)["revenue"]
+        .sum()
+        .rename(columns={"revenue": "value"})
+    )
+    revenue_quarterly["metric_key"] = "revenue"
+    records = [revenue_quarterly[["company", "year", "quarter_num", "metric_key", "value"]]]
+
+    try:
+        xls = pd.ExcelFile(excel_path)
+    except Exception as exc:
+        _hm_logger.warning("Quarterly company metrics annual cross-reference failed: %s", exc)
+        xls = None
+
+    if xls is not None:
+        annual_sheet = None
+        for s in xls.sheet_names:
+            if s == "Company_metrics_earnings_values":
+                annual_sheet = s
+                break
+            if s.startswith("Company_metrics_earnings"):
+                annual_sheet = s
+                break
+
+        if annual_sheet:
+            try:
+                annual_df = pd.read_excel(xls, sheet_name=annual_sheet)
+            except Exception as exc:
+                _hm_logger.warning("Annual metrics read failed for quarterly allocation: %s", exc)
+                annual_df = pd.DataFrame()
+
+            if annual_df is not None and not annual_df.empty:
+                annual_df.columns = [str(c).strip() for c in annual_df.columns]
+                lowered = {str(c).strip().lower(): c for c in annual_df.columns}
+
+                year_col = lowered.get("year")
+                company_col = lowered.get("company") or lowered.get("player")
+                ticker_col = lowered.get("ticker") or lowered.get("symbol")
+
+                if year_col and (company_col or ticker_col):
+                    annual_df = annual_df.rename(columns={year_col: "year"})
+                    annual_df["year"] = pd.to_numeric(annual_df["year"], errors="coerce")
+                    annual_df = annual_df.dropna(subset=["year"])
+                    annual_df["year"] = annual_df["year"].astype(int)
+
+                    if company_col:
+                        annual_df["company"] = annual_df[company_col].astype(str).str.strip().apply(_hm_normalize_company)
+                    else:
+                        ticker_to_company = {}
+                        for company_name, tickers in _HM_COMPANY_TICKERS.items():
+                            for t in tickers:
+                                ticker_to_company[str(t).upper()] = _hm_normalize_company(company_name)
+                        annual_df["ticker"] = annual_df[ticker_col].astype(str).str.strip().str.upper()
+                        annual_df["company"] = annual_df["ticker"].map(ticker_to_company).fillna(annual_df["ticker"])
+
+                    metric_cols = {}
+                    preferred = {
+                        "cost_of_revenue": lowered.get("cost of revenue") or lowered.get("cost_of_revenue"),
+                        "operating_income": lowered.get("operating income") or lowered.get("operating_income"),
+                        "net_income": lowered.get("net income") or lowered.get("net_income"),
+                        "capex": lowered.get("capex"),
+                        "rd": lowered.get("r&d") or lowered.get("rd") or lowered.get("r_d"),
+                        "total_assets": lowered.get("total assets") or lowered.get("total_assets"),
+                        "cash_balance": lowered.get("cash balance") or lowered.get("cash_balance"),
+                        "debt": lowered.get("debt"),
+                        "market_cap": lowered.get("market cap") or lowered.get("market_cap"),
+                    }
+                    for key, col in preferred.items():
+                        if col and col in annual_df.columns:
+                            metric_cols[key] = col
+
+                    if metric_cols:
+                        annual_keep = annual_df[["company", "year"] + list(metric_cols.values())].copy()
+                        for col in metric_cols.values():
+                            annual_keep[col] = pd.to_numeric(annual_keep[col], errors="coerce")
+                        annual_keep = annual_keep.groupby(["company", "year"], as_index=False).sum(min_count=1)
+
+                        shares = revenue_quarterly[["company", "year", "quarter_num", "value"]].copy()
+                        shares = shares.rename(columns={"value": "revenue_value"})
+                        annual_revenue = shares.groupby(["company", "year"], as_index=False)["revenue_value"].sum()
+                        annual_revenue = annual_revenue.rename(columns={"revenue_value": "annual_revenue"})
+                        shares = shares.merge(annual_revenue, on=["company", "year"], how="left")
+                        shares["quarter_count"] = shares.groupby(["company", "year"])["quarter_num"].transform("count")
+                        shares["share"] = np.where(
+                            shares["annual_revenue"].fillna(0) > 0,
+                            shares["revenue_value"] / shares["annual_revenue"],
+                            1.0 / shares["quarter_count"].clip(lower=1),
+                        )
+                        shares = shares.drop(columns=["quarter_count"])
+
+                        for metric_key, col in metric_cols.items():
+                            metric_base = annual_keep[["company", "year", col]].copy()
+                            metric_base = metric_base.rename(columns={col: "annual_value"})
+                            metric_base = metric_base[metric_base["annual_value"].notna()]
+                            if metric_base.empty:
+                                continue
+                            merged = shares.merge(metric_base, on=["company", "year"], how="inner")
+                            if merged.empty:
+                                continue
+                            if metric_key in {"total_assets", "cash_balance", "debt", "market_cap"}:
+                                metric_values = merged["annual_value"]
+                            else:
+                                metric_values = merged["annual_value"] * merged["share"]
+                            temp = merged[["company", "year", "quarter_num"]].copy()
+                            temp["metric_key"] = metric_key
+                            temp["value"] = metric_values
+                            records.append(temp)
+
+    if not records:
+        return pd.DataFrame()
+
+    result = pd.concat(records, ignore_index=True)
+    result["value"] = pd.to_numeric(result["value"], errors="coerce")
+    result = result.dropna(subset=["value"])
+    result["year"] = pd.to_numeric(result["year"], errors="coerce").astype(int)
+    result["quarter_num"] = pd.to_numeric(result["quarter_num"], errors="coerce").astype(int)
+    result = result.sort_values(["company", "year", "quarter_num", "metric_key"])
+    result["period_label"] = (
+        result["year"].astype(int).astype(str)
+        + " Q"
+        + result["quarter_num"].astype(int).astype(str)
+    )
+    return result
+
+
+@st.cache_data(show_spinner=False)
+def _hm_build_metric_heatmap_data(metrics_df, companies, metric_key, year_start, year_end):
+    if metrics_df is None or metrics_df.empty or not companies:
+        return pd.DataFrame()
+    if metric_key not in metrics_df.columns:
+        return pd.DataFrame()
+    df = metrics_df[
+        (metrics_df["company"].isin(companies))
+        & (metrics_df["year"] >= year_start)
+        & (metrics_df["year"] <= year_end)
+    ][["company", "year", metric_key]].dropna()
+    if df.empty:
+        return pd.DataFrame()
+    df = df.groupby(["company", "year"], as_index=False)[metric_key].sum()
+    df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
+    years = list(range(int(year_start), int(year_end) + 1))
+    pivot = df.pivot(index="company", columns="year", values=metric_key)
+    return pivot.reindex(index=companies, columns=years)
+
+
+@st.cache_data(show_spinner=False)
+def _hm_build_quarterly_metric_heatmap_data(quarterly_df, companies, metric_key, year_start, year_end, annual_df=None):
+    if quarterly_df is None or quarterly_df.empty or not companies:
+        return pd.DataFrame()
+    df = quarterly_df[
+        (quarterly_df["company"].isin(companies))
+        & (quarterly_df["year"] >= year_start)
+        & (quarterly_df["year"] <= year_end)
+        & (quarterly_df["metric_key"] == metric_key)
+    ].copy()
+    if df.empty:
+        return pd.DataFrame()
+    df = df.groupby(["company", "year", "quarter_num", "period_label"], as_index=False)["value"].sum()
+    cleaned = (
+        df["value"]
+        .astype(str)
+        .str.replace(",", "", regex=False)
+        .str.replace("$", "", regex=False)
+        .str.replace("%", "", regex=False)
+        .str.replace("(", "-", regex=False)
+        .str.replace(")", "", regex=False)
+    )
+    values = pd.to_numeric(cleaned, errors="coerce")
+    if values.notna().any():
+        df["value"] = values
+        scale_factor = None
+        if annual_df is not None and not annual_df.empty and metric_key in annual_df.columns:
+            annual = annual_df[
+                (annual_df["company"].isin(companies))
+                & (annual_df["year"] >= year_start)
+                & (annual_df["year"] <= year_end)
+            ][["company", "year", metric_key]].copy()
+            if not annual.empty:
+                annual = annual.groupby(["company", "year"], as_index=False)[metric_key].sum()
+                annual_vals = pd.to_numeric(annual[metric_key], errors="coerce")
+                annual["annual_value"] = annual_vals
+                quarterly_sum = df.groupby(["company", "year"], as_index=False)["value"].sum()
+                merged = quarterly_sum.merge(annual[["company", "year", "annual_value"]], on=["company", "year"], how="inner")
+                merged = merged[merged["annual_value"].notna() & merged["value"].notna()]
+                if not merged.empty:
+                    ratios = merged["value"] / merged["annual_value"]
+                    ratios = ratios.replace([np.inf, -np.inf], np.nan).dropna()
+                    if not ratios.empty:
+                        median_ratio = float(ratios.median())
+                        if median_ratio >= 1000:
+                            scale_factor = 1e6
+        if scale_factor:
+            df["value"] = df["value"] / scale_factor
+        else:
+            max_abs = float(values.abs().max())
+            if max_abs >= 1e12:
+                df["value"] = df["value"] / 1e6
+    df = df.sort_values(["year", "quarter_num"])
+    period_order = df["period_label"].drop_duplicates().tolist()
+    pivot = df.pivot(index="company", columns="period_label", values="value")
+    return pivot.reindex(index=companies, columns=period_order)
+
+
+@st.cache_data(show_spinner=False)
+def _hm_build_stock_heatmap_data(
+    stock_df,
+    companies,
+    frequency,
+    year_start=None,
+    year_end=None,
+    period_limit=None,
+):
+    if stock_df is None or stock_df.empty or not companies:
+        return pd.DataFrame()
+    rows = {}
+    period_labels = {}
+    for company in companies:
+        company_df = _hm_filter_stock_for_company(stock_df, company)
+        if company_df.empty:
+            continue
+        series = company_df.sort_values("date").set_index("date")["price"]
+        if frequency == "Yearly":
+            agg = series.resample("Y").last()
+            agg.index = agg.index.year
+            if year_start is not None and year_end is not None:
+                agg = agg[(agg.index >= int(year_start)) & (agg.index <= int(year_end))]
+            labels = agg.index.astype(int).tolist()
+        elif frequency == "Quarterly":
+            agg = series.resample("Q").last()
+            if period_limit:
+                agg = agg.tail(int(period_limit))
+            labels = []
+            for dt in agg.index:
+                label = f"Q{((dt.month - 1) // 3) + 1} {dt.year}"
+                labels.append(label)
+                period_labels[label] = dt
+        elif frequency == "Monthly":
+            agg = series.resample("M").last()
+            if period_limit:
+                agg = agg.tail(int(period_limit))
+            labels = []
+            for dt in agg.index:
+                label = dt.strftime("%Y-%m")
+                labels.append(label)
+                period_labels[label] = dt
+        elif frequency == "Weekly":
+            agg = series.resample("W").last()
+            if period_limit:
+                agg = agg.tail(int(period_limit))
+            labels = []
+            for dt in agg.index:
+                label = dt.strftime("%Y-%m-%d")
+                labels.append(label)
+                period_labels[label] = dt
+        else:
+            agg = series
+            if period_limit:
+                agg = agg.tail(int(period_limit))
+            labels = []
+            for dt in agg.index:
+                label = dt.strftime("%Y-%m-%d")
+                labels.append(label)
+                period_labels[label] = dt
+        if agg.empty:
+            continue
+        rows[company] = pd.Series(agg.values, index=labels)
+
+    if not rows:
+        return pd.DataFrame()
+
+    if frequency == "Yearly":
+        columns = sorted({col for series in rows.values() for col in series.index}, key=int)
+    else:
+        columns = sorted(period_labels.keys(), key=lambda key: period_labels[key])
+    pivot = pd.DataFrame(rows).T
+    return pivot.reindex(index=companies, columns=columns)
+
+
+@st.cache_data(show_spinner=False)
+def _hm_build_quarterly_segment_heatmap_data(segments_df, company, year_start, year_end, segment_filter):
+    if segments_df is None or segments_df.empty or not company:
+        return pd.DataFrame()
+    df = segments_df[
+        (segments_df["company"] == company)
+        & (segments_df["year"] >= year_start)
+        & (segments_df["year"] <= year_end)
+    ].copy()
+    df["segment"] = df["segment"].apply(lambda s: _hm_normalize_segment_label(company, s))
+    if segment_filter:
+        df = df[df["segment"].isin(segment_filter)]
+    if df.empty:
+        return pd.DataFrame()
+    quarter_order = (
+        df[["quarter", "year", "quarter_num"]]
+        .dropna()
+        .drop_duplicates()
+        .sort_values(["year", "quarter_num"])
+    )
+    quarter_labels = quarter_order["quarter"].tolist()
+    pivot = df.pivot_table(index="segment", columns="quarter", values="revenue", aggfunc="sum")
+    if segment_filter:
+        pivot = pivot.reindex(index=list(segment_filter))
+    else:
+        pivot = pivot.reindex(index=sorted(pivot.index.tolist(), key=str.lower))
+    return pivot.reindex(columns=quarter_labels)
+
+
+def _hm_render_plotly(fig, xaxis_is_year=False, light_theme=False, key=None, **kwargs):
+    fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig, use_container_width=True, config=_HM_PLOTLY_CONFIG, key=key, **kwargs)
+
+
+# ── Heatmap Comparison UI ───────────────────────────────────────────────────
+st.divider()
+st.subheader("Heatmap Comparison")
+st.markdown(
+    "A fast visual scan across companies, segments, and prices over time. "
+    "Darker cells indicate higher values within the selected view."
+)
+
+heatmap_row = st.columns([2.2, 2.2, 1.6, 1.6, 2.4])
+with heatmap_row[0]:
+    heatmap_mode = st.selectbox(
+        "Heatmap data",
+        ["Company Metrics", "Segments", "Stock Price"],
+        index=0,
+        key="ov_heatmap_mode",
+    )
+with heatmap_row[1]:
+    if heatmap_mode == "Company Metrics":
+        heatmap_metrics = st.multiselect(
+            "Metrics",
+            list(_HM_AVAILABLE_METRICS.keys()),
+            default=["Revenue"],
+            key="ov_heatmap_metrics",
+        )
+    elif heatmap_mode == "Segments":
+        heatmap_metric = "Segment revenue"
+        st.selectbox("Metric", ["Segment revenue"], index=0, key="ov_heatmap_segment_metric")
+    else:
+        heatmap_metric = "Stock Price"
+        st.selectbox("Metric", ["Stock price (close)"], index=0, key="ov_heatmap_stock_metric")
+with heatmap_row[2]:
+    heatmap_basis = st.radio(
+        "Heat basis",
+        ["Value", "Change (%)"],
+        horizontal=True,
+        key="ov_heatmap_basis",
+    )
+with heatmap_row[3]:
+    if heatmap_mode == "Stock Price":
+        freq_options = ["Yearly", "Quarterly", "Monthly", "Weekly", "Daily"]
+    elif heatmap_mode == "Segments":
+        freq_options = ["Quarterly"]
+    else:
+        freq_options = ["Yearly", "Quarterly"]
+    heatmap_freq = st.radio(
+        "Frequency",
+        freq_options,
+        horizontal=True,
+        key=f"ov_heatmap_freq_{heatmap_mode.replace(' ', '_').lower()}",
+    )
+with heatmap_row[4]:
+    if heatmap_mode == "Segments":
+        heatmap_company = st.selectbox(
+            "Company",
+            companies,
+            index=0,
+            key="ov_heatmap_segment_company",
+        )
+    else:
+        heatmap_company = None
+        st.markdown("&nbsp;", unsafe_allow_html=True)
+
+heatmap_company_list = companies
+segment_filter = []
+year_range = None
+week_window = None
+
+if heatmap_mode == "Company Metrics":
+    metrics_df = data_processor.df_metrics
+    quarterly_metrics_df = _hm_load_quarterly_company_metrics(
+        data_processor.data_path, _hm_get_file_mtime(data_processor.data_path)
+    )
+    if heatmap_freq == "Quarterly" and quarterly_metrics_df is not None and not quarterly_metrics_df.empty:
+        available_companies = sorted(quarterly_metrics_df["company"].dropna().unique().tolist())
+    else:
+        available_companies = sorted(metrics_df["company"].dropna().unique().tolist()) if metrics_df is not None else []
+    if available_companies:
+        default_companies = _hm_get_default_company_selection(available_companies, companies[0] if companies else "Alphabet")
+        heatmap_company_list = st.multiselect(
+            "Companies",
+            options=available_companies,
+            default=default_companies,
+            key="ov_heatmap_companies",
+        )
+    else:
+        heatmap_company_list = companies
+
+    metric_years = []
+    if heatmap_freq == "Quarterly" and quarterly_metrics_df is not None and not quarterly_metrics_df.empty:
+        metric_years = sorted(
+            pd.to_numeric(quarterly_metrics_df["year"], errors="coerce")
+            .dropna()
+            .astype(int)
+            .unique()
+            .tolist()
+        )
+    elif metrics_df is not None and not metrics_df.empty:
+        metric_years = sorted(
+            pd.to_numeric(metrics_df["year"], errors="coerce")
+            .dropna()
+            .astype(int)
+            .unique()
+            .tolist()
+        )
+    if metric_years:
+        span = 7 if len(metric_years) >= 7 else len(metric_years)
+        if len(metric_years) == 1:
+            only_year = int(metric_years[0])
+            st.selectbox(
+                "Year",
+                [only_year],
+                index=0,
+                key="ov_heatmap_metric_year_single",
+            )
+            year_range = (only_year, only_year)
+        else:
+            default_range = (metric_years[-span], metric_years[-1])
+            year_range = st.slider(
+                "Year range",
+                min_value=int(metric_years[0]),
+                max_value=int(metric_years[-1]),
+                value=default_range,
+                key="ov_heatmap_metric_year_range",
+            )
+
+elif heatmap_mode == "Segments":
+    segments_df = _hm_load_quarterly_segments(data_processor.data_path, _hm_get_file_mtime(data_processor.data_path))
+    canonical_heatmap_company = _hm_normalize_company(heatmap_company)
+    segment_options = _hm_get_company_segments(segments_df, canonical_heatmap_company)
+    if segment_options:
+        segment_filter = st.multiselect(
+            "Segments",
+            options=segment_options,
+            default=segment_options,
+            key="ov_heatmap_segment_filter",
+        )
+    segment_years = []
+    if segments_df is not None and not segments_df.empty:
+        segment_years = sorted(
+            pd.to_numeric(
+                segments_df[segments_df["company"] == canonical_heatmap_company]["year"],
+                errors="coerce",
+            )
+            .dropna()
+            .astype(int)
+            .unique()
+            .tolist()
+        )
+    if segment_years:
+        span = 7 if len(segment_years) >= 7 else len(segment_years)
+        if len(segment_years) == 1:
+            only_year = int(segment_years[0])
+            st.selectbox(
+                "Year",
+                [only_year],
+                index=0,
+                key="ov_heatmap_segment_year_single",
+            )
+            year_range = (only_year, only_year)
+        else:
+            default_range = (segment_years[-span], segment_years[-1])
+            year_range = st.slider(
+                "Year range",
+                min_value=int(segment_years[0]),
+                max_value=int(segment_years[-1]),
+                value=default_range,
+                key="ov_heatmap_segment_year_range",
+            )
+
+else:
+    stock_df = _hm_load_stock_data(
+        data_processor.data_path,
+        int(getattr(data_processor, "source_stamp", 0) or 0),
+    )
+    available_companies = companies
+    default_companies = _hm_get_default_company_selection(available_companies, companies[0] if companies else "Alphabet")
+    heatmap_company_list = st.multiselect(
+        "Companies",
+        options=available_companies,
+        default=default_companies,
+        key="ov_heatmap_stock_companies",
+    )
+    if heatmap_freq == "Yearly":
+        stock_years = []
+        if stock_df is not None and not stock_df.empty:
+            stock_years = sorted(stock_df["date"].dt.year.dropna().unique().tolist())
+        if stock_years:
+            span = 7 if len(stock_years) >= 7 else len(stock_years)
+            default_range = (stock_years[-span], stock_years[-1])
+            year_range = st.slider(
+                "Year range",
+                min_value=int(stock_years[0]),
+                max_value=int(stock_years[-1]),
+                value=default_range,
+                key="ov_heatmap_stock_year_range",
+            )
+    else:
+        if heatmap_freq == "Daily":
+            window_options = [60, 120, 252]
+            window_label = "Day window"
+        elif heatmap_freq == "Weekly":
+            window_options = [26, 52, 104]
+            window_label = "Week window"
+        elif heatmap_freq == "Monthly":
+            window_options = [24, 60, 120]
+            window_label = "Month window"
+        else:
+            window_options = [12, 20, 40]
+            window_label = "Quarter window"
+        week_window = st.selectbox(
+            window_label,
+            window_options,
+            index=1 if len(window_options) > 1 else 0,
+            key="ov_heatmap_stock_window",
+        )
+
+heatmap_df = pd.DataFrame()
+heatmap_value_kind = "metric"
+heatmap_metric_list = []
+
+def _ov_render_heatmap_figure(heatmap_df, heatmap_value_kind, heatmap_freq, y_title):
+    if heatmap_df is None or heatmap_df.empty:
+        st.info("Heatmap data is not available for the current selection.")
+        return
+    heatmap_bg = "#FFFFFF"
+    heatmap_text = "#111827"
+    numeric_df = heatmap_df.apply(pd.to_numeric, errors="coerce")
+    heatmap_df = numeric_df
+    heatmap_change_df = _hm_compute_heatmap_change(heatmap_df)
+    if heatmap_basis == "Change (%)":
+        heatmap_numeric = heatmap_change_df
+    else:
+        heatmap_numeric = heatmap_df
+    normalized = _hm_normalize_heatmap(heatmap_numeric)
+
+    if heatmap_value_kind == "stock":
+        value_display = heatmap_df.applymap(_hm_format_stock_value)
+    else:
+        value_scale = _hm_infer_metric_scale(heatmap_df)
+        value_display = heatmap_df.applymap(lambda v: _hm_format_metric_value(v, scale=value_scale))
+
+    x_labels = [str(col) for col in heatmap_df.columns.tolist()]
+    y_labels = heatmap_df.index.tolist()
+    if heatmap_freq == "Weekly":
+        x_title = "Week"
+    elif heatmap_freq == "Daily":
+        x_title = "Date"
+    elif heatmap_freq == "Monthly":
+        x_title = "Month"
+    elif heatmap_freq == "Quarterly":
+        x_title = "Quarter"
+    else:
+        x_title = "Year"
+    if heatmap_freq == "Yearly":
+        change_label = "YoY change"
+    elif heatmap_freq == "Quarterly":
+        change_label = "QoQ change"
+    elif heatmap_freq == "Monthly":
+        change_label = "MoM change"
+    elif heatmap_freq == "Weekly":
+        change_label = "WoW change"
+    elif heatmap_freq == "Daily":
+        change_label = "DoD change"
+    else:
+        change_label = "Change (%)"
+    change_display = heatmap_change_df.applymap(_hm_format_change_value)
+    value_text = value_display.to_numpy().tolist()
+    change_text = change_display.to_numpy().tolist()
+    hover_text = []
+    for row_idx, row_label in enumerate(y_labels):
+        row = []
+        for col_idx, col_label in enumerate(x_labels):
+            value_str = value_text[row_idx][col_idx]
+            change_str = change_text[row_idx][col_idx]
+            row.append(
+                f"{y_title}: {row_label}<br>"
+                f"{x_title}: {col_label}<br>"
+                f"Value: {value_str}<br>"
+                f"{change_label}: {change_str}"
+            )
+        hover_text.append(row)
+    row_count = len(y_labels)
+    heatmap_height = min(640, max(320, 36 * row_count + 120))
+    x_tick_angle = 0
+    bottom_margin = 20
+    if heatmap_freq in {"Quarterly", "Monthly", "Weekly", "Daily"}:
+        x_tick_angle = -90
+        bottom_margin = 110
+    elif len(x_labels) >= 14:
+        x_tick_angle = -45
+        bottom_margin = 70
+
+    heatmap_fig = go.Figure(
+        data=go.Heatmap(
+            z=normalized.to_numpy(),
+            x=x_labels,
+            y=y_labels,
+            hoverinfo="text",
+            hovertext=hover_text,
+            colorscale=HEATMAP_COLORSCALE,
+            zmin=0,
+            zmax=1,
+            xgap=1,
+            ygap=1,
+            showscale=False,
+            hoverlabel=_HM_HOVERLABEL,
+        )
+    )
+    heatmap_fig.update_layout(
+        height=heatmap_height,
+        margin=dict(l=20, r=20, t=20, b=bottom_margin),
+        xaxis_title=x_title,
+        yaxis_title=y_title,
+        font=dict(family="Montserrat, sans-serif", size=12, color=heatmap_text),
+        plot_bgcolor=heatmap_bg,
+        paper_bgcolor=heatmap_bg,
+    )
+    heatmap_fig.update_xaxes(showgrid=False, tickangle=x_tick_angle, automargin=True)
+    if heatmap_freq in {"Quarterly", "Monthly"} and len(x_labels) >= 20:
+        heatmap_fig.update_xaxes(tickfont=dict(size=10))
+    heatmap_fig.update_yaxes(showgrid=False)
+    _hm_render_plotly(heatmap_fig, light_theme=True)
+
+if heatmap_mode == "Company Metrics":
+    heatmap_metric_list = heatmap_metrics or []
+    if not heatmap_metric_list:
+        st.info("Select at least one metric to display the heatmap.")
+    elif year_range and heatmap_company_list:
+        for metric_label in heatmap_metric_list:
+            metric_key = _HM_AVAILABLE_METRICS.get(metric_label)
+            if heatmap_freq == "Quarterly":
+                metric_df = _hm_build_quarterly_metric_heatmap_data(
+                    quarterly_metrics_df,
+                    tuple(heatmap_company_list),
+                    metric_key,
+                    year_range[0],
+                    year_range[1],
+                    annual_df=data_processor.df_metrics,
+                )
+                if metric_df is None or metric_df.empty:
+                    st.info(f"Quarterly {metric_label} metrics are not available in the Excel yet.")
+                    continue
+            else:
+                metric_df = _hm_build_metric_heatmap_data(
+                    data_processor.df_metrics,
+                    tuple(heatmap_company_list),
+                    metric_key,
+                    year_range[0],
+                    year_range[1],
+                )
+            st.markdown(f"#### {metric_label}")
+            _ov_render_heatmap_figure(metric_df, "metric", heatmap_freq, "Company")
+elif heatmap_mode == "Segments":
+    if year_range:
+        heatmap_df = _hm_build_quarterly_segment_heatmap_data(
+            segments_df,
+            canonical_heatmap_company,
+            year_range[0],
+            year_range[1],
+            tuple(segment_filter),
+        )
+    _ov_render_heatmap_figure(heatmap_df, "metric", heatmap_freq, "Segment")
+else:
+    heatmap_value_kind = "stock"
+    if heatmap_freq == "Yearly" and year_range:
+        heatmap_df = _hm_build_stock_heatmap_data(
+            stock_df,
+            tuple(heatmap_company_list),
+            "Yearly",
+            year_start=year_range[0],
+            year_end=year_range[1],
+        )
+    elif heatmap_freq in {"Quarterly", "Monthly", "Weekly", "Daily"}:
+        heatmap_df = _hm_build_stock_heatmap_data(
+            stock_df,
+            tuple(heatmap_company_list),
+            heatmap_freq,
+            period_limit=week_window,
+        )
+    _ov_render_heatmap_figure(heatmap_df, "stock", heatmap_freq, "Company")
