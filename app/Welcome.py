@@ -121,14 +121,13 @@ st.markdown(
   --alp: #4285f4;
   --meta: #0082fb;
 }
-html, body {
-    background: #020810 !important;
+.stApp {
+    background-color: #020810 !important;
     background-image:
         radial-gradient(ellipse 90% 70% at 15% 25%, rgba(74,174,255,0.18) 0%, transparent 55%),
         radial-gradient(ellipse 70% 90% at 85% 75%, rgba(0,82,251,0.14) 0%, transparent 55%),
         radial-gradient(ellipse 50% 60% at 55% 55%, rgba(10,40,120,0.22) 0%, transparent 60%) !important;
     background-size: 400% 400% !important;
-    background-attachment: fixed !important;
     animation: wlbSmoke 22s ease-in-out infinite alternate !important;
 }
 @keyframes wlbSmoke {
@@ -139,7 +138,8 @@ html, body {
     80%  { background-position: 20%  70%;  }
     100% { background-position: 90%  100%; }
 }
-.stApp, .stApp > div, .main, .main > div,
+html, body { background: #020810 !important; }
+.stApp > div, .main, .main > div,
 section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
