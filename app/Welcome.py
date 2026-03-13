@@ -107,7 +107,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-# Force dark root canvas early so no white bleed before sections render.
+# Set CSS variables and transparent child divs early.
 st.markdown(
     """
 <style>
@@ -120,23 +120,6 @@ st.markdown(
   --muted: #8899aa;
   --alp: #4285f4;
   --meta: #0082fb;
-}
-.stApp {
-    background-color: #020810 !important;
-    background-image:
-        radial-gradient(ellipse 90% 70% at 15% 25%, rgba(74,174,255,0.18) 0%, transparent 55%),
-        radial-gradient(ellipse 70% 90% at 85% 75%, rgba(0,82,251,0.14) 0%, transparent 55%),
-        radial-gradient(ellipse 50% 60% at 55% 55%, rgba(10,40,120,0.22) 0%, transparent 60%) !important;
-    background-size: 400% 400% !important;
-    animation: wlbSmoke 22s ease-in-out infinite alternate !important;
-}
-@keyframes wlbSmoke {
-    0%   { background-position: 0%   0%;   }
-    20%  { background-position: 80%  15%;  }
-    40%  { background-position: 30%  90%;  }
-    60%  { background-position: 100% 50%;  }
-    80%  { background-position: 20%  70%;  }
-    100% { background-position: 90%  100%; }
 }
 html, body { background: #020810 !important; }
 .stApp > div, .main, .main > div,
@@ -239,7 +222,33 @@ if str(os.getenv(AUTO_SYNC_ENV, "")).strip().lower() in {"1", "true", "yes", "on
 
 st.session_state["active_nav_page"] = "home"
 st.session_state["_active_nav_page"] = "home"
+st.session_state["theme_mode"] = "Dark"
 display_header(enable_dom_patch=False)
+# Re-apply Welcome dark animation CSS *after* apply_theme so it wins the cascade.
+st.markdown(
+    """
+<style>
+.stApp {
+    background-color: #020810 !important;
+    background-image:
+        radial-gradient(ellipse 90% 70% at 15% 25%, rgba(74,174,255,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 90% at 85% 75%, rgba(0,82,251,0.14) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 55% 55%, rgba(10,40,120,0.22) 0%, transparent 60%) !important;
+    background-size: 400% 400% !important;
+    animation: wlbSmoke 22s ease-in-out infinite alternate !important;
+}
+@keyframes wlbSmoke {
+    0%   { background-position: 0%   0%;   }
+    20%  { background-position: 80%  15%;  }
+    40%  { background-position: 30%  90%;  }
+    60%  { background-position: 100% 50%;  }
+    80%  { background-position: 20%  70%;  }
+    100% { background-position: 90%  100%; }
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 apply_global_fonts()
 
 
@@ -2784,192 +2793,6 @@ setTimeout(function(){countUp(document.getElementById('wa-attn-counter'),1,2000)
 </body></html>"""
     )
 
-
-def _build_duopoly_html(ad_json_str: str, groupm_json_str: str) -> str:
-    return (
-    """
-<div id="wm-duo-root">
-<style>
-html,body{margin:0;padding:0;background:transparent;border:none;outline:none;}
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-duo-root{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;min-height:440px;height:440px;padding:0 24px;display:flex;flex-direction:column;}
-#wm-duo-root *{box-sizing:border-box;}
-.wa-label{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
-.wa-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.14;margin:0 0 8px;}
-.wa-body{color:#8b949e;font-size:14px;line-height:1.55;margin:0 0 16px;}
-.wa-left{width:260px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 24px 16px 0;border-right:1px solid rgba(255,255,255,0.07);min-height:380px;height:380px;position:relative;overflow:hidden;}
-.wa-duo-node{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:50%;font-family:'Syne',sans-serif;font-weight:800;color:#ffffff;border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(8px);box-shadow:0 0 28px rgba(74,174,255,0.18);transition:width 0.9s cubic-bezier(.22,1,.36,1),height 0.9s cubic-bezier(.22,1,.36,1),transform 0.9s cubic-bezier(.22,1,.36,1),box-shadow 0.9s cubic-bezier(.22,1,.36,1),opacity 0.4s ease;}
-#wa-node-alp{left:20px;top:54px;background:radial-gradient(circle at 35% 35%,rgba(66,133,244,0.95),rgba(66,133,244,0.35));}
-#wa-node-meta{right:16px;bottom:86px;background:radial-gradient(circle at 35% 35%,rgba(0,130,251,0.95),rgba(0,130,251,0.35));}
-.wa-duo-link{position:absolute;inset:0;pointer-events:none;opacity:0.45;}
-.wa-duo-link path{fill:none;stroke:rgba(74,174,255,0.55);stroke-width:1.5;stroke-dasharray:5 7;}
-.wa-duo-node-label{position:absolute;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8b949e;}
-#wa-node-alp-label{left:28px;top:34px;}
-#wa-node-meta-label{right:22px;bottom:60px;}
-</style>
-<div style="padding:24px 0 16px;">
-  <div class="wa-label">THE AD DUOPOLY</div>
-  <div class="wa-headline">Two companies. Most of the money.</div>
-  <div class="wa-body">Watch how Alphabet and Meta came to dominate digital advertising &#8212; from 2010 to today.</div>
-  <div style="display:flex;width:100%;height:380px;align-items:stretch;gap:0;margin-top:8px;flex:1;">
-    <div class="wa-left">
-      <svg class="wa-duo-link" viewBox="0 0 260 380" preserveAspectRatio="none">
-        <path d="M58 88 C104 44, 154 62, 198 168"></path>
-      </svg>
-      <div class="wa-duo-node-label" id="wa-node-alp-label">Alphabet</div>
-      <div class="wa-duo-node-label" id="wa-node-meta-label">Meta</div>
-      <div class="wa-duo-node" id="wa-node-alp">A</div>
-      <div class="wa-duo-node" id="wa-node-meta">M</div>
-      <canvas id="wa-duo-canvas" width="220" height="220"></canvas>
-      <div id="wa-dup-yr" style="font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:#e6edf3;line-height:1;margin-top:10px;transition:opacity .2s ease;">&#8212;</div>
-      <div id="wa-dup-pct" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#4aaeff;line-height:1;margin-top:4px;">&#8212;%</div>
-      <div style="color:#8b949e;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-top:2px;">Duopoly share</div>
-      <div id="wa-dup-tot" style="font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:#8b949e;margin-top:10px;">Total: &#8212;</div>
-      <div style="height:2px;width:85%;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:10px;"><div id="wa-dup-prog" style="height:100%;background:linear-gradient(90deg,#4285f4,#0082fb);border-radius:2px;width:0%;transition:width 1s ease;"></div></div>
-      <div style="display:flex;gap:12px;margin-top:10px;">
-        <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:linear-gradient(90deg,#4285f4,#0082fb);flex-shrink:0;"></div>Duopoly</div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:#8b949e;"><div style="width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);flex-shrink:0;"></div>Rest</div>
-      </div>
-    </div>
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 0 8px 24px;overflow:hidden;min-width:0;height:380px;">
-      <div id="wa-dup-bars" style="display:flex;flex-direction:column;gap:8px;min-height:340px;justify-content:center;flex:1;"></div>
-    </div>
-  </div>
-</div>
-<script>
-window.addEventListener('load',function(){
-(function(){
-var AD_DATA="""
-    + ad_json_str
-    + """;
-var GROUPM_DATA="""
-    + groupm_json_str
-    + """;
-var COMPANY_COLORS={
-  'Alphabet':'#4285f4','Meta':'#0082fb','Amazon':'#ff9900','Microsoft':'#00a4ef',
-  'TikTok':'#ee1d52','Netflix':'#e50914','Apple':'#a0a0a0','Spotify':'#1ed760',
-  'Twitter/X':'#1da1f2','Snapchat':'#ffd100','Disney':'#6482fa',
-  'Comcast':'#d2202a','WBD':'#8b5cf6','Paramount':'#0054a0'
-};
-var duoCanvas=document.getElementById('wa-duo-canvas');
-var duoCtx=duoCanvas?duoCanvas.getContext('2d'):null;
-var alpNode=document.getElementById('wa-node-alp');
-var metaNode=document.getElementById('wa-node-meta');
-function drawDuoDonut(alpPct,metaPct){
-  if(!duoCtx)return;
-  var cx=110,cy=110,r=96,ir=60;
-  duoCtx.clearRect(0,0,220,220);
-  var gap=0.016;
-  var start=-Math.PI/2;
-  var alpA=alpPct*(Math.PI*2);
-  var metaA=metaPct*(Math.PI*2);
-  var restA=(1-alpPct-metaPct)*(Math.PI*2);
-  var s1=start,e1=s1+alpA-gap;
-  var s2=s1+alpA+gap,e2=s2+metaA-gap;
-  var s3=s2+metaA+gap,e3=start+Math.PI*2-gap;
-  if(alpA>0.01){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s1,e1);duoCtx.closePath();duoCtx.fillStyle='#4285f4';duoCtx.fill();}
-  if(metaA>0.01){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s2,e2);duoCtx.closePath();duoCtx.fillStyle='#0082fb';duoCtx.fill();}
-  if(restA>0.01&&(alpPct+metaPct)<0.99){duoCtx.beginPath();duoCtx.moveTo(cx,cy);duoCtx.arc(cx,cy,r,s3,e3);duoCtx.closePath();duoCtx.fillStyle='rgba(255,255,255,0.1)';duoCtx.fill();}
-  duoCtx.beginPath();duoCtx.arc(cx,cy,ir,0,Math.PI*2);duoCtx.fillStyle='#020810';duoCtx.fill();
-}
-function updateConstellation(alpVal, metaVal, total){
-  var maxVal = Math.max(alpVal || 0, metaVal || 0, 1);
-  [
-    {el: alpNode, val: alpVal || 0, base: 56, max: 128, glow: 'rgba(66,133,244,0.38)'},
-    {el: metaNode, val: metaVal || 0, base: 50, max: 118, glow: 'rgba(0,130,251,0.34)'}
-  ].forEach(function(node) {
-    if (!node.el) return;
-    var size = Math.round(node.base + Math.sqrt((node.val || 0) / maxVal) * (node.max - node.base));
-    node.el.style.width = size + 'px';
-    node.el.style.height = size + 'px';
-    node.el.style.fontSize = Math.max(13, Math.round(size / 2.7)) + 'px';
-    node.el.style.transform = 'translateZ(0)';
-    node.el.style.boxShadow = '0 0 ' + Math.round(size / 1.8) + 'px ' + node.glow;
-    node.el.style.opacity = total > 0 ? '1' : '0.55';
-  });
-}
-var FALLBACK_DATA={
-  2010:{"Alphabet":29,"Meta":2,"Amazon":0.8,"Microsoft":2.5},
-  2012:{"Alphabet":43,"Meta":5,"Amazon":1.5,"Microsoft":3.5,"Twitter/X":0.5},
-  2014:{"Alphabet":59,"Meta":12,"Amazon":2.5,"Microsoft":4,"Twitter/X":1.3,"Snapchat":0.1},
-  2016:{"Alphabet":79,"Meta":27,"Amazon":4,"Microsoft":5,"Twitter/X":2.5,"Snapchat":0.8},
-  2018:{"Alphabet":117,"Meta":55,"Amazon":10,"Microsoft":7,"Twitter/X":3,"Snapchat":1.2},
-  2020:{"Alphabet":147,"Meta":86,"Amazon":21,"Microsoft":8,"Twitter/X":3.5,"Snapchat":2.5},
-  2022:{"Alphabet":225,"Meta":116,"Amazon":38,"Microsoft":12,"TikTok":10,"Twitter/X":4.5,"Snapchat":4.6},
-  2024:{"Alphabet":265,"Meta":160,"Amazon":57,"Microsoft":18,"TikTok":22,"Netflix":3.9,"Snapchat":5,"Twitter/X":3.4}
-};
-var MERGED_DATA={};
-Object.keys(FALLBACK_DATA).forEach(function(y){MERGED_DATA[y]=FALLBACK_DATA[y];});
-if(AD_DATA&&typeof AD_DATA==='object'){Object.keys(AD_DATA).forEach(function(y){if(AD_DATA[y]&&Object.keys(AD_DATA[y]).length>0)MERGED_DATA[y]=AD_DATA[y];});}
-var USE_DATA=MERGED_DATA;
-var YEARS=Object.keys(USE_DATA).map(Number).sort(function(a,b){return a-b;});
-var stepIdx=0,aTimer=null;
-function updateYear(yr){
-  var data=USE_DATA[yr]||{};
-  var yrEl=document.getElementById('wa-dup-yr');
-  if(yrEl){yrEl.style.opacity='0';setTimeout(function(){yrEl.textContent=yr;yrEl.style.opacity='1';},200);}
-  var total=GROUPM_DATA[yr]||0;
-  if(!total){Object.keys(data).forEach(function(k){if(data[k]>0)total+=data[k];});}
-  var alpVal=data['Alphabet']||0;
-  var metaVal=data['Meta']||0;
-  var duo=alpVal+metaVal;
-  var tEl=document.getElementById('wa-dup-tot');
-  var pEl=document.getElementById('wa-dup-pct');
-  var prEl=document.getElementById('wa-dup-prog');
-  if(tEl)tEl.textContent=total>0?'Total: $'+(total>=1000?(total/1000).toFixed(1)+'T':total.toFixed(0)+'B'):'Total: \u2014';
-  if(pEl)pEl.textContent=total>0?(duo/total*100).toFixed(0)+'%':'\u2014%';
-  if(prEl){var idx=YEARS.indexOf(yr);var pct=YEARS.length>1?idx/(YEARS.length-1)*100:100;prEl.style.width=pct+'%';}
-  var alpFrac=total>0?Math.min(alpVal/total,1):0;
-  var metaFrac=total>0?Math.min(metaVal/total,1-alpFrac):0;
-  drawDuoDonut(alpFrac,metaFrac);
-  updateConstellation(alpVal, metaVal, total);
-  var barsEl=document.getElementById('wa-dup-bars');
-  if(barsEl){
-    var entries=Object.keys(data).map(function(k){return{name:k,val:data[k]||0};}).filter(function(e){return e.val>0;});
-    entries.sort(function(a,b){return b.val-a.val;});
-    var maxVal=entries.length?entries[0].val:1;
-    var html='';
-    entries.slice(0,12).forEach(function(e){
-      var pct=Math.max(2,(e.val/maxVal)*100);
-      var col=COMPANY_COLORS[e.name]||'#555';
-      var valStr=e.val>=100?'$'+e.val.toFixed(0)+'B':'$'+e.val.toFixed(1)+'B';
-      html+='<div style="display:flex;align-items:center;gap:8px;">'
-        +'<div style="width:68px;text-align:right;font-size:10px;color:#8b949e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;">'+e.name+'</div>'
-        +'<div style="flex:1;height:12px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">'
-        +'<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:3px;transition:width 1.1s cubic-bezier(.22,1,.36,1);"></div>'
-        +'</div>'
-        +'<div style="width:44px;font-size:10px;font-weight:700;color:#e6edf3;font-family:\'Syne\',sans-serif;flex-shrink:0;">'+valStr+'</div>'
-        +'</div>';
-    });
-    barsEl.innerHTML=html;
-  }
-}
-function runStep(){
-  if(stepIdx>=YEARS.length){stepIdx=0;aTimer=setTimeout(runStep,3500);return;}
-  updateYear(YEARS[stepIdx]);
-  var last=stepIdx===YEARS.length-1;
-  stepIdx++;
-  aTimer=setTimeout(runStep,last?3500:1350);
-}
-if(YEARS.length>0){
-  function _initDuo(){
-    var bars=document.getElementById('wa-dup-bars');
-    var canvas=document.getElementById('wa-duo-canvas');
-    if(!bars||!canvas){setTimeout(_initDuo,50);return;}
-    updateYear(YEARS[0]);
-    stepIdx=1;
-    aTimer=setTimeout(runStep,1600);
-  }
-  _initDuo();
-}
-})();
-});
-</script>
-</div>
-"""
-    )
-
-
 def _safe_float(v) -> float:
     import math
     try:
@@ -3122,8 +2945,6 @@ _separator()
 
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str, _human_json)
 st.components.v1.html(_attn_html, height=520)
-_duo_html = _build_duopoly_html(_ad_json_str, _global_adv_json_str)
-st.components.v1.html(_duo_html, height=480, scrolling=False)
 
 _separator()
 # --- Concentration: animated stacked bar 2010→latest ---

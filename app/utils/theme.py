@@ -170,7 +170,7 @@ def apply_theme(enable_dom_patch: bool = True):
         [data-testid="stAppViewContainer"],
         section.main,
         .block-container {
-            background: var(--app-bg) !important;
+            background-color: var(--app-bg) !important;
             color: var(--app-text) !important;
         }
 
