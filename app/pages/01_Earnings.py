@@ -3762,55 +3762,77 @@ def main():
             if total <= 0:
                 return []
 
-            # Pie domain x=[0, 0.72], y=[0, 1]; center at (0.36, 0.5)
-            # Figure is landscape (~820px wide, ~640px tall) so x coords are
-            # stretched relative to y — use separate radii to compensate.
             cx, cy = 0.36, 0.5
-            label_rx = 0.40   # x radius for label placement
-            label_ry = 0.30   # y radius — smaller because figure is wider than tall
+            MIN_FRAC = 0.025
 
-            anns = []
-            angle = _math.pi / 2  # start at 12 o'clock, clockwise
-
+            items = []
+            angle = _math.pi / 2
             for lbl, val, col, yoy in zip(labels, values, colors, yoy_pcts):
-                fraction = max(val, 0) / total
-                if fraction < 0.03:   # skip slivers < 3%
-                    angle -= fraction * 2 * _math.pi
-                    continue
-                span = fraction * 2 * _math.pi
-                mid = angle - span / 2
+                frac = max(val, 0) / total
+                span = frac * 2 * _math.pi
+                if frac >= MIN_FRAC:
+                    mid_angle = angle - span / 2
+                    rim_rx, rim_ry = 0.30, 0.42
+                    dot_x = cx + rim_rx * _math.cos(mid_angle)
+                    dot_y = cy + rim_ry * _math.sin(mid_angle)
+                    items.append({
+                        "lbl": lbl, "val": val, "col": col, "yoy": yoy,
+                        "frac": frac, "mid_angle": mid_angle,
+                        "dot_x": dot_x, "dot_y": dot_y,
+                    })
                 angle -= span
 
-                # Elliptical placement to correct for non-square figure
-                lx = cx + label_rx * _math.cos(mid)
-                ly = cy + label_ry * _math.sin(mid)
+            if not items:
+                return []
 
-                val_b = val / 1000
-                val_str = f"${val_b:.0f}B" if val_b >= 10 else f"${val_b:.1f}B"
-                yoy_str = f" ({yoy:+.0f}%)" if yoy is not None else ""
-                align = "left" if lx > cx + 0.02 else ("right" if lx < cx - 0.02 else "center")
+            left  = sorted([d for d in items if _math.cos(d["mid_angle"]) < 0],  key=lambda d: -_math.sin(d["mid_angle"]))
+            right = sorted([d for d in items if _math.cos(d["mid_angle"]) >= 0], key=lambda d: -_math.sin(d["mid_angle"]))
 
-                # Value in segment color, name in light grey — no background
-                text = (
-                    f"<b style='color:{col};font-size:12px;'>{val_str}{yoy_str}</b>"
-                    f"<br><span style='color:#c9d1d9;font-size:10px;'>{lbl}</span>"
-                )
+            anns = []
 
-                anns.append(dict(
-                    x=lx, y=ly,
-                    xref="paper", yref="paper",
-                    text=text,
-                    showarrow=False,
-                    font=dict(color=col, size=11, family="Montserrat, sans-serif"),
-                    align=align,
-                    bgcolor="rgba(0,0,0,0)",
-                    bordercolor="rgba(0,0,0,0)",
-                    borderpad=2,
-                ))
+            def _place_group(group, is_left):
+                if not group:
+                    return
+                n = len(group)
+                y_top, y_bot = 0.88, 0.12
+                step = (y_top - y_bot) / max(n - 1, 1)
+                label_x = -0.04 if is_left else 0.76
+                elbow_x =  0.03 if is_left else 0.69
+                run_end_x = label_x + (0.07 if is_left else -0.07)
+                for i, d in enumerate(group):
+                    label_y = y_top - i * step
+                    val_b   = d["val"] / 1000
+                    val_str = f"${val_b:.0f}B" if val_b >= 10 else f"${val_b:.1f}B"
+                    yoy_str = f" ({d['yoy']:+.0f}%)" if d["yoy"] is not None else ""
+                    text = (
+                        f"<b style='color:{d['col']};font-size:12px;'>{val_str}{yoy_str}</b>"
+                        f"<br><span style='color:#c9d1d9;font-size:10px;'>{d['lbl']}</span>"
+                    )
+                    anns.append(dict(
+                        x=label_x, y=label_y, xref="paper", yref="paper",
+                        text=text, showarrow=False,
+                        font=dict(color=d["col"], size=11, family="Montserrat, sans-serif"),
+                        align="right" if is_left else "left",
+                        bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)", borderpad=2,
+                    ))
+                    anns.append(dict(
+                        x=elbow_x, y=label_y, ax=d["dot_x"], ay=d["dot_y"],
+                        xref="paper", yref="paper", axref="paper", ayref="paper",
+                        text="", showarrow=True, arrowhead=0, arrowwidth=1.0,
+                        arrowcolor=d["col"] + "99",
+                    ))
+                    anns.append(dict(
+                        x=run_end_x, y=label_y, ax=elbow_x, ay=label_y,
+                        xref="paper", yref="paper", axref="paper", ayref="paper",
+                        text="", showarrow=True, arrowhead=0, arrowwidth=1.0,
+                        arrowcolor=d["col"] + "99",
+                    ))
 
-            # Period label pushed slightly below center to avoid logo overlap
+            _place_group(left,  is_left=True)
+            _place_group(right, is_left=False)
+
             anns.append(dict(
-                x=cx, y=cy - 0.07, xref="paper", yref="paper",
+                x=cx, y=cy - 0.10, xref="paper", yref="paper",
                 text=f"<b>{period_text}</b>",
                 showarrow=False,
                 font=dict(size=11, color="#8b949e", family="Montserrat, sans-serif"),
@@ -4065,7 +4087,7 @@ def main():
                         font=dict(color="#e6edf3", size=11),
                         title=dict(text="Segments", font=dict(color="#c9d1d9", size=11)),
                     ),
-                    margin=dict(l=80, r=200, t=80, b=120),
+                    margin=dict(l=140, r=200, t=80, b=120),
                     updatemenus=[{
                         "type": "buttons", "showactive": False, "direction": "left",
                         "x": 0.0, "y": -0.06, "xanchor": "left", "yanchor": "top",
