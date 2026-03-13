@@ -1687,7 +1687,7 @@ def _build_rank_cards(block: pd.DataFrame, value_col: str, formatter) -> list[di
 st.markdown(
     """
 <style>
-.stApp, .stApp > div, .main, .main > div,
+.stApp > div, .main, .main > div,
 section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
