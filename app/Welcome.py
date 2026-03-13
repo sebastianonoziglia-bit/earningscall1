@@ -230,148 +230,122 @@ ROOT_DIR = APP_DIR.parent
 
 
 def _mount_welcome_liquid_background() -> None:
+    """Inject a pure-canvas animated smoke background into the parent Streamlit document.
+    No external CDN dependencies — works behind HuggingFace's CSP.
+    """
     st.markdown("<div id='welcome-liquid-sentinel' style='display:none'></div>", unsafe_allow_html=True)
     st.components.v1.html(
         """
 <!DOCTYPE html>
 <html>
-<head>
-<style>
-  html, body { margin:0; padding:0; background:transparent; overflow:hidden; }
-</style>
-</head>
+<head><style>html,body{margin:0;padding:0;background:transparent;overflow:hidden;}</style></head>
 <body>
-<script type="module">
-  (async () => {
-    const parentWindow = window.parent;
-    const parentDoc = parentWindow.document;
-    if (!parentWindow || !parentDoc) return;
+<script>
+(function(){
+  var par = window.parent;
+  var doc = par && par.document;
+  if (!doc) return;
 
-    const hostId = 'welcome-liquid-background';
-    const styleId = 'welcome-liquid-background-style';
+  /* --- inject page-level CSS once --- */
+  if (!doc.getElementById('wlb-style')) {
+    var s = doc.createElement('style');
+    s.id = 'wlb-style';
+    s.textContent = [
+      '#wlb-host{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;overflow:hidden;background:linear-gradient(135deg,#020810 0%,#0a1b2e 50%,#020810 100%);}',
+      '#wlb-host canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;}',
+      '.stApp,.stApp>div,section[data-testid="stMain"],section[data-testid="stMain"]>div,',
+      'div[data-testid="stAppViewContainer"],div[data-testid="block-container"]{',
+      'background:transparent!important;background-color:transparent!important;}'
+    ].join('');
+    doc.head.appendChild(s);
+  }
 
-    const ensureStyle = () => {
-      if (parentDoc.getElementById(styleId)) return;
-      const style = parentDoc.createElement('style');
-      style.id = styleId;
-      style.textContent = `
-        #${hostId} {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: 0;
-          pointer-events: none;
-          overflow: hidden;
-        }
-        #${hostId} canvas {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          pointer-events: none;
-          z-index: 0;
-          display: block;
-        }
-        .stApp, .stApp > div, .main, .main > div,
-        section[data-testid="stMain"],
-        section[data-testid="stMain"] > div,
-        div[data-testid="stAppViewContainer"],
-        div[data-testid="block-container"] {
-          background: transparent !important;
-          background-color: transparent !important;
-        }
-      `;
-      parentDoc.head.appendChild(style);
-    };
+  /* --- create canvas host once --- */
+  var host = doc.getElementById('wlb-host');
+  if (!host) {
+    host = doc.createElement('div');
+    host.id = 'wlb-host';
+    var cv = doc.createElement('canvas');
+    cv.id = 'wlb-canvas';
+    host.appendChild(cv);
+    doc.body.prepend(host);
+  }
 
-    const ensureHost = () => {
-      let host = parentDoc.getElementById(hostId);
-      if (!host) {
-        host = parentDoc.createElement('div');
-        host.id = hostId;
-        host.setAttribute('aria-hidden', 'true');
-        host.innerHTML = "<canvas id='welcome-fluid-canvas'></canvas>";
-        parentDoc.body.prepend(host);
+  if (par.__wlbRunning) return;   /* already animating */
+  par.__wlbRunning = true;
+
+  var canvas = doc.getElementById('wlb-canvas');
+  var ctx = canvas.getContext('2d', {alpha: true});
+  var W, H, time = 0, mx = 0.5, my = 0.5, tmx = 0.5, tmy = 0.5;
+
+  function resize(){
+    W = canvas.width  = par.innerWidth  || doc.documentElement.clientWidth  || 1280;
+    H = canvas.height = par.innerHeight || doc.documentElement.clientHeight || 900;
+  }
+  resize();
+  par.addEventListener('resize', resize);
+  doc.addEventListener('mousemove', function(e){
+    tmx = e.clientX / par.innerWidth;
+    tmy = e.clientY / par.innerHeight;
+  });
+
+  function frame(){
+    mx += (tmx - mx) * 0.08;
+    my += (tmy - my) * 0.08;
+    time += 0.016;
+
+    ctx.fillStyle = '#020810';
+    ctx.fillRect(0, 0, W, H);
+
+    for (var i = 0; i < 12; i++) {
+      var phase  = (i / 12) * Math.PI * 2;
+      var speed  = 0.5 + (i % 4) * 0.3;
+
+      var bx = W * (0.5 + Math.sin(time*speed*0.8+phase)*0.5 + Math.sin(time*speed*0.4+phase*2)*0.3 + (mx-0.5)*0.2);
+      var by = H * (0.5 + Math.cos(time*speed*0.7+phase)*0.5 + Math.cos(time*speed*0.5+phase*2)*0.3 + (my-0.5)*0.2);
+
+      var cycle = Math.sin(time*0.005 + i*0.5)*0.5 + 0.5;
+      var r, g, b;
+      if (cycle < 0.33) {
+        r = Math.floor(100 + Math.sin(time*0.003+i)*50);
+        g = Math.floor(180 + Math.cos(time*0.002+i)*60);
+        b = 255;
+      } else if (cycle < 0.66) {
+        r = Math.floor(150 + Math.sin(time*0.0025)*80);
+        g = Math.floor(120 + Math.cos(time*0.003)*70);
+        b = Math.floor(220 + Math.sin(time*0.0018)*35);
+      } else {
+        r = Math.floor(80  + Math.sin(time*0.002)*60);
+        g = Math.floor(200 + Math.cos(time*0.0028)*55);
+        b = 255;
       }
-      return host.querySelector('canvas');
-    };
 
-    const cleanup = () => {
-      const fluid = parentWindow.__welcomeLiquidBg;
-      if (fluid && typeof fluid.destroy === 'function') {
-        fluid.destroy();
-      }
-      delete parentWindow.__welcomeLiquidBg;
-      const oldHost = parentDoc.getElementById(hostId);
-      if (oldHost) oldHost.remove();
-      const oldStyle = parentDoc.getElementById(styleId);
-      if (oldStyle) oldStyle.remove();
-    };
-
-    ensureStyle();
-    const canvas = ensureHost();
-
-    if (!parentWindow.__welcomeLiquidBg) {
-      try {
-        const module = await import('https://esm.run/webgl-fluid-enhanced@0.6.1');
-        const webGLFluidEnhanced = module.default || module;
-        const simulation = webGLFluidEnhanced.simulation(canvas, {
-          SIM_RESOLUTION: 64,
-          DYE_RESOLUTION: 512,
-          DENSITY_DISSIPATION: 0.94,
-          VELOCITY_DISSIPATION: 0.96,
-          PRESSURE: 0.6,
-          PRESSURE_ITERATIONS: 10,
-          CURL: 8,
-          INITIAL: true,
-          SPLAT_AMOUNT: 3,
-          SPLAT_RADIUS: 0.35,
-          SPLAT_FORCE: 1200,
-          SPLAT_KEY: '',
-          SHADING: true,
-          COLORFUL: false,
-          COLOR_UPDATE_SPEED: 2,
-          COLOR_PALETTE: ['#4aaeff', '#0082fb', '#1a3a6b', '#020d1f', '#0a1f3d'],
-          HOVER: false,
-          BACK_COLOR: '#020810',
-          TRANSPARENT: true,
-          BRIGHTNESS: 0.3,
-          BLOOM: false,
-          SUNRAYS: false,
-        });
-
-        parentWindow.__welcomeLiquidBg = {
-          destroy() {
-            if (simulation && typeof simulation.destroy === 'function') {
-              simulation.destroy();
-            }
-          },
-        };
-      } catch (error) {
-        console.error('Welcome fluid background failed to load.', error);
-      }
+      var rad = 150 + Math.sin(time*speed*0.5+phase)*80;
+      var gr = ctx.createRadialGradient(bx, by, 0, bx, by, rad);
+      gr.addColorStop(0,   'rgba('+r+','+g+','+b+',0.40)');
+      gr.addColorStop(0.5, 'rgba('+r+','+g+','+b+',0.15)');
+      gr.addColorStop(1,   'rgba('+r+','+g+','+b+',0)');
+      ctx.fillStyle = gr;
+      ctx.fillRect(bx-rad, by-rad, rad*2, rad*2);
     }
+    par.requestAnimationFrame(frame);
+  }
+  par.requestAnimationFrame(frame);
 
-    parentWindow.__welcomeLiquidBgMissing = 0;
-    if (!parentWindow.__welcomeLiquidBgCleanup) {
-      parentWindow.__welcomeLiquidBgCleanup = parentWindow.setInterval(() => {
-        const sentinel = parentDoc.getElementById('welcome-liquid-sentinel');
-        if (sentinel) {
-          parentWindow.__welcomeLiquidBgMissing = 0;
-          return;
-        }
-        parentWindow.__welcomeLiquidBgMissing = (parentWindow.__welcomeLiquidBgMissing || 0) + 1;
-        if (parentWindow.__welcomeLiquidBgMissing < 3) return;
-        cleanup();
-        parentWindow.clearInterval(parentWindow.__welcomeLiquidBgCleanup);
-        delete parentWindow.__welcomeLiquidBgCleanup;
-        delete parentWindow.__welcomeLiquidBgMissing;
-      }, 1000);
-    }
-  })();
+  /* cleanup when sentinel leaves the DOM (page navigation) */
+  var miss = 0;
+  var timer = par.setInterval(function(){
+    if (doc.getElementById('welcome-liquid-sentinel')) { miss=0; return; }
+    if (++miss < 3) return;
+    par.clearInterval(timer);
+    par.__wlbRunning = false;
+    par.removeEventListener('resize', resize);
+    var h = doc.getElementById('wlb-host');
+    if (h) h.remove();
+    var st = doc.getElementById('wlb-style');
+    if (st) st.remove();
+  }, 1000);
+})();
 </script>
 </body>
 </html>
