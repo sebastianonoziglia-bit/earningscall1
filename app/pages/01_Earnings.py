@@ -3833,8 +3833,8 @@ def main():
             result = []
             for lbl, val in zip(labels, values):
                 prev = prev_map.get(lbl)
-                if prev and prev > 0:
-                    result.append((val - prev) / prev * 100)
+                if prev is not None and prev != 0:
+                    result.append((val - prev) / abs(prev) * 100)
                 else:
                     result.append(None)
             return result
