@@ -9,11 +9,11 @@ def get_theme_mode():
     Return the current theme mode ('light' or 'dark').
     Defaults to light if unset.
     """
-    mode = st.session_state.get("theme_mode", "Light")
+    mode = st.session_state.get("theme_mode", "Dark")
     if isinstance(mode, str) and mode.lower() in {"light", "dark"}:
         return mode.lower()
-    st.session_state["theme_mode"] = "Light"
-    return "light"
+    st.session_state["theme_mode"] = "Dark"
+    return "dark"
 
 def render_theme_toggle():
     """
