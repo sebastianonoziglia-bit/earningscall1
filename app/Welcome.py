@@ -264,7 +264,7 @@ def _mount_welcome_liquid_background() -> None:
         """
 <!DOCTYPE html>
 <html>
-<head><style>html,body{margin:0;padding:0;background:transparent;overflow:hidden;}</style></head>
+<head><style>html,body{margin:0;padding:0;background:#020810;overflow:hidden;}</style></head>
 <body>
 <script>
 (function(){
@@ -2020,7 +2020,7 @@ st.components.v1.html(
 })();
 </script>
 <style>
-html,body{margin:0;padding:0;background:transparent;border:none;outline:none;}
+html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 .sv {
   opacity: 0;
   transform: translateY(28px) scale(0.97);
@@ -2228,7 +2228,7 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
     _pulse_track = "".join(pulse_items + pulse_items)
     st.components.v1.html(
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
-        "html,body{margin:0;padding:0;background:transparent;}*{box-sizing:border-box;}"
+        "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
         ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(74,174,255,0.18);background:#020810;padding:12px 0;}"
         ".track{display:flex;align-items:flex-start;gap:12px;width:max-content;animation:scroll 42s linear infinite;}"
         ".item{width:380px;height:170px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;}"
@@ -2313,7 +2313,7 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
     _stock_track = "".join(items + items)
     st.components.v1.html(
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
-        "html,body{margin:0;padding:0;background:transparent;}*{box-sizing:border-box;}"
+        "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
         ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(74,174,255,0.15);background:#020810;padding:7px 0;}"
         ".track{display:flex;align-items:stretch;gap:12px;width:max-content;animation:scroll 36s linear infinite;}"
         ".item{width:220px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:7px 10px;}"
@@ -2453,7 +2453,7 @@ if mcap_yoy is not None:
 
 st.components.v1.html(
     "<style>@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap');"
-    "html,body{margin:0;padding:0;background:transparent;}*{box-sizing:border-box;}</style>"
+    "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}</style>"
     "<div style='background:transparent;padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
     "<div style='color:#4aaeff;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;'>The Attention Economy</div>"
     "<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:40px;font-family:Syne,sans-serif;'>14 companies.<br>One dashboard.</div>"
@@ -2564,7 +2564,7 @@ def _build_ss_html(ss_data_json: str) -> str:
     return f"""
 <div id="wm-ss-root">
 <style>
-  html,body{{margin:0;padding:0;background:transparent;border:none;outline:none;}}
+  html,body{{margin:0;padding:0;background:#020810;border:none;outline:none;}}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
   #wm-ss-root{{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}}
 #wm-ss-root *{{box-sizing:border-box;}}
@@ -2655,7 +2655,7 @@ def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str
         """<!DOCTYPE html><html><head><meta charset='utf-8'>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:transparent;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;height:100%;overflow:hidden;}
+html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;height:100%;overflow:hidden;}
 #wa-attn-root{position:relative;width:100%;height:520px;background:transparent;overflow:hidden;display:flex;align-items:stretch;}
 .glow-yt,.glow-sp{display:none;}
 /* dot grid */
@@ -2900,7 +2900,7 @@ st.components.v1.html(
 <div id="wm-human-root">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
-html,body{{margin:0;padding:0;background:transparent;}}
+html,body{{margin:0;padding:0;background:#020810;}}
 #wm-human-root{{background:transparent;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
 .wh-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
 .wh-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}}
@@ -3034,7 +3034,7 @@ _conc_seg_order_json = json.dumps(_CONC_SEG_ORDER)
 st.components.v1.html(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap');
-html,body{{margin:0;padding:0;background:transparent;}}
+html,body{{margin:0;padding:0;background:#020810;}}
 *{{box-sizing:border-box;}}
 #conc-root{{background:transparent;padding:32px 24px 40px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
 .wc-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
@@ -3235,7 +3235,7 @@ st.components.v1.html(
 <div id="wm-rev-root">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-html,body{margin:0;padding:0;background:transparent;border:none;outline:none;}
+html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 #wm-rev-root{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
 #wm-rev-root *{box-sizing:border-box;}
 .wr-label{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
