@@ -121,6 +121,24 @@ st.markdown(
   --alp: #4285f4;
   --meta: #0082fb;
 }
+html, body {
+    background: #020810 !important;
+    background-image:
+        radial-gradient(ellipse 90% 70% at 15% 25%, rgba(74,174,255,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 90% at 85% 75%, rgba(0,82,251,0.14) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 55% 55%, rgba(10,40,120,0.22) 0%, transparent 60%) !important;
+    background-size: 400% 400% !important;
+    background-attachment: fixed !important;
+    animation: wlbSmoke 22s ease-in-out infinite alternate !important;
+}
+@keyframes wlbSmoke {
+    0%   { background-position: 0%   0%;   }
+    20%  { background-position: 80%  15%;  }
+    40%  { background-position: 30%  90%;  }
+    60%  { background-position: 100% 50%;  }
+    80%  { background-position: 20%  70%;  }
+    100% { background-position: 90%  100%; }
+}
 .stApp, .stApp > div, .main, .main > div,
 section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
@@ -230,10 +248,9 @@ ROOT_DIR = APP_DIR.parent
 
 
 def _mount_welcome_liquid_background() -> None:
-    """Inject a pure-canvas animated smoke background into the parent Streamlit document.
-    No external CDN dependencies — works behind HuggingFace's CSP.
-    """
+    """No-op — background handled entirely via CSS (html/body animation in st.markdown)."""
     st.markdown("<div id='welcome-liquid-sentinel' style='display:none'></div>", unsafe_allow_html=True)
+    return
     st.components.v1.html(
         """
 <!DOCTYPE html>
