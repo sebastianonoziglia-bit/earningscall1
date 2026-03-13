@@ -222,7 +222,6 @@ if str(os.getenv(AUTO_SYNC_ENV, "")).strip().lower() in {"1", "true", "yes", "on
 
 st.session_state["active_nav_page"] = "home"
 st.session_state["_active_nav_page"] = "home"
-st.session_state["theme_mode"] = "Dark"
 display_header(enable_dom_patch=False)
 # Re-apply Welcome dark animation CSS *after* apply_theme so it wins the cascade.
 st.markdown(
