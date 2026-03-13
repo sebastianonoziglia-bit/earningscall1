@@ -126,8 +126,8 @@ section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
 div[data-testid="block-container"] {
-    background-color: #020810 !important;
-    background: #020810 !important;
+    background-color: transparent !important;
+    background: transparent !important;
 }
 .element-container, .stMarkdown, .stPlotlyChart,
 .stCaption, div[data-testid="stVerticalBlock"] {
@@ -173,7 +173,7 @@ div[data-testid="block-container"] {
     unsafe_allow_html=True,
 )
 
-st.markdown('<style>iframe{border:none!important;}</style>', unsafe_allow_html=True)
+st.markdown('<style>iframe{border:none!important;background:transparent!important;}</style>', unsafe_allow_html=True)
 _resolved = resolve_financial_data_xlsx([])
 logger.info(f"STARTUP: Excel resolved to → {_resolved}")
 if "pipeline_refreshed" not in st.session_state:
@@ -227,6 +227,161 @@ apply_global_fonts()
 
 APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR.parent
+
+
+def _mount_welcome_liquid_background() -> None:
+    st.markdown("<div id='welcome-liquid-sentinel' style='display:none'></div>", unsafe_allow_html=True)
+    st.components.v1.html(
+        """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  html, body { margin:0; padding:0; background:transparent; overflow:hidden; }
+</style>
+</head>
+<body>
+<script type="module">
+  (async () => {
+    const parentWindow = window.parent;
+    const parentDoc = parentWindow.document;
+    if (!parentWindow || !parentDoc) return;
+
+    const hostId = 'welcome-liquid-background';
+    const styleId = 'welcome-liquid-background-style';
+
+    const ensureStyle = () => {
+      if (parentDoc.getElementById(styleId)) return;
+      const style = parentDoc.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        #${hostId} {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        #${hostId} canvas {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          pointer-events: none;
+          z-index: 0;
+          display: block;
+        }
+        .stApp, .stApp > div, .main, .main > div,
+        section[data-testid="stMain"],
+        section[data-testid="stMain"] > div,
+        div[data-testid="stAppViewContainer"],
+        div[data-testid="block-container"] {
+          background: transparent !important;
+          background-color: transparent !important;
+        }
+      `;
+      parentDoc.head.appendChild(style);
+    };
+
+    const ensureHost = () => {
+      let host = parentDoc.getElementById(hostId);
+      if (!host) {
+        host = parentDoc.createElement('div');
+        host.id = hostId;
+        host.setAttribute('aria-hidden', 'true');
+        host.innerHTML = "<canvas id='welcome-fluid-canvas'></canvas>";
+        parentDoc.body.prepend(host);
+      }
+      return host.querySelector('canvas');
+    };
+
+    const cleanup = () => {
+      const fluid = parentWindow.__welcomeLiquidBg;
+      if (fluid && typeof fluid.destroy === 'function') {
+        fluid.destroy();
+      }
+      delete parentWindow.__welcomeLiquidBg;
+      const oldHost = parentDoc.getElementById(hostId);
+      if (oldHost) oldHost.remove();
+      const oldStyle = parentDoc.getElementById(styleId);
+      if (oldStyle) oldStyle.remove();
+    };
+
+    ensureStyle();
+    const canvas = ensureHost();
+
+    if (!parentWindow.__welcomeLiquidBg) {
+      try {
+        const module = await import('https://esm.run/webgl-fluid-enhanced@0.6.1');
+        const webGLFluidEnhanced = module.default || module;
+        const simulation = webGLFluidEnhanced.simulation(canvas, {
+          SIM_RESOLUTION: 64,
+          DYE_RESOLUTION: 512,
+          DENSITY_DISSIPATION: 0.94,
+          VELOCITY_DISSIPATION: 0.96,
+          PRESSURE: 0.6,
+          PRESSURE_ITERATIONS: 10,
+          CURL: 8,
+          INITIAL: true,
+          SPLAT_AMOUNT: 3,
+          SPLAT_RADIUS: 0.35,
+          SPLAT_FORCE: 1200,
+          SPLAT_KEY: '',
+          SHADING: true,
+          COLORFUL: false,
+          COLOR_UPDATE_SPEED: 2,
+          COLOR_PALETTE: ['#4aaeff', '#0082fb', '#1a3a6b', '#020d1f', '#0a1f3d'],
+          HOVER: false,
+          BACK_COLOR: '#020810',
+          TRANSPARENT: true,
+          BRIGHTNESS: 0.3,
+          BLOOM: false,
+          SUNRAYS: false,
+        });
+
+        parentWindow.__welcomeLiquidBg = {
+          destroy() {
+            if (simulation && typeof simulation.destroy === 'function') {
+              simulation.destroy();
+            }
+          },
+        };
+      } catch (error) {
+        console.error('Welcome fluid background failed to load.', error);
+      }
+    }
+
+    parentWindow.__welcomeLiquidBgMissing = 0;
+    if (!parentWindow.__welcomeLiquidBgCleanup) {
+      parentWindow.__welcomeLiquidBgCleanup = parentWindow.setInterval(() => {
+        const sentinel = parentDoc.getElementById('welcome-liquid-sentinel');
+        if (sentinel) {
+          parentWindow.__welcomeLiquidBgMissing = 0;
+          return;
+        }
+        parentWindow.__welcomeLiquidBgMissing = (parentWindow.__welcomeLiquidBgMissing || 0) + 1;
+        if (parentWindow.__welcomeLiquidBgMissing < 3) return;
+        cleanup();
+        parentWindow.clearInterval(parentWindow.__welcomeLiquidBgCleanup);
+        delete parentWindow.__welcomeLiquidBgCleanup;
+        delete parentWindow.__welcomeLiquidBgMissing;
+      }, 1000);
+    }
+  })();
+</script>
+</body>
+</html>
+        """,
+        height=0,
+        scrolling=False,
+    )
+
+
+_mount_welcome_liquid_background()
 
 hero_home_path = APP_DIR / "attached_assets" / "hero_home.jpg"
 hero_home_b64 = ""
@@ -1546,8 +1701,8 @@ section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
 div[data-testid="block-container"] {
-    background-color: #020810 !important;
-    background: #020810 !important;
+    background-color: transparent !important;
+    background: transparent !important;
 }
 .element-container, .stMarkdown, .stPlotlyChart,
 .stCaption, div[data-testid="stVerticalBlock"] {
@@ -1587,7 +1742,7 @@ div[data-testid="block-container"] {
 .stPlotlyChart iframe,
 div[data-testid="stPlotlyChart"],
 div[data-testid="stPlotlyChart"] > div {
-    background: #020810 !important;
+    background: transparent !important;
     border: none !important;
     box-shadow: none !important;
 }
@@ -1865,7 +2020,7 @@ st.components.v1.html(
 })();
 </script>
 <style>
-html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
+html,body{margin:0;padding:0;background:transparent;border:none;outline:none;}
 .sv {
   opacity: 0;
   transform: translateY(28px) scale(0.97);
@@ -1954,8 +2109,8 @@ def _yoy_vec(current_series, prev_series):
 
 def _apply_dark_chart_layout(fig, *, height=360, margin=None, extra_layout=None):
     base_layout = dict(
-        paper_bgcolor='#020810',
-        plot_bgcolor='#020810',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color="#ffffff"),
         xaxis=dict(
             color="#aaaaaa",
@@ -2073,7 +2228,7 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
     _pulse_track = "".join(pulse_items + pulse_items)
     st.components.v1.html(
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
-        "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
+        "html,body{margin:0;padding:0;background:transparent;}*{box-sizing:border-box;}"
         ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(74,174,255,0.18);background:#020810;padding:12px 0;}"
         ".track{display:flex;align-items:flex-start;gap:12px;width:max-content;animation:scroll 42s linear infinite;}"
         ".item{width:380px;height:170px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;}"
@@ -2158,7 +2313,7 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
     _stock_track = "".join(items + items)
     st.components.v1.html(
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
-        "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
+        "html,body{margin:0;padding:0;background:transparent;}*{box-sizing:border-box;}"
         ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(74,174,255,0.15);background:#020810;padding:7px 0;}"
         ".track{display:flex;align-items:stretch;gap:12px;width:max-content;animation:scroll 36s linear infinite;}"
         ".item{width:220px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:7px 10px;}"
@@ -2298,8 +2453,8 @@ if mcap_yoy is not None:
 
 st.components.v1.html(
     "<style>@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap');"
-    "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}</style>"
-    "<div style='background:linear-gradient(160deg,#020810 0%,#071828 50%,#020810 100%);padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
+    "html,body{margin:0;padding:0;background:transparent;}*{box-sizing:border-box;}</style>"
+    "<div style='background:transparent;padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
     "<div style='color:#4aaeff;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;'>The Attention Economy</div>"
     "<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:40px;font-family:Syne,sans-serif;'>14 companies.<br>One dashboard.</div>"
     "<div style='display:flex;gap:16px;margin-bottom:40px;flex-wrap:wrap;'>"
@@ -2371,17 +2526,17 @@ try:
                     height=520,
                     margin=dict(l=0, r=0, t=0, b=0),
                     extra_layout=dict(
-                        paper_bgcolor="#020810",
-                        plot_bgcolor="#020810",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
                         geo=dict(
-                            bgcolor="#020810",
+                            bgcolor="rgba(0,0,0,0)",
                             showland=True,
                             landcolor="#1a2332",
                             showframe=False,
                             showcoastlines=True,
                             coastlinecolor="rgba(255,255,255,0.12)",
                             showocean=True,
-                            oceancolor="#060b14",
+                            oceancolor="rgba(0,0,0,0)",
                             showlakes=False,
                             showcountries=False,
                             projection_type="orthographic",
@@ -2392,8 +2547,8 @@ try:
                 )
                 map_fig.update_geos(
                     showocean=True,
-                    oceancolor="#060b14",
-                    bgcolor="#020810",
+                    oceancolor="rgba(0,0,0,0)",
+                    bgcolor="rgba(0,0,0,0)",
                     lataxis_showgrid=False,
                     lonaxis_showgrid=False,
                 )
@@ -2409,9 +2564,9 @@ def _build_ss_html(ss_data_json: str) -> str:
     return f"""
 <div id="wm-ss-root">
 <style>
-html,body{{margin:0;padding:0;background:#020810;border:none;outline:none;}}
+  html,body{{margin:0;padding:0;background:transparent;border:none;outline:none;}}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-ss-root{{background:#020810;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}}
+  #wm-ss-root{{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}}
 #wm-ss-root *{{box-sizing:border-box;}}
 .wm-ss-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}}
 .wm-ss-headline{{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;line-height:1.14;margin:0 0 8px;font-weight:800;}}
@@ -2500,12 +2655,11 @@ def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str
         """<!DOCTYPE html><html><head><meta charset='utf-8'>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;height:100%;overflow:hidden;}
-#wa-attn-root{position:relative;width:100%;height:520px;background:radial-gradient(ellipse at 20% 50%,#0a1628,#020810);overflow:hidden;display:flex;align-items:stretch;}
-.glow-yt{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(255,0,51,0.09),transparent 70%);top:-80px;right:5%;pointer-events:none;filter:blur(4px);}
-.glow-sp{position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(29,185,84,0.07),transparent 70%);bottom:0;right:35%;pointer-events:none;filter:blur(4px);}
+html,body{background:transparent;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;height:100%;overflow:hidden;}
+#wa-attn-root{position:relative;width:100%;height:520px;background:transparent;overflow:hidden;display:flex;align-items:stretch;}
+.glow-yt,.glow-sp{display:none;}
 /* dot grid */
-#wa-attn-root::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(74,174,255,0.12) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;}
+#wa-attn-root::before{content:none;}
 #wa-attn-left{position:relative;z-index:2;width:40%;padding:40px 32px;display:flex;flex-direction:column;justify-content:center;flex-shrink:0;}
 .attn-label{color:#4aaeff;font-size:10px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;margin-bottom:14px;}
 .attn-headline{font-family:'Syne','DM Sans',sans-serif;font-size:clamp(28px,3.5vw,44px);font-weight:900;line-height:1.1;color:#e6edf3;margin-bottom:16px;}
@@ -2645,9 +2799,9 @@ def _build_duopoly_html(ad_json_str: str, groupm_json_str: str) -> str:
     """
 <div id="wm-duo-root">
 <style>
-html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
+html,body{margin:0;padding:0;background:transparent;border:none;outline:none;}
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-#wm-duo-root{background:#020810;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;min-height:440px;height:440px;padding:0 24px;display:flex;flex-direction:column;}
+#wm-duo-root{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;min-height:440px;height:440px;padding:0 24px;display:flex;flex-direction:column;}
 #wm-duo-root *{box-sizing:border-box;}
 .wa-label{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
 .wa-headline{color:#e6edf3;font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.14;margin:0 0 8px;}
@@ -2932,8 +3086,8 @@ st.components.v1.html(
 <div id="wm-human-root">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
-html,body{{margin:0;padding:0;background:#020810;}}
-#wm-human-root{{background:#020810;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
+html,body{{margin:0;padding:0;background:transparent;}}
+#wm-human-root{{background:transparent;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
 .wh-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
 .wh-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}}
 .wh-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
@@ -3068,9 +3222,9 @@ _conc_seg_order_json = json.dumps(_CONC_SEG_ORDER)
 st.components.v1.html(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap');
-html,body{{margin:0;padding:0;background:#020810;}}
+html,body{{margin:0;padding:0;background:transparent;}}
 *{{box-sizing:border-box;}}
-#conc-root{{background:#020810;padding:32px 24px 40px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
+#conc-root{{background:transparent;padding:32px 24px 40px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
 .wc-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
 .wc-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#e6edf3;margin:0 0 6px;}}
 .wc-sub{{color:#8b949e;font-size:14px;margin:0 0 20px;}}
@@ -3269,8 +3423,8 @@ st.components.v1.html(
 <div id="wm-rev-root">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
-#wm-rev-root{background:#020810;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
+html,body{margin:0;padding:0;background:transparent;border:none;outline:none;}
+#wm-rev-root{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
 #wm-rev-root *{box-sizing:border-box;}
 .wr-label{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
 .wr-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}
@@ -3794,17 +3948,17 @@ try:
         component_height = int(min(860, max(240, 118 + len(ticker_data) * 50)))
         st.components.v1.html(
             f"""
-            <style>
-              html, body {{
-                margin: 0;
-                padding: 0;
-                background: #020810;
-                border: none;
-                outline: none;
-              }}
-            </style>
-            <div style="background:#020810;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
-              {rows_html}
+	            <style>
+	              html, body {{
+	                margin: 0;
+	                padding: 0;
+	                background: transparent;
+	                border: none;
+	                outline: none;
+	              }}
+	            </style>
+	            <div style="background:transparent;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
+	              {rows_html}
               <div style="color:rgba(255,255,255,0.3);font-size:0.72rem;margin-top:14px;">
                 Based on {effective_year} annual revenue ÷ seconds per year. Updates every 120ms since you opened this page.
               </div>
