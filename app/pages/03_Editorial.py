@@ -48,6 +48,71 @@ render_floating_clock()
 st.title("Editorial Insights")
 st.write("Quarterly subscriber metrics analysis.")
 
+COMPANY_ASSET_MAP = {
+    "Alphabet":{"color":"#4285F4","primary_business":"Search & Digital Advertising","key_assets":["Google Search","YouTube","Google Cloud (GCP)","Google Network","Waymo","DeepMind / Gemini AI"],"ad_products":["Search Ads","YouTube Ads","Google Display Network","DV360","Performance Max"],"competitive_note":"Dominant in search (90%+ share) and online video. YouTube is #1 video platform globally by watch time."},
+    "Amazon":{"color":"#FF9900","primary_business":"E-Commerce, Cloud & Advertising","key_assets":["AWS","Amazon Ads","Amazon Prime Video","Prime membership","Twitch","Amazon Music","Alexa"],"ad_products":["Amazon Sponsored Products","Amazon DSP","Streaming TV Ads on Prime Video"],"competitive_note":"Fastest-growing major ad platform. AWS funds the consumer business. Prime Video now has ads."},
+    "Apple":{"color":"#555555","primary_business":"Consumer Hardware & Services","key_assets":["iPhone","Mac","iPad","Apple Watch / AirPods","Apple TV+","App Store","iCloud","Apple Music","Apple Intelligence AI"],"ad_products":["App Store Search Ads","Apple TV+ brand partnerships"],"competitive_note":"Services (App Store, iCloud, Music, TV+) are the high-margin growth engine. iPhone = 50%+ of revenue."},
+    "Meta Platforms":{"color":"#0866FF","primary_business":"Social Media & Digital Advertising","key_assets":["Facebook","Instagram","WhatsApp","Threads","Reels","Meta AI","Reality Labs / Quest VR"],"ad_products":["Facebook Ads","Instagram Ads","Reels Ads","WhatsApp Business API","Advantage+ AI ad buying"],"competitive_note":"Family of Apps generates ~99% of revenue. Reality Labs loses ~$5B/year."},
+    "Microsoft":{"color":"#00A4EF","primary_business":"Enterprise Software & Cloud","key_assets":["Azure","Microsoft 365 / Office","LinkedIn","Bing / MSN","Xbox / Game Pass","GitHub","Copilot AI"],"ad_products":["LinkedIn Ads","Bing Ads / Microsoft Advertising","MSN display ads"],"competitive_note":"Azure is #2 cloud behind AWS. LinkedIn is the dominant B2B ad platform."},
+    "Netflix":{"color":"#E50914","primary_business":"Subscription Video Streaming","key_assets":["Netflix Streaming","Ad-Supported Tier","Netflix Games","Live Events","Original Content"],"ad_products":["Netflix Ads (ad-supported tier)","Branded content partnerships"],"competitive_note":"Password sharing crackdown drove massive subscriber growth. Ad tier now ~70M MAU."},
+    "Disney":{"color":"#113CCF","primary_business":"Entertainment, Streaming & Parks","key_assets":["Disney+","Hulu","ESPN / ESPN+","Linear TV (ABC/FX/NatGeo)","Disney Parks","Pixar/Marvel/Lucasfilm"],"ad_products":["Hulu Ads","ESPN Ads","ABC Network Ads","Disney+ Ad-Supported Tier"],"competitive_note":"Streaming profitability is the key challenge. Parks is the most profitable segment."},
+    "Comcast":{"color":"#C01F33","primary_business":"Cable, Broadband & Entertainment","key_assets":["Xfinity broadband","NBCUniversal / NBC","Peacock","Universal Studios","Sky (Europe)","Telemundo"],"ad_products":["NBCUniversal Advertising","Peacock Ads","FreeWheel ad tech","Sky Ads (Europe)"],"competitive_note":"Broadband is the stable high-margin business. Peacock burning cash. Sky gives European footprint."},
+    "Spotify":{"color":"#1DB954","primary_business":"Audio Streaming","key_assets":["Spotify Premium","Spotify Ad-Supported / Free Tier","Podcasts","Audiobooks","Spotify DJ AI"],"ad_products":["Spotify Audio Ads","Spotify Video Ads","Podcast Ads / SAI","Spotify Audience Network"],"competitive_note":"Reached profitability in 2024. Ad-supported tier is 60%+ of MAU."},
+    "Roku":{"color":"#6C2DC7","primary_business":"Streaming Platform & CTV Advertising","key_assets":["Roku OS","The Roku Channel (FAST)","Roku Devices","Roku City screensaver ads"],"ad_products":["Roku Advertising (CTV)","Home Screen Ads","The Roku Channel programmatic"],"competitive_note":"~80M active accounts. Revenue 80%+ from platform/ads, not hardware."},
+    "Warner Bros. Discovery":{"color":"#003087","primary_business":"Content, Streaming & Linear TV","key_assets":["Max (HBO Max)","HBO","CNN","Warner Bros. Pictures","Discovery+","TNT/TBS/Cartoon Network"],"ad_products":["Max Ads","CNN Ads","Discovery Networks Linear TV Ads","Turner Sports Ads"],"competitive_note":"Debt-heavy post-merger. Max is the premium streaming bet."},
+    "Paramount":{"color":"#0064FF","primary_business":"Content, Streaming & Broadcast TV","key_assets":["Paramount+","CBS","CBS News / CBS Sports","MTV/Nickelodeon/Comedy Central","BET","Pluto TV","Paramount Pictures"],"ad_products":["CBS Broadcast Ads","Paramount+ Ads","Pluto TV (entirely ad-funded)","BET/MTV/Comedy Central linear ads"],"competitive_note":"Skydance merger completed 2024. Pluto TV is the largest free ad-supported streaming service."},
+    "Snap":{"color":"#FFFC00","primary_business":"Social Camera / AR Platform","key_assets":["Snapchat","Snap Map","Spotlight (short video)","Spectacles (AR glasses)","Bitmoji / AR Lenses"],"ad_products":["Snap Ads (vertical video)","AR Lens Ads / Sponsored Filters","Dynamic Ads"],"competitive_note":"90%+ revenue from advertising. User base young (13-34). AR is the long-term bet."},
+    "Pinterest":{"color":"#E60023","primary_business":"Visual Discovery & Shopping","key_assets":["Pinterest (image discovery)","Pinterest Shopping","Pinterest Predicts"],"ad_products":["Pinterest Ads (promoted pins)","Shopping Ads","Video Ads","Performance+"],"competitive_note":"480M+ MAU. Unique purchase-intent audience. Growing ARPU internationally."},
+    "Nvidia":{"color":"#76B900","primary_business":"Semiconductors & AI Computing","key_assets":["Data Center GPUs (H100/B200)","Gaming GPUs (GeForce RTX)","NVIDIA DRIVE (automotive AI)","Omniverse","CUDA"],"ad_products":[],"competitive_note":"Data Center is now 85%+ of revenue. Every major AI model trains on Nvidia GPUs."},
+}
+
+
+@st.cache_data(ttl=3600)
+def _load_transcript_editorial_insights(max_per_company: int = 5) -> list:
+    try:
+        from utils.workbook_source import resolve_financial_data_xlsx as _rfd
+        excel_path = _rfd([])
+    except Exception:
+        excel_path = None
+    if not excel_path:
+        return []
+    try:
+        raw_df = pd.read_excel(excel_path, sheet_name="Transcripts")
+        if raw_df is None or raw_df.empty:
+            return []
+        TRIGGERS = [
+            "we expect","we anticipate","our outlook","looking ahead","heading into",
+            "next quarter","we believe","going forward","guidance","we plan to",
+            "opportunity","positioned to"
+        ]
+        rows = []
+        for _, row in raw_df.iterrows():
+            comp = str(row.get("company","")).strip()
+            year = pd.to_numeric(row.get("year"), errors="coerce")
+            quarter = str(row.get("quarter","")).strip()
+            text = str(row.get("transcript_text","") or "")
+            if not text or pd.isna(year):
+                continue
+            import re as _re2
+            sentences = _re2.split(r'(?<=[.!?])\s+', text)
+            count = 0
+            for sentence in sentences:
+                s = sentence.strip()
+                if len(s) < 40 or len(s) > 350:
+                    continue
+                if any(t in s.lower() for t in TRIGGERS):
+                    rows.append({
+                        "company": comp, "year": int(year), "quarter": quarter,
+                        "highlight": s, "speaker": "", "category": "Outlook"
+                    })
+                    count += 1
+                    if count >= max_per_company:
+                        break
+        return rows
+    except Exception:
+        return []
+
+
 def _metric_label_for_service(service: str) -> str:
     s = (service or "").lower()
     if any(k in s for k in ["whatsapp", "instagram", "facebook"]):
@@ -593,6 +658,77 @@ with tab2:
         st.info("No data available for the selected filters.")
     else:
         st.info("Select services to compare.")
+
+st.markdown("<hr style='margin: 3rem 0 1.5rem 0;'>", unsafe_allow_html=True)
+st.markdown("## Transcript Intelligence")
+st.markdown(
+    "<p style='color:#6b7280;margin-bottom:1.5rem;'>"
+    "Key statements from earnings call transcripts, organised by company.</p>",
+    unsafe_allow_html=True
+)
+_ti_insights = _load_transcript_editorial_insights(max_per_company=6)
+if not _ti_insights:
+    st.info("No transcript insights loaded. Ensure transcripts are in the Excel Transcripts sheet.")
+else:
+    _ti_by_company: dict = {}
+    for item in _ti_insights:
+        _ti_by_company.setdefault(item["company"], []).append(item)
+    for _co in sorted(_ti_by_company.keys(), key=lambda c: -len(_ti_by_company[c])):
+        _co_insights = _ti_by_company[_co]
+        _meta = COMPANY_ASSET_MAP.get(_co, {})
+        _color = _meta.get("color", "#374151")
+        _primary_biz = _meta.get("primary_business", "")
+        _key_assets = _meta.get("key_assets", [])
+        _ad_products = _meta.get("ad_products", [])
+        _note = _meta.get("competitive_note", "")
+        with st.expander(
+            f"**{_co}** \u2014 {_primary_biz}" if _primary_biz else f"**{_co}**",
+            expanded=False
+        ):
+            if _key_assets or _note:
+                _ctx_col1, _ctx_col2 = st.columns([0.6, 0.4])
+                with _ctx_col1:
+                    if _key_assets:
+                        _dot = " \u00b7 "
+                        st.markdown(
+                            f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:0.5rem;'>"
+                            f"<strong style='color:#374151'>Key assets:</strong> "
+                            f"{_dot.join(_key_assets[:6])}</div>",
+                            unsafe_allow_html=True
+                        )
+                    if _ad_products:
+                        _dot = " \u00b7 "
+                        st.markdown(
+                            f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:0.75rem;'>"
+                            f"<strong style='color:#374151'>Ad products:</strong> "
+                            f"{_dot.join(_ad_products[:4])}</div>",
+                            unsafe_allow_html=True
+                        )
+                with _ctx_col2:
+                    if _note:
+                        st.markdown(
+                            f"<div style='font-size:0.8rem;color:#4b5563;background:#f9fafb;"
+                            f"border-left:3px solid {_color};padding:8px 12px;"
+                            f"border-radius:0 6px 6px 0;margin-bottom:0.75rem;'>{_note}</div>",
+                            unsafe_allow_html=True
+                        )
+            for _item in _co_insights:
+                if not _item.get("highlight"):
+                    continue
+                _badge = f"{_item['year']} {_item['quarter']}"
+                _cat = _item.get("category", "")
+                _speaker = _item.get("speaker", "")
+                st.markdown(
+                    f"""<div style='border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:10px;background:#ffffff;'>
+<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'>
+<span style='background:{_color}18;color:{_color};padding:2px 10px;border-radius:10px;font-size:0.72rem;font-weight:600;'>{_badge}</span>
+{f'<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:10px;font-size:0.72rem;">{_cat}</span>' if _cat else ''}
+{f'<span style="color:#9ca3af;font-size:0.75rem;font-style:italic;">{_speaker}</span>' if _speaker else ''}
+</div>
+<p style='margin:0;font-size:0.88rem;color:#1f2937;line-height:1.55;'>"{_item['highlight']}"</p>
+</div>""",
+                    unsafe_allow_html=True
+                )
 
 # Update AI context
 dashboard_state = {

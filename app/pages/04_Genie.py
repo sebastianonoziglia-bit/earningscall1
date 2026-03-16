@@ -65,28 +65,43 @@ st.session_state["_active_nav_page"] = "genie"
 render_header()
 
 def _render_ai_settings_controls(key_prefix: str = "sidebar"):
-    api_key_input = st.text_input(
-        "OpenAI API Key",
+    ant_key = st.text_input(
+        "Anthropic API Key",
         type="password",
-        value=st.session_state.get("openai_api_key", ""),
-        help="Stored in session memory only — never persisted or logged.",
-        key=f"openai_api_key_input_{key_prefix}",
+        value=st.session_state.get("anthropic_api_key", ""),
+        help="Get key at console.anthropic.com — stored in session only.",
+        key=f"anthropic_api_key_input_{key_prefix}",
     )
-    if api_key_input:
-        st.session_state["openai_api_key"] = api_key_input
-
-    current_model = st.session_state.get("genie_model", "gpt-4o")
-    model_options = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]
-    model_index = model_options.index(current_model) if current_model in model_options else 0
-    model_choice = st.selectbox(
-        "Model",
-        model_options,
-        index=model_index,
-        key=f"genie_model_select_{key_prefix}",
-    )
-    st.session_state["genie_model"] = model_choice
-
-    if st.button("🗑 Clear Conversation", key=f"clear_genie_chat_{key_prefix}"):
+    if ant_key:
+        st.session_state["anthropic_api_key"] = ant_key
+    try:
+        from utils.anthropic_service import is_api_available
+        if is_api_available():
+            st.success("\u2713 Claude connected", icon="\U0001f916")
+        else:
+            st.caption(
+                "Enter Anthropic key above or set ANTHROPIC_API_KEY as HuggingFace secret"
+            )
+    except Exception:
+        pass
+    with st.expander("OpenAI fallback (optional)", expanded=False):
+        oai_key = st.text_input(
+            "OpenAI API Key",
+            type="password",
+            value=st.session_state.get("openai_api_key", ""),
+            key=f"openai_api_key_input_{key_prefix}",
+        )
+        if oai_key:
+            st.session_state["openai_api_key"] = oai_key
+        current_model = st.session_state.get("genie_model", "gpt-4o")
+        model_options = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]
+        st.selectbox(
+            "Model",
+            model_options,
+            index=model_options.index(current_model) if current_model in model_options else 0,
+            key=f"genie_model_select_{key_prefix}",
+        )
+    if st.button("\U0001f5d1 Clear Conversation", key=f"clear_genie_chat_{key_prefix}"):
         st.session_state["genie_history"] = []
         st.session_state["thought_map"] = {
             "nodes": {}, "edges": [], "root_ids": [], "version": 1
@@ -470,6 +485,69 @@ def _get_active_overview_auto_insights(excel_path: str) -> list[dict]:
             entry[field] = value
         cleaned_rows.append(entry)
     return cleaned_rows
+
+@st.cache_data(ttl=3600)
+def _extract_forward_signals(excel_path: str, company: str = "", max_signals: int = 30) -> list:
+    FORWARD_TRIGGERS = [
+        "we expect","we anticipate","we are targeting","we plan to","we intend to",
+        "our outlook","looking ahead","heading into","next quarter","full year guidance",
+        "we remain confident","we believe","going forward","guidance","we project",
+        "we forecast","we see opportunity","we are investing","opportunity ahead",
+        "positioned to","we continue to expect","for the year"
+    ]
+    CATEGORY_KEYWORDS = {
+        "AI & Technology": ["ai","artificial intelligence","machine learning","cloud","compute","model","llm","gemini","copilot","gpt"],
+        "Advertising": ["advertising","ad revenue","ad market","monetization","arpu","cpm","impressions","sponsored","programmatic"],
+        "Subscribers & Users": ["subscribers","users","dau","mau","engagement","retention","churn","paid members","streaming"],
+        "Cost & Margin": ["cost","margin","efficiency","headcount","opex","capex","restructur","expense","savings"],
+        "Macro & Market": ["macro","economy","recession","consumer","market condition","interest rate","inflation"],
+    }
+    if not excel_path:
+        return []
+    try:
+        df = pd.read_excel(excel_path, sheet_name="Transcripts")
+    except Exception:
+        return []
+    if df is None or df.empty:
+        return []
+    if not {"company","year","quarter","transcript_text"}.issubset(set(df.columns)):
+        return []
+    if company:
+        df = df[df["company"].astype(str).str.lower().str.strip() == company.lower().strip()]
+    signals = []
+    for _, row in df.iterrows():
+        comp = str(row.get("company","")).strip()
+        year = pd.to_numeric(row.get("year"), errors="coerce")
+        quarter = str(row.get("quarter","")).strip()
+        text = str(row.get("transcript_text","") or "")
+        if not text or pd.isna(year):
+            continue
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) < 30 or len(sentence) > 400:
+                continue
+            s_lower = sentence.lower()
+            if not any(trigger in s_lower for trigger in FORWARD_TRIGGERS):
+                continue
+            category = "Revenue & Growth"
+            for cat, keywords in CATEGORY_KEYWORDS.items():
+                if any(kw in s_lower for kw in keywords):
+                    category = cat
+                    break
+            signals.append({"company": comp, "year": int(year), "quarter": quarter,
+                             "signal": sentence, "category": category})
+            if len(signals) >= max_signals * 3:
+                break
+    seen = set()
+    deduped = []
+    for s in signals:
+        key = s["signal"][:80]
+        if key not in seen:
+            seen.add(key)
+            deduped.append(s)
+    return deduped[:max_signals]
+
 
 # Update the mapping of macro categories to their detailed metrics
 MACRO_CATEGORY_MAPPING = {
@@ -2846,6 +2924,33 @@ try:
     }
     dashboard_state["available_transcripts"] = list(_get_transcript_index(str(excel_path)).keys())
     dashboard_state["active_overview_auto_insights"] = _get_active_overview_auto_insights(str(excel_path))
+    _primary_co_ds = selected_companies[0] if "selected_companies" in dir() and selected_companies else ""
+    dashboard_state["forward_signals"] = _extract_forward_signals(
+        str(excel_path) if "excel_path" in dir() and excel_path else "",
+        company=_primary_co_ds,
+        max_signals=20
+    )
+    dashboard_state["all_tracked_companies"] = [
+        "Alphabet","Amazon","Apple","Meta Platforms","Microsoft","Netflix","Disney",
+        "Comcast","Spotify","Roku","Warner Bros. Discovery","Paramount","Snap","Pinterest","Nvidia"
+    ]
+    dashboard_state["company_asset_map"] = {
+        "Alphabet":["Google Search","YouTube","Google Cloud","Google Network","Waymo","DeepMind"],
+        "Amazon":["Amazon Ads","AWS","Amazon Prime Video","Twitch","Alexa"],
+        "Apple":["iPhone","Mac","iPad","Wearables","Apple TV+","App Store","iCloud","Apple Music"],
+        "Meta Platforms":["Facebook","Instagram","WhatsApp","Threads","Reels","Meta AI","Reality Labs / Quest VR"],
+        "Microsoft":["Azure Cloud","Microsoft 365","LinkedIn","Bing Ads","Xbox","GitHub","Copilot AI"],
+        "Netflix":["Netflix Streaming","Ad-Supported Tier","Netflix Games","Live Events"],
+        "Disney":["Disney+","Hulu","ESPN / ESPN+","Linear TV (ABC/FX/NatGeo)","Disney Parks","Pixar/Marvel/Lucasfilm"],
+        "Comcast":["NBCUniversal / NBC","Peacock","Sky (Europe)","Universal Studios","Xfinity Broadband"],
+        "Spotify":["Spotify Premium","Spotify Ad-Supported / Free Tier","Podcasts","Audiobooks"],
+        "Roku":["Roku Platform / The Roku Channel","Roku Devices","Roku OS"],
+        "Warner Bros. Discovery":["Max (HBO Max)","HBO","CNN","Warner Bros Film","Discovery+","TNT/TBS"],
+        "Paramount":["Paramount+","CBS","MTV/Nickelodeon/Comedy Central","BET","Pluto TV"],
+        "Snap":["Snapchat","Snap Ads","Snap AR / Spectacles"],
+        "Pinterest":["Pinterest Ads","Pinterest Shopping"],
+        "Nvidia":["Data Center GPUs (H100/B200)","Gaming GPUs","NVIDIA DRIVE","Omniverse","CUDA"],
+    }
 except Exception as e:
     st.error(f"Error loading data: {str(e)}")
     st.stop()
@@ -2942,6 +3047,93 @@ def _extract_node_intent(response_text: str, user_question: str = "") -> dict:
 
 # ── GENIE CHAT + THOUGHT MAP SECTION ────────────────────────────────────────
 st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
+
+# ── Suggestion chips ─────────────────────────────────────────────────────
+_primary = (selected_companies[0] if selected_companies else "Meta Platforms") if "selected_companies" in dir() else "Meta Platforms"
+_yr = (year_range[1] if "year_range" in dir() else 2024)
+_suggestions = [
+    f"What did {_primary} management say about AI investment plans?",
+    f"Compare {_primary} advertising revenue growth vs the overall market trend",
+    f"What are the key risks {_primary} flagged for the next 12 months?",
+    f"Which company had the most surprising segment performance in {_yr}?",
+    "How is the streaming wars playing out — who is winning on subscribers and margins?",
+    "What macro signals (M2, Fed rate) correlate most with ad market growth?",
+    f"Generate a 1-paragraph strategic brief on {_primary} for a European broadcaster",
+]
+st.markdown("**Suggested questions:**")
+_chip_cols = st.columns(min(len(_suggestions), 3))
+for _i, _sugg in enumerate(_suggestions):
+    with _chip_cols[_i % len(_chip_cols)]:
+        if st.button(
+            _sugg[:80] + ("\u2026" if len(_sugg) > 80 else ""),
+            key=f"suggestion_chip_{_i}",
+            use_container_width=True,
+            help=_sugg
+        ):
+            st.session_state.setdefault("genie_history", []).append(
+                {"role": "user", "content": _sugg}
+            )
+            st.rerun()
+st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
+
+# ── Forward Signals Panel ─────────────────────────────────────────────────
+st.markdown("<hr style='margin: 2rem 0 1rem 0;'>", unsafe_allow_html=True)
+st.markdown("### Management Outlook & Guidance Signals")
+st.markdown(
+    "<p style='color:#6b7280;font-size:0.9rem;margin-bottom:1rem;'>"
+    "Forward-looking statements extracted from earnings call transcripts. "
+    "Click any signal to ask Genie about it.</p>",
+    unsafe_allow_html=True
+)
+_fs_companies = selected_companies if "selected_companies" in dir() and selected_companies else []
+_fs_excel = str(excel_path) if "excel_path" in dir() and excel_path else ""
+_all_signals = []
+for _fs_co in _fs_companies[:3]:
+    _co_signals = _extract_forward_signals(_fs_excel, company=_fs_co, max_signals=15)
+    _all_signals.extend(_co_signals)
+if _all_signals:
+    _cats: dict = {}
+    for sig in _all_signals:
+        _cats.setdefault(sig["category"], []).append(sig)
+    for _cat in ["AI & Technology","Advertising","Subscribers & Users","Revenue & Growth","Cost & Margin","Macro & Market"]:
+        if _cat not in _cats:
+            continue
+        with st.expander(
+            f"**{_cat}** \u2014 {len(_cats[_cat])} signal{'s' if len(_cats[_cat])>1 else ''}",
+            expanded=(_cat == "AI & Technology")
+        ):
+            for sig in _cats[_cat][:6]:
+                col_chip, col_text = st.columns([0.22, 0.78])
+                with col_chip:
+                    st.markdown(
+                        f"<span style='background:#eff6ff;color:#1d4ed8;padding:3px 10px;"
+                        f"border-radius:12px;font-size:0.75rem;font-weight:600;white-space:nowrap;'>"
+                        f"{sig['company']} \u00b7 {sig['year']} {sig['quarter']}</span>",
+                        unsafe_allow_html=True
+                    )
+                with col_text:
+                    _prompt = (
+                        f'Regarding this statement from {sig["company"]} '
+                        f'({sig["year"]} {sig["quarter"]}): "{sig["signal"][:200]}" '
+                        f'\u2014 what does this signal about their strategy and how should Mediaset think about it?'
+                    )
+                    if st.button(
+                        sig["signal"][:160] + ("\u2026" if len(sig["signal"]) > 160 else ""),
+                        key=f"sig_{hash(sig['signal'][:60])}",
+                        help="Click to ask Genie",
+                        use_container_width=True
+                    ):
+                        st.session_state.setdefault("genie_history", []).append(
+                            {"role": "user", "content": _prompt}
+                        )
+                        st.rerun()
+else:
+    st.info(
+        "Select companies in the sidebar to see guidance signals."
+        if not _fs_companies
+        else "No forward-looking signals found in transcripts."
+    )
+
 render_enhanced_chat_interface(dashboard_state=dashboard_state, on_new_response=_store_last_genie_response)
 
 # Fallback for pre-existing chat sessions where callback has not fired yet in this run.
