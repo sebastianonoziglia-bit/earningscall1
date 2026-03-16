@@ -11,6 +11,26 @@ def _resolve_data_path():
     return resolve_financial_data_xlsx([])
 
 
+def _normalize_label(value):
+    return "".join(ch for ch in str(value or "").strip().lower() if ch.isalnum())
+
+
+def _is_excluded_stock_label(value):
+    key = _normalize_label(value)
+    if not key:
+        return False
+    if key in {"m2", "mstr", "app"}:
+        return True
+    return "microstrategy" in key or "applovin" in key
+
+
+def _is_excluded_stock_row(asset, tag, label=""):
+    if _is_excluded_stock_label(label) or _is_excluded_stock_label(asset):
+        return True
+    ticker = str(tag or "").strip().upper()
+    return ticker in {"M2", "MSTR", "APP"}
+
+
 @lru_cache(maxsize=8)
 def _load_stock_sheet(path, source_stamp):
     if not path or not os.path.exists(path):
@@ -57,6 +77,31 @@ class StockDataProcessor:
             "Paramount": ["PARA", "PARAMOUNT"],
             "Spotify": ["SPOT", "SPOTIFY"],
             "Roku": ["ROKU", "ROKU INC"],
+            "Bitcoin": ["BTC-USD", "BTC", "BITCOIN"],
+            "S&P 500": ["^GSPC", "S&P500", "S&P 500", "SP500"],
+            "Nasdaq": ["^IXIC", "NASDAQ"],
+            "Gold": ["GLD", "GOLD"],
+            "Nvidia": ["NVDA", "NVIDIA"],
+            "NVIDIA": ["NVDA", "NVIDIA"],
+            "TTD": ["TTD", "THE TRADE DESK"],
+            "The Trade Desk": ["TTD", "THE TRADE DESK"],
+            "CRTO": ["CRTO", "CRITEO"],
+            "Criteo": ["CRTO", "CRITEO"],
+            "DSP": ["DSP", "VIANT", "VIANT TECHNOLOGY"],
+            "Viant Technology": ["DSP", "VIANT", "VIANT TECHNOLOGY"],
+            "U": ["U", "UTIQ"],
+            "Utiq": ["U", "UTIQ"],
+            "MGNI": ["MGNI", "MAGNITE"],
+            "Magnite": ["MGNI", "MAGNITE"],
+            "PUBM": ["PUBM", "PUBMATIC"],
+            "PubMatic": ["PUBM", "PUBMATIC"],
+            "DV": ["DV", "DOUBLEVERIFY"],
+            "DoubleVerify": ["DV", "DOUBLEVERIFY"],
+            "IAS": ["IAS", "INTEGRAL AD SCIENCE"],
+            "Integral Ad Science": ["IAS", "INTEGRAL AD SCIENCE"],
+            "SNAP": ["SNAP", "SNAPCHAT"],
+            "PINS": ["PINS", "PINTEREST"],
+            "NEXN": ["NEXN", "NEXXEN"],
         }
 
     def _increment_calls(self):
@@ -66,6 +111,8 @@ class StockDataProcessor:
     def _filter_company(self, df, company):
         if df.empty:
             return df
+        if _is_excluded_stock_label(company):
+            return df.iloc[0:0]
         asset = df["asset"].fillna("").astype(str)
         tag = df["tag"].fillna("").astype(str)
         mask = asset.str.contains(company, case=False, regex=False)
@@ -96,6 +143,8 @@ class StockDataProcessor:
 
     def get_company_data(self, company, timeframe="1M", expanded=False):
         self._increment_calls()
+        if _is_excluded_stock_label(company):
+            return None
         source_stamp = get_workbook_source_stamp(self.data_path)
         df = _load_stock_sheet(self.data_path, source_stamp)
         if df.empty:
@@ -118,6 +167,12 @@ class StockDataProcessor:
         change = last_price - prev_price
         change_percent = (change / prev_price * 100) if prev_price else 0
         volume = history["Volume"].iloc[-1] if "Volume" in history else 0
+        volume_int = 0
+        if volume is not None and not pd.isna(volume):
+            try:
+                volume_int = int(float(volume))
+            except (TypeError, ValueError):
+                volume_int = 0
 
         symbol = (self._ticker_map.get(company) or [company])[0]
         quote = {
@@ -125,7 +180,7 @@ class StockDataProcessor:
             "change": float(change),
             "change_percent": float(change_percent),
             "symbol": symbol,
-            "volume": int(volume) if volume is not None else 0,
+            "volume": volume_int,
         }
 
         return {
@@ -142,6 +197,8 @@ class StockDataProcessor:
         if df is not None and not df.empty:
             for _, row in df.iterrows():
                 label = infer_company_label(row.get("asset", ""), row.get("tag", ""))
+                if _is_excluded_stock_row(row.get("asset", ""), row.get("tag", ""), label):
+                    continue
                 if label:
                     discovered.append(label)
 
@@ -165,7 +222,6 @@ class StockDataProcessor:
             "CRTO",
             "DSP",
             "U",
-            "APP",
             "MGNI",
             "PUBM",
             "NEXN",
@@ -176,7 +232,14 @@ class StockDataProcessor:
             "Gold",
         ]
         merged = seed + discovered
-        return sorted({str(name).strip() for name in merged if str(name).strip()}, key=lambda s: s.lower())
+        return sorted(
+            {
+                str(name).strip()
+                for name in merged
+                if str(name).strip() and not _is_excluded_stock_label(name)
+            },
+            key=lambda s: s.lower(),
+        )
 
     def get_call_stats(self):
         return {

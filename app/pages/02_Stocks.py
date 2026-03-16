@@ -22,7 +22,9 @@ from datetime import datetime, timedelta
 from PIL import Image
 import base64
 import os
+import re
 from io import BytesIO
+from pathlib import Path
 from utils.styles import get_page_style, get_animation_style
 from utils.workbook_market_data import load_combined_stock_market_data
 from utils.workbook_source import get_workbook_source_stamp
@@ -94,6 +96,60 @@ COMPANY_COLORS = {
     'Warner Bros. Discovery': ('#D0A22D', 'gold'),
     'Other US Companies': ('#212121', 'darkgrey')
 }
+
+ASSET_DIR = Path(__file__).resolve().parents[1] / "attached_assets"
+EXCLUDED_STOCK_KEYS = {"m2", "mstr", "microstrategy", "app", "applovin"}
+MARKET_INDICATOR_ORDER = ["Nasdaq", "Bitcoin", "S&P 500", "Gold"]
+MARKET_INDICATOR_KEYS = {
+    re.sub(r"[^a-z0-9]+", "", label.lower()): index
+    for index, label in enumerate(MARKET_INDICATOR_ORDER)
+}
+
+
+def _normalize_company_key(value):
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+
+def _is_excluded_stock(name):
+    key = _normalize_company_key(name)
+    if not key:
+        return False
+    if key in EXCLUDED_STOCK_KEYS:
+        return True
+    return "microstrategy" in key or "applovin" in key
+
+
+def _is_market_indicator(name):
+    return _normalize_company_key(name) in MARKET_INDICATOR_KEYS
+
+
+def _split_company_groups(names):
+    seen = set()
+    companies = []
+    indicators = []
+    for raw_name in names or []:
+        name = str(raw_name or "").strip()
+        key = _normalize_company_key(name)
+        if not key or key in seen or _is_excluded_stock(name):
+            continue
+        seen.add(key)
+        if _is_market_indicator(name):
+            indicators.append(name)
+        else:
+            companies.append(name)
+    companies.sort(key=lambda s: s.lower())
+    indicators.sort(key=lambda s: MARKET_INDICATOR_KEYS.get(_normalize_company_key(s), 999))
+    return companies, indicators
+
+
+def _first_existing_logo(*names):
+    for name in names:
+        if not name:
+            continue
+        candidate = ASSET_DIR / name
+        if candidate.exists():
+            return candidate
+    return None
 
 def _parse_numeric(value):
     if value is None or (isinstance(value, float) and pd.isna(value)):
@@ -268,61 +324,172 @@ st.title("📈 Stock Performance")
 # Get data processor for metrics
 _data_processor = st.session_state.data_processor
 
-# Load company logos function (similar to Welcome.py)
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_company_logos():
-    """Load and cache company logos with base64 encoding"""
+    """Load and cache company logos with base64 encoding."""
     logo_paths = {
-        'Apple': 'attached_assets/apple.png',
-        'Microsoft': 'attached_assets/msft.png',
-        'Alphabet': 'attached_assets/Google__G__logo.svg.png',
-        'Netflix': 'attached_assets/9.png',
-        'Meta': 'attached_assets/12.png',
-        'Meta Platforms': 'attached_assets/12.png',
-        'Amazon': 'attached_assets/Amazon_icon.png',
-        'Disney': 'attached_assets/icons8-logo-disney-240.png',
-        'Roku': 'attached_assets/rokudef.png',
-        'Spotify': 'attached_assets/11.png',
-        'Comcast': 'attached_assets/6.png',
-        'Paramount': 'attached_assets/Paramount.png',  # Updated to use the corporate logo
-        'Paramount Global': 'attached_assets/Paramount.png',  # Using corporate logo for Paramount Global
-        'Warner Bros Discovery': 'attached_assets/adadad.png',
-        'Warner Bros. Discovery': 'attached_assets/adadad.png',
+        "Apple": _first_existing_logo("apple.png", "8.png"),
+        "Microsoft": _first_existing_logo("msft.png"),
+        "Alphabet": _first_existing_logo("Google__G__logo.svg.png", "10.png"),
+        "Netflix": _first_existing_logo("9.png"),
+        "Meta": _first_existing_logo("12.png"),
+        "Meta Platforms": _first_existing_logo("12.png"),
+        "Amazon": _first_existing_logo("Amazon_icon.png"),
+        "Disney": _first_existing_logo("icons8-logo-disney-240.png"),
+        "Roku": _first_existing_logo("rokudef.png"),
+        "Spotify": _first_existing_logo("11.png"),
+        "Comcast": _first_existing_logo("6.png"),
+        "Paramount": _first_existing_logo("Paramount.png"),
+        "Paramount Global": _first_existing_logo("Paramount.png"),
+        "Warner Bros Discovery": _first_existing_logo("WarnerBrosDiscovery.png", "adadad.png"),
+        "Warner Bros. Discovery": _first_existing_logo("WarnerBrosDiscovery.png", "adadad.png"),
+        "Bitcoin": _first_existing_logo("Bitcoin.png"),
+        "Nasdaq": _first_existing_logo("Nasdaq.png"),
+        "S&P 500": _first_existing_logo("S&P500.png"),
+        "S&P500": _first_existing_logo("S&P500.png"),
+        "Gold": _first_existing_logo("Gold.png"),
+        "GLD": _first_existing_logo("Gold.png"),
+        "Nvidia": _first_existing_logo("Nvidia.png"),
+        "NVIDIA": _first_existing_logo("Nvidia.png"),
+        "NVDA": _first_existing_logo("Nvidia.png"),
+        "TTD": _first_existing_logo("TheTradeDesk.png"),
+        "The Trade Desk": _first_existing_logo("TheTradeDesk.png"),
+        "CRTO": _first_existing_logo("Criteo.png"),
+        "Criteo": _first_existing_logo("Criteo.png"),
+        "DSP": _first_existing_logo("ViantTechnology.png"),
+        "Viant Technology": _first_existing_logo("ViantTechnology.png"),
+        "U": _first_existing_logo("Utiq.png"),
+        "Utiq": _first_existing_logo("Utiq.png"),
+        "MGNI": _first_existing_logo("Magnite.png"),
+        "Magnite": _first_existing_logo("Magnite.png"),
+        "PUBM": _first_existing_logo("Pubmatic.png"),
+        "PubMatic": _first_existing_logo("Pubmatic.png"),
+        "DV": _first_existing_logo("DoubleVerify.png"),
+        "DoubleVerify": _first_existing_logo("DoubleVerify.png"),
+        "IAS": _first_existing_logo("IAS.png"),
+        "Integral Ad Science": _first_existing_logo("IAS.png"),
     }
-    
-    # Print all logo files in the directory for debugging
-    print("Available logo files:", [f for f in os.listdir('attached_assets')])
-    
+
     logos = {}
-    
     for company, path in logo_paths.items():
+        if not path:
+            continue
         try:
-            if os.path.exists(path):
-                img = Image.open(path)
-                img = img.convert('RGBA')
+            with Image.open(path) as img:
+                img = img.convert("RGBA")
                 buffered = BytesIO()
                 img.save(buffered, format="PNG")
-                img_str = base64.b64encode(buffered.getvalue()).decode()
-                logos[company] = img_str
-                print(f"Successfully loaded logo for {company}")
-            else:
-                print(f"Logo file not found: {path}")
-        except Exception as e:
-            print(f"Error loading logo for {company}: {e}")
-    
+                logos[company] = base64.b64encode(buffered.getvalue()).decode()
+        except Exception:
+            continue
     return logos
+
+
+def _render_company_card(company, company_logos, stock_processor, timeframe, button_prefix="company"):
+    try:
+        stock_data = stock_processor.get_company_data(company, timeframe)
+        if not stock_data or "quote" not in stock_data:
+            return False
+
+        quote = stock_data["quote"]
+        history = stock_data.get("history")
+        price = quote.get("price", 0)
+        change = quote.get("change", 0)
+        change_percent = quote.get("change_percent", 0)
+        if history is not None and not history.empty:
+            history_close = history["Close"].dropna()
+            if not history_close.empty:
+                price = float(history_close.iloc[-1])
+                first_price = float(history_close.iloc[0])
+                change = price - first_price
+                change_percent = (change / first_price * 100) if first_price else 0
+
+        sparkline_svg = ""
+        if history is not None and not history.empty:
+            spark_color = "#16A34A" if change >= 0 else "#EF4444"
+            sparkline_svg = _build_sparkline_svg(history["Close"], color=spark_color)
+        sparkline_html = (
+            f"<div class='company-sparkline'>{sparkline_svg}</div>"
+            if sparkline_svg
+            else ""
+        )
+        card_classes = "company-card indicator-card" if _is_market_indicator(company) else "company-card"
+        logo_b64 = company_logos.get(company, "")
+        logo_html = (
+            f"<img src='data:image/png;base64,{logo_b64}' class='company-logo'>"
+            if logo_b64
+            else "<div class='company-logo'></div>"
+        )
+
+        with st.container():
+            st.markdown(
+                f"""
+                <div class="{card_classes}" onclick="handleCompanyClick('{company}')">
+                    <div class="company-card-content">
+                        <div class="company-card-left">
+                            {logo_html}
+                            <div class="company-card-details">
+                                <div class="company-card-name">{company}</div>
+                                <div class="company-card-price">${price:.2f}</div>
+                                <div class="company-card-change {'price-up' if change >= 0 else 'price-down'}">
+                                    Last 3 Months {'+' if change_percent >= 0 else ''}{change_percent:.2f}%
+                                </div>
+                            </div>
+                        </div>
+                        {sparkline_html}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if st.button(
+                f"View {company}",
+                key=f"{button_prefix}_{_normalize_company_key(company)}",
+                help=f"View detailed data for {company}",
+            ):
+                st.session_state.selected_company = company
+                st.session_state.selected_timeframe = timeframe
+                st.rerun()
+        return True
+    except Exception as e:
+        st.error(f"Error loading data for {company}: {str(e)}")
+        return False
+
+
+def _render_company_grid(companies, company_logos, stock_processor, timeframe, button_prefix, center_last_single=False):
+    for start in range(0, len(companies), 3):
+        row = companies[start:start + 3]
+        if len(row) == 1 and center_last_single:
+            _, middle, _ = st.columns([0.35, 1, 0.35])
+            row_cols = [middle]
+        elif len(row) == 2 and center_last_single:
+            _, left, right, _ = st.columns([0.15, 1, 1, 0.15])
+            row_cols = [left, right]
+        else:
+            row_cols = st.columns(3)
+        for col, company in zip(row_cols, row):
+            with col:
+                _render_company_card(
+                    company,
+                    company_logos,
+                    stock_processor,
+                    timeframe,
+                    button_prefix=button_prefix,
+                )
 
 
 def render_all_company_stocks_section():
     st.header("All Company Stocks")
 
     stock_processor = st.session_state.stock_processor
-    companies_all = (
+    companies_all_raw = (
         stock_processor.get_companies()
         if hasattr(stock_processor, "get_companies")
         else st.session_state["data_processor"].get_companies()
     )
-    companies_all = [c for c in companies_all if isinstance(c, str) and c.strip()]
-    companies_all = sorted(dict.fromkeys(companies_all), key=lambda s: s.lower())
+    companies_main, companies_indicators = _split_company_groups(companies_all_raw)
+    companies_all = companies_main + companies_indicators
 
     controls = st.columns([1.2, 1.2, 2.6])
     with controls[0]:
@@ -341,6 +508,8 @@ def render_all_company_stocks_section():
         )
     with controls[2]:
         default_selection = st.session_state.get("all_stocks_companies")
+        if default_selection:
+            default_selection = [name for name in default_selection if name in companies_all]
         if not default_selection:
             default_selection = companies_all
         selected_companies = st.multiselect(
@@ -494,6 +663,10 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         transform: translateY(-2px);
     }
+    .indicator-card {
+        border-color: #d7e3ff;
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
+    }
     .price-up {
         color: green;
     }
@@ -538,15 +711,12 @@ with tab1:
         if hasattr(stock_processor, "get_companies")
         else []
     )
-    companies = sorted(
-        {
-            str(name).strip()
-            for name in list(base_companies or []) + list(live_companies or [])
-            if isinstance(name, str) and name.strip()
-        },
-        key=lambda s: s.lower(),
+    companies_main, companies_indicators = _split_company_groups(
+        list(base_companies or []) + list(live_companies or [])
     )
     company_logos = load_company_logos()
+    if _is_excluded_stock(st.session_state.get("selected_company", "")):
+        del st.session_state.selected_company
     
     # Company selector
     if 'selected_company' not in st.session_state:
@@ -555,79 +725,36 @@ with tab1:
         
         # Default timeframe for overview cards
         timeframe = "3M"
-        
-        # Create a grid of company cards
-        cols = st.columns(3)
-        
-        for i, company in enumerate(companies):
-            # Load stock data for each company
-            with cols[i % 3]:
-                try:
-                    # Get stock data
-                    stock_data = stock_processor.get_company_data(company, timeframe)
-                    
-                    if stock_data and 'quote' in stock_data:
-                        quote = stock_data['quote']
-                        history = stock_data.get('history')
-                        price = quote.get('price', 0)
-                        change = quote.get('change', 0)
-                        change_percent = quote.get('change_percent', 0)
-                        if history is not None and not history.empty:
-                            history_close = history["Close"].dropna()
-                            if not history_close.empty:
-                                price = float(history_close.iloc[-1])
-                                first_price = float(history_close.iloc[0])
-                                change = price - first_price
-                                change_percent = (change / first_price * 100) if first_price else 0
-                        sparkline_svg = ""
-                        if history is not None and not history.empty:
-                            spark_color = "#16A34A" if change >= 0 else "#EF4444"
-                            sparkline_svg = _build_sparkline_svg(
-                                history["Close"], color=spark_color
-                            )
-                        sparkline_html = (
-                            f"<div class='company-sparkline'>{sparkline_svg}</div>"
-                            if sparkline_svg
-                            else ""
-                        )
-                        
-                        # Create clickable card
-                        with st.container():
-                            st.markdown(f"""
-                            <div class="company-card" onclick="handleCompanyClick('{company}')">
-                                <div class="company-card-content">
-                                    <div class="company-card-left">
-                                        <img src="data:image/png;base64,{company_logos.get(company, '')}" class="company-logo">
-                                        <div class="company-card-details">
-                                            <div class="company-card-name">{company}</div>
-                                            <div class="company-card-price">${price:.2f}</div>
-                                            <div class="company-card-change {'price-up' if change >= 0 else 'price-down'}">
-                                                Last 3 Months {'+' if change_percent >= 0 else ''}{change_percent:.2f}%
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {sparkline_html}
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Hidden button to handle the click
-                            if st.button(f"View {company}", key=f"btn_{company}", help=f"View detailed data for {company}"):
-                                st.session_state.selected_company = company
-                                st.session_state.selected_timeframe = timeframe
-                                st.rerun()
-                except Exception as e:
-                    st.error(f"Error loading data for {company}: {str(e)}")
+
+        _render_company_grid(
+            companies_main,
+            company_logos,
+            stock_processor,
+            timeframe,
+            button_prefix="company",
+        )
+
+        if companies_indicators:
+            st.markdown("<div style='height: 2.2rem;'></div>", unsafe_allow_html=True)
+            st.subheader("Main Indicators")
+            st.caption("Core market signals are separated from the main company wall for easier scanning.")
+            _render_company_grid(
+                companies_indicators,
+                company_logos,
+                stock_processor,
+                timeframe,
+                button_prefix="indicator",
+                center_last_single=True,
+            )
         
         # Add JavaScript for handling card clicks
         st.markdown("""
         <script>
         function handleCompanyClick(company) {
             // Find and click the corresponding button
-            const btnId = 'btn_' + company;
             const buttons = document.querySelectorAll('button');
             for (const button of buttons) {
-                if (button.innerText.includes(company)) {
+                if (button.innerText.trim() === `View ${company}`) {
                     button.click();
                     break;
                 }
