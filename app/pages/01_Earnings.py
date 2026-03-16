@@ -3144,6 +3144,19 @@ def main():
         st.error("No company data available.")
         st.stop()
 
+    # Pre-filter from Genie thought map navigation
+    if st.session_state.get("genie_nav_target") == "earnings":
+        _nav_co = st.session_state.pop("genie_nav_company", "")
+        _nav_yr = st.session_state.pop("genie_nav_year", None)
+        _nav_q = st.session_state.pop("genie_nav_quarter", "")
+        st.session_state.pop("genie_nav_target", None)
+        if _nav_co:
+            st.session_state["earnings_preselect_company"] = _nav_co
+        if _nav_yr:
+            st.session_state["earnings_preselect_year"] = int(_nav_yr)
+        if _nav_q:
+            st.session_state["earnings_preselect_quarter"] = _nav_q
+
     query_params = st.query_params if hasattr(st, "query_params") else st.experimental_get_query_params()
     query_company = None
     if query_params:
@@ -3153,16 +3166,19 @@ def main():
     if not query_company:
         query_company = st.session_state.get("prefill_company")
 
-    default_index = 0
-    if query_company:
+    _preselect_co = st.session_state.pop("earnings_preselect_company", None)
+    _default_co_idx = 0
+    if _preselect_co and _preselect_co in companies:
+        _default_co_idx = companies.index(_preselect_co)
+    elif query_company:
         for idx, name in enumerate(companies):
             if name.lower() == str(query_company).lower():
-                default_index = idx
+                _default_co_idx = idx
                 break
 
     year_col, quarter_col, company_col = st.columns([1, 1, 2])
     with company_col:
-        company = st.selectbox("Select Company", companies, index=default_index)
+        company = st.selectbox("Select Company", companies, index=_default_co_idx)
 
     years = _resolve_company_years(data_processor, company)
     if not years:
@@ -3170,17 +3186,26 @@ def main():
         st.stop()
     years = sorted(years)
 
+    _preselect_yr = st.session_state.pop("earnings_preselect_year", None)
+    _default_yr_idx = len(years) - 1
+    if _preselect_yr and int(_preselect_yr) in years:
+        _default_yr_idx = years.index(int(_preselect_yr))
+
     with year_col:
-        year = st.selectbox("Select Year", years, index=len(years) - 1)
+        year = st.selectbox("Select Year", years, index=_default_yr_idx)
 
     quarterly_kpis_df = _load_quarterly_kpis(data_processor.data_path, get_file_mtime(data_processor.data_path))
     available_q = _get_available_quarters_for_earnings(year, company, quarterly_kpis_df)
     quarter_options = ["Annual"] + [f"Q{q}" for q in available_q]
+    _preselect_q = st.session_state.pop("earnings_preselect_quarter", None)
+    _default_q_idx = 0
+    if _preselect_q and _preselect_q in quarter_options:
+        _default_q_idx = quarter_options.index(_preselect_q)
     with quarter_col:
         selected_quarter = st.selectbox(
             "Quarter",
             quarter_options,
-            index=0,
+            index=_default_q_idx,
             key="earnings_selected_quarter",
         )
 

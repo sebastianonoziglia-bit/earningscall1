@@ -964,6 +964,16 @@ components.html(
 # Now that page config is set, we can initialize session state
 initialize_session_state()
 
+# Pre-filter from Genie thought map navigation
+if st.session_state.get("genie_nav_target") == "overview":
+    _nav_cos = st.session_state.pop("genie_nav_companies", [])
+    _nav_yr = st.session_state.pop("genie_nav_year", None)
+    st.session_state.pop("genie_nav_target", None)
+    if _nav_cos:
+        st.session_state["overview_preselect_companies"] = _nav_cos
+    if _nav_yr:
+        st.session_state["overview_preselect_year"] = int(_nav_yr)
+
 # Define company colors
 COMPANY_COLORS = {
     "Alphabet": ["#4285F4", "#DB4437", "#F4B400", "#0F9D58"],

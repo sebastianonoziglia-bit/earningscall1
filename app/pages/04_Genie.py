@@ -263,6 +263,43 @@ _GENIE_COMPANY_TICKERS = {
 }
 
 
+COMPANY_BRAND_COLORS = {
+    "alphabet": "#4285F4",
+    "google": "#4285F4",
+    "amazon": "#FF9900",
+    "apple": "#555555",
+    "meta": "#0866FF",
+    "meta platforms": "#0866FF",
+    "facebook": "#0866FF",
+    "instagram": "#C13584",
+    "whatsapp": "#25D366",
+    "microsoft": "#00A4EF",
+    "netflix": "#E50914",
+    "disney": "#113CCF",
+    "comcast": "#C01F33",
+    "spotify": "#1DB954",
+    "roku": "#6C2DC7",
+    "warner bros": "#003087",
+    "warner bros. discovery": "#003087",
+    "paramount": "#0064FF",
+    "snap": "#FFFC00",
+    "snapchat": "#FFFC00",
+    "pinterest": "#E60023",
+    "nvidia": "#76B900",
+}
+
+TOPIC_NODE_COLORS = {
+    "forward_signal": "#F87171",
+    "macro": "#FBBF24",
+    "comparison": "#A78BFA",
+    "data": "#60A5FA",
+    "risk": "#EF4444",
+    "segment": "#34D399",
+    "transcript": "#FB923C",
+    "default": "#94A3B8",
+}
+
+
 def _company_to_ticker(company: str) -> str:
     return _GENIE_COMPANY_TICKERS.get(str(company).strip(), "")
 
@@ -2829,6 +2866,80 @@ def _store_last_genie_response(response_text: str, message_index: int) -> None:
     st.session_state["last_genie_context_quarter"] = st.session_state.get("genie_context_quarter", "")
 
 
+def _extract_node_intent(response_text: str, user_question: str = "") -> dict:
+    """
+    Parse a Genie response to extract intent metadata for thought map nodes.
+    Returns dict with: companies, years, quarters, metrics, node_type, topic_color
+    """
+    ALL_COMPANIES = [
+        "alphabet", "google", "amazon", "apple", "meta", "meta platforms",
+        "microsoft", "netflix", "disney", "comcast", "spotify", "roku",
+        "warner bros", "paramount", "snap", "snapchat", "pinterest", "nvidia",
+        "instagram", "whatsapp", "facebook",
+    ]
+    combined = (response_text + " " + user_question).lower()
+
+    found_companies = []
+    for co in ALL_COMPANIES:
+        if co in combined:
+            canonical = {
+                "google": "Alphabet", "alphabet": "Alphabet",
+                "meta platforms": "Meta Platforms", "meta": "Meta Platforms",
+                "facebook": "Meta Platforms", "instagram": "Meta Platforms",
+                "whatsapp": "Meta Platforms",
+                "warner bros": "Warner Bros. Discovery",
+                "snapchat": "Snap",
+            }.get(co, co.title())
+            if canonical not in found_companies:
+                found_companies.append(canonical)
+
+    years = list(set(int(m) for m in re.findall(r'\b(20[1-2][0-9])\b', combined)))
+    quarters = list(set(m.upper() for m in re.findall(r'\b(q[1-4])\b', combined)))
+
+    metric_keywords = {
+        "revenue": "Revenue", "ad revenue": "Ad Revenue",
+        "margin": "Margin", "subscribers": "Subscribers",
+        "operating income": "Operating Income", "cloud": "Cloud",
+        "eps": "EPS", "market cap": "Market Cap",
+    }
+    found_metrics = [v for k, v in metric_keywords.items() if k in combined]
+
+    forward_triggers = ["expect", "anticipate", "guidance", "outlook", "heading into",
+                        "next quarter", "going forward", "we believe", "positioned"]
+    macro_triggers = ["m2", "inflation", "fed", "interest rate", "recession",
+                      "liquidity", "money supply", "macro"]
+    comparison_triggers = ["vs", "versus", "compare", "compared", "relative to",
+                           "outperform", "underperform", "better than", "worse than"]
+    risk_triggers = ["risk", "concern", "headwind", "decline", "miss", "disappoint",
+                     "challenge", "warning", "caution"]
+    transcript_triggers = ["said", "stated", "noted", "mentioned", "transcript",
+                           "earnings call", "management", "ceo", "cfo"]
+
+    if any(t in combined for t in forward_triggers):
+        node_type = "forward_signal"
+    elif any(t in combined for t in macro_triggers):
+        node_type = "macro"
+    elif any(t in combined for t in comparison_triggers):
+        node_type = "comparison"
+    elif any(t in combined for t in risk_triggers):
+        node_type = "risk"
+    elif any(t in combined for t in transcript_triggers):
+        node_type = "transcript"
+    elif found_metrics:
+        node_type = "data"
+    else:
+        node_type = "default"
+
+    return {
+        "companies": found_companies[:3],
+        "years": sorted(years, reverse=True)[:2],
+        "quarters": quarters[:2],
+        "metrics": found_metrics[:3],
+        "node_type": node_type,
+        "primary_company": found_companies[0] if found_companies else "",
+    }
+
+
 # ── GENIE CHAT + THOUGHT MAP SECTION ────────────────────────────────────────
 st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
 render_enhanced_chat_interface(dashboard_state=dashboard_state, on_new_response=_store_last_genie_response)
@@ -2862,83 +2973,259 @@ if st.session_state.get("last_genie_response"):
         is_dark_mode = str(get_theme_mode()).strip().lower() == "dark"
         local_plotly_template = "plotly_dark" if is_dark_mode else "plotly_white"
 
-        with st.expander("Show thought map", expanded=False):
+        with st.expander("💭 Thought map", expanded=True):
             response_text = str(st.session_state.get("last_genie_response", "") or "")
-            has_reasoning_tags = bool(
-                re.search(
-                    r"\[(STEP\s*\d+|BRANCH\s*[A-Z0-9]+|CONCLUSION|OBSERVATION|INFERENCE|ANALYSIS|RISK)\]",
-                    response_text,
-                    flags=re.IGNORECASE,
+            last_user_q = ""
+            _hist = st.session_state.get("genie_history", [])
+            if _hist:
+                for _msg in reversed(_hist):
+                    if _msg.get("role") == "user":
+                        last_user_q = str(_msg.get("content", ""))
+                        break
+
+            intent = _extract_node_intent(response_text, last_user_q)
+            primary_co = intent.get("primary_company", "")
+            primary_co_lower = primary_co.lower()
+            node_type = intent.get("node_type", "default")
+
+            company_color = COMPANY_BRAND_COLORS.get(primary_co_lower, "")
+            topic_color = TOPIC_NODE_COLORS.get(node_type, TOPIC_NODE_COLORS["default"])
+            node_color = company_color if company_color else topic_color
+
+            # Get logo - use the logos dict if available, else empty
+            node_logo_b64 = ""
+            try:
+                _logos_dict = st.session_state.get("_cached_logos") or {}
+                if not _logos_dict:
+                    from utils.logos import load_company_logos
+                    _logos_dict = load_company_logos()
+                    st.session_state["_cached_logos"] = _logos_dict
+                # Try multiple name variants
+                for _try_name in [primary_co, primary_co_lower, primary_co.split()[0] if primary_co else ""]:
+                    if _try_name in _logos_dict:
+                        node_logo_b64 = _logos_dict[_try_name]
+                        break
+                    for k in _logos_dict:
+                        if _try_name and k.lower() == _try_name.lower():
+                            node_logo_b64 = _logos_dict[k]
+                            break
+                    if node_logo_b64:
+                        break
+            except Exception:
+                node_logo_b64 = ""
+
+            if node_logo_b64:
+                _logo_html = (
+                    f"<img src='data:image/png;base64,{node_logo_b64}' "
+                    f"style='width:28px;height:28px;border-radius:50%;object-fit:contain;"
+                    f"background:white;padding:2px;margin-right:8px;vertical-align:middle;flex-shrink:0;'/>"
                 )
-            )
-            tm = st.session_state.get("thought_map", {})
-            all_nodes = tm.get("nodes", {}) if isinstance(tm, dict) else {}
-            all_edges = tm.get("edges", []) if isinstance(tm, dict) else []
-            last_src_idx = st.session_state.get("last_genie_response_index")
-
-            filtered_nodes = []
-            if isinstance(all_nodes, dict):
-                for node in all_nodes.values():
-                    if last_src_idx is None or node.get("source_message_index") == last_src_idx:
-                        filtered_nodes.append(node)
-
-            if not has_reasoning_tags or not filtered_nodes:
-                st.info("No thought map available for this response.")
             else:
-                n = len(filtered_nodes)
-                if n == 1:
-                    x_coords = [0.0]
-                    y_coords = [0.0]
-                else:
-                    step = (2 * math.pi) / n
-                    x_coords = [math.cos(i * step) for i in range(n)]
-                    y_coords = [math.sin(i * step) for i in range(n)]
-
-                node_ids = [str(node.get("id", "")) for node in filtered_nodes]
-                node_labels = [str(node.get("label", "Node")) for node in filtered_nodes]
-                position_map = {node_id: (x_coords[idx], y_coords[idx]) for idx, node_id in enumerate(node_ids)}
-                node_id_set = set(node_ids)
-
-                edge_x = []
-                edge_y = []
-                for edge in all_edges if isinstance(all_edges, list) else []:
-                    src = str(edge.get("from", ""))
-                    dst = str(edge.get("to", ""))
-                    if src in node_id_set and dst in node_id_set and src in position_map and dst in position_map:
-                        x0, y0 = position_map[src]
-                        x1, y1 = position_map[dst]
-                        edge_x.extend([x0, x1, None])
-                        edge_y.extend([y0, y1, None])
-
-                edge_trace = go.Scatter(
-                    x=edge_x,
-                    y=edge_y,
-                    mode="lines",
-                    line=dict(width=1.6, color="rgba(100,116,139,0.55)"),
-                    hoverinfo="skip",
-                    name="Edges",
-                )
-                node_trace = go.Scatter(
-                    x=x_coords,
-                    y=y_coords,
-                    mode="markers+text",
-                    text=node_labels,
-                    textposition="top center",
-                    marker=dict(size=18, color="#2563EB", line=dict(width=1.5, color="#E2E8F0")),
-                    hovertemplate="%{text}<extra></extra>",
-                    name="Nodes",
+                _initial = primary_co[0].upper() if primary_co else "?"
+                _logo_html = (
+                    f"<span style='width:28px;height:28px;border-radius:50%;"
+                    f"background:{node_color};color:white;display:inline-flex;"
+                    f"align-items:center;justify-content:center;font-weight:700;"
+                    f"font-size:13px;margin-right:8px;vertical-align:middle;"
+                    f"flex-shrink:0;'>{_initial}</span>"
                 )
 
-                thought_fig = go.Figure(data=[edge_trace, node_trace])
-                thought_fig.update_layout(
-                    template=local_plotly_template,
-                    margin=dict(l=20, r=20, t=24, b=20),
-                    xaxis=dict(visible=False),
-                    yaxis=dict(visible=False),
-                    showlegend=False,
-                    height=360,
+            _type_labels = {
+                "forward_signal": "📈 Outlook", "macro": "🌐 Macro",
+                "comparison": "⚖️ Comparison", "data": "📊 Data",
+                "risk": "⚠️ Risk", "segment": "🔍 Segment",
+                "transcript": "🎙️ Transcript", "default": "💬 Analysis",
+            }
+            _type_badge = _type_labels.get(node_type, "💬 Analysis")
+
+            _cos = intent.get("companies", [])
+            _years = intent.get("years", [])
+            _quarters = intent.get("quarters", [])
+            _metrics = intent.get("metrics", [])
+
+            _period_str = " · ".join([str(y) for y in _years] + _quarters)
+
+            st.markdown(
+                f"""<div style='border:1.5px solid {node_color}40;border-radius:12px;
+padding:14px 16px;background:{node_color}0d;margin-bottom:12px;'>
+<div style='display:flex;align-items:center;margin-bottom:8px;'>
+{_logo_html}
+<div><span style='font-weight:700;color:{node_color};font-size:14px;'>
+{primary_co if primary_co else "General Analysis"}</span>
+<span style='margin-left:8px;background:{node_color}20;color:{node_color};
+padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;'>
+{_type_badge}</span></div></div>
+{f'<div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Companies: <strong>{", ".join(_cos)}</strong></div>' if _cos else ''}
+{f'<div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Period: <strong>{_period_str}</strong></div>' if _period_str else ''}
+{f'<div style="font-size:12px;color:#6b7280;">Metrics: <strong>{", ".join(_metrics)}</strong></div>' if _metrics else ''}
+</div>""",
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                "<div style='font-size:11px;color:#9ca3af;text-transform:uppercase;"
+                "letter-spacing:.06em;margin-bottom:6px;'>Actions</div>",
+                unsafe_allow_html=True
+            )
+
+            _primary_year = _years[0] if _years else (
+                st.session_state.get("genie_context_year") or 2024
+            )
+            _primary_quarter = _quarters[0] if _quarters else (
+                st.session_state.get("genie_context_quarter") or ""
+            )
+            _primary_co_for_nav = _cos[0] if _cos else primary_co
+            _resp_key = str(hash(response_text[:40]))
+
+            _action_cols = st.columns(2)
+
+            with _action_cols[0]:
+                if _primary_co_for_nav and st.button(
+                    f"📊 Open {_primary_co_for_nav[:18]} in Earnings",
+                    key=f"tm_action_earnings_{_resp_key}",
+                    use_container_width=True,
+                    help=f"Open Earnings page pre-filtered to {_primary_co_for_nav} · {_primary_year}"
+                ):
+                    st.session_state["genie_nav_company"] = _primary_co_for_nav
+                    st.session_state["genie_nav_year"] = int(_primary_year)
+                    st.session_state["genie_nav_quarter"] = _primary_quarter
+                    st.session_state["genie_nav_target"] = "earnings"
+                    try:
+                        st.switch_page("pages/01_Earnings.py")
+                    except Exception:
+                        st.session_state["_redirect"] = "pages/01_Earnings.py"
+
+            with _action_cols[1]:
+                if len(_cos) >= 2 and st.button(
+                    f"⚖️ Compare {_cos[0][:10]} vs {_cos[1][:10]}",
+                    key=f"tm_action_compare_{_resp_key}",
+                    use_container_width=True,
+                ):
+                    st.session_state["genie_nav_companies"] = _cos[:2]
+                    st.session_state["genie_nav_year"] = int(_primary_year)
+                    st.session_state["genie_nav_target"] = "overview"
+                    try:
+                        st.switch_page("pages/00_Overview.py")
+                    except Exception:
+                        st.session_state["_redirect"] = "pages/00_Overview.py"
+                elif len(_cos) < 2 and _primary_co_for_nav and st.button(
+                    "🌐 Open in Overview",
+                    key=f"tm_action_overview_{_resp_key}",
+                    use_container_width=True,
+                ):
+                    st.session_state["genie_nav_company"] = _primary_co_for_nav
+                    st.session_state["genie_nav_target"] = "overview"
+                    try:
+                        st.switch_page("pages/00_Overview.py")
+                    except Exception:
+                        st.session_state["_redirect"] = "pages/00_Overview.py"
+
+            _action_cols2 = st.columns(2)
+
+            with _action_cols2[0]:
+                _follow_up = ""
+                if node_type == "forward_signal" and _primary_co_for_nav:
+                    _follow_up = f"What specific guidance did {_primary_co_for_nav} give for next quarter and what are the risks to that outlook?"
+                elif node_type == "comparison" and len(_cos) >= 2:
+                    _follow_up = f"Which of {_cos[0]} or {_cos[1]} has better margin expansion potential over the next 2 years?"
+                elif node_type == "macro":
+                    _follow_up = "How do current M2 and Fed rate conditions historically correlate with ad market performance?"
+                elif node_type == "transcript" and _primary_co_for_nav:
+                    _follow_up = f"What were the 3 most important things {_primary_co_for_nav} management said on the earnings call?"
+                elif _primary_co_for_nav:
+                    _follow_up = f"What is the biggest strategic risk for {_primary_co_for_nav} in the next 12 months?"
+
+                if _follow_up and st.button(
+                    "🔍 Dig deeper",
+                    key=f"tm_action_followup_{_resp_key}",
+                    use_container_width=True,
+                    help=_follow_up[:100]
+                ):
+                    st.session_state.setdefault("genie_history", []).append(
+                        {"role": "user", "content": _follow_up}
+                    )
+                    st.rerun()
+
+            with _action_cols2[1]:
+                if _primary_co_for_nav and st.button(
+                    "📺 Mediaset angle",
+                    key=f"tm_action_mediaset_{_resp_key}",
+                    use_container_width=True,
+                    help=f"How should Mediaset think about {_primary_co_for_nav}?"
+                ):
+                    _mediaset_q = (
+                        f"As a European free-to-air broadcaster, how should Mediaset "
+                        f"strategically respond to {_primary_co_for_nav}'s recent performance "
+                        f"and stated direction? What's the threat and the opportunity?"
+                    )
+                    st.session_state.setdefault("genie_history", []).append(
+                        {"role": "user", "content": _mediaset_q}
+                    )
+                    st.rerun()
+
+            # Pattern detection
+            _hist_companies = []
+            for _msg in st.session_state.get("genie_history", []):
+                if _msg.get("role") == "user":
+                    _msg_intent = _extract_node_intent(_msg.get("content", ""))
+                    _hist_companies.extend(_msg_intent.get("companies", []))
+
+            _co_counts = {}
+            for _c in _hist_companies:
+                _co_counts[_c] = _co_counts.get(_c, 0) + 1
+
+            _streaming_cos = {"Netflix", "Disney", "Paramount", "Warner Bros. Discovery",
+                              "Comcast", "Roku", "Spotify"}
+            _adtech_cos = {"Alphabet", "Meta Platforms", "Amazon", "Snap", "Pinterest"}
+            _session_cos = set(_co_counts.keys())
+            _streaming_overlap = _session_cos & _streaming_cos
+            _adtech_overlap = _session_cos & _adtech_cos
+
+            if len(_streaming_overlap) >= 2:
+                st.markdown(
+                    f"<div style='margin-top:10px;padding:10px 14px;background:#f0fdf4;"
+                    f"border:1px solid #86efac;border-radius:8px;font-size:12px;color:#15803d;'>"
+                    f"🎯 <strong>Pattern detected:</strong> You've been exploring streaming companies "
+                    f"({', '.join(list(_streaming_overlap)[:3])})</div>",
+                    unsafe_allow_html=True
                 )
-                st.plotly_chart(thought_fig, use_container_width=True)
+                if st.button(
+                    "⚖️ Compare streaming margins side by side",
+                    key=f"tm_pattern_streaming_{hash(str(sorted(_streaming_overlap)))}",
+                    use_container_width=True
+                ):
+                    _q = (
+                        f"Compare the streaming segment operating margins and subscriber growth "
+                        f"for {', '.join(list(_streaming_overlap)[:4])} — who is closest to "
+                        f"sustainable profitability and why?"
+                    )
+                    st.session_state.setdefault("genie_history", []).append(
+                        {"role": "user", "content": _q}
+                    )
+                    st.rerun()
+
+            if len(_adtech_overlap) >= 2:
+                st.markdown(
+                    f"<div style='margin-top:10px;padding:10px 14px;background:#eff6ff;"
+                    f"border:1px solid #93c5fd;border-radius:8px;font-size:12px;color:#1d4ed8;'>"
+                    f"🎯 <strong>Pattern detected:</strong> You've been exploring ad platforms "
+                    f"({', '.join(list(_adtech_overlap)[:3])})</div>",
+                    unsafe_allow_html=True
+                )
+                if st.button(
+                    "📊 Compare ad revenue growth rates",
+                    key=f"tm_pattern_adtech_{hash(str(sorted(_adtech_overlap)))}",
+                    use_container_width=True
+                ):
+                    _q = (
+                        f"Compare advertising revenue growth rates for "
+                        f"{', '.join(list(_adtech_overlap)[:4])} — which platform "
+                        f"is gaining share and which is losing it?"
+                    )
+                    st.session_state.setdefault("genie_history", []).append(
+                        {"role": "user", "content": _q}
+                    )
+                    st.rerun()
 
         topic_breakdown_df = pd.DataFrame(columns=["topic", "total"])
         with st.expander("Topic breakdown", expanded=False):
