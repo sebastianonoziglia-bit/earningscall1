@@ -80,7 +80,6 @@ class StockDataProcessor:
             "Bitcoin": ["BTC-USD", "BTC", "BITCOIN"],
             "S&P 500": ["^GSPC", "S&P500", "S&P 500", "SP500"],
             "Nasdaq": ["^IXIC", "NASDAQ"],
-            "Gold": ["GLD", "GOLD"],
             "Nvidia": ["NVDA", "NVIDIA"],
             "NVIDIA": ["NVDA", "NVIDIA"],
             "TTD": ["TTD", "THE TRADE DESK"],
@@ -229,7 +228,6 @@ class StockDataProcessor:
             "IAS",
             "SNAP",
             "PINS",
-            "Gold",
         ]
         merged = seed + discovered
         return sorted(

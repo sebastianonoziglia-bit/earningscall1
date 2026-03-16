@@ -98,8 +98,8 @@ COMPANY_COLORS = {
 }
 
 ASSET_DIR = Path(__file__).resolve().parents[1] / "attached_assets"
-EXCLUDED_STOCK_KEYS = {"m2", "mstr", "microstrategy", "app", "applovin"}
-MARKET_INDICATOR_ORDER = ["Nasdaq", "Bitcoin", "S&P 500", "Gold"]
+EXCLUDED_STOCK_KEYS = {"m2", "mstr", "microstrategy", "app", "applovin", "gold", "gld"}
+MARKET_INDICATOR_ORDER = ["Nasdaq", "Bitcoin", "S&P 500"]
 MARKET_INDICATOR_KEYS = {
     re.sub(r"[^a-z0-9]+", "", label.lower()): index
     for index, label in enumerate(MARKET_INDICATOR_ORDER)
