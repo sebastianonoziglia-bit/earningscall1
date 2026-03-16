@@ -2552,6 +2552,50 @@ try:
                     lonaxis_showgrid=False,
                 )
                 st.plotly_chart(map_fig, use_container_width=True)
+                st.components.v1.html("""
+<script>
+(function() {
+    function tryRotate() {
+        const plots = window.parent.document.querySelectorAll('.js-plotly-plot');
+        let globePlot = null;
+        for (const p of plots) {
+            const layout = p._fullLayout;
+            if (layout && layout.geo && layout.geo.projection &&
+                layout.geo.projection.type === 'orthographic') {
+                globePlot = p;
+                break;
+            }
+        }
+        if (!globePlot) { setTimeout(tryRotate, 500); return; }
+
+        let lon = 0;
+        let spinning = true;
+        let animId = null;
+
+        function step() {
+            if (!spinning) return;
+            lon = (lon + 0.3) % 360;
+            Plotly.relayout(globePlot, {
+                'geo.projection.rotation.lon': lon
+            });
+            animId = requestAnimationFrame(step);
+        }
+
+        globePlot.addEventListener('mouseenter', () => {
+            spinning = false;
+            if (animId) cancelAnimationFrame(animId);
+        });
+        globePlot.addEventListener('mouseleave', () => {
+            spinning = true;
+            step();
+        });
+
+        step();
+    }
+    setTimeout(tryRotate, 1500);
+})();
+</script>
+""", height=0)
 except Exception:
     st.info("Global map unavailable.")
 st.caption("Map shows advertising spend by country as a % of GDP. Darker = higher ad market intensity.")
@@ -2581,7 +2625,7 @@ def _build_ss_html(ss_data_json: str) -> str:
 .wm-ss-leg-dot{{width:10px;height:10px;border-radius:3px;flex-shrink:0;}}
 </style>
 <div class="wm-ss-label">THE STRUCTURAL SHIFT</div>
-<div class="wm-ss-headline">Television had the world's attention.<br>Then the internet took it.</div>
+<div class="wm-ss-headline">Television had the world's total attention.<br>Then new players came to compete.</div>
 <div class="wm-ss-body">Global advertising by channel. Watch where the money moved.</div>
 <div class="wm-ss-main">
   <div class="wm-ss-left"><canvas id="wm-ss-canvas" width="280" height="280"></canvas></div>
@@ -2810,6 +2854,36 @@ setTimeout(function(){ countUp(document.getElementById('wa-attn-counter'), ytHou
 </body></html>"""
     )
 
+def _build_numeric_iso_map() -> dict:
+    """Maps D3/TopoJSON numeric country IDs to ISO 3166-1 alpha-3 codes for platform globe."""
+    return {
+        "356": "IND", "360": "IDN", "076": "BRA", "566": "NGA", "050": "BGD",
+        "586": "PAK", "231": "ETH", "180": "COD", "834": "TZA", "404": "KEN",
+        "288": "GHA", "800": "UGA", "508": "MOZ", "450": "MDG", "120": "CMR",
+        "384": "CIV", "024": "AGO", "894": "ZMB", "716": "ZWE", "646": "RWA",
+        "608": "PHL", "704": "VNM", "764": "THA", "104": "MMR", "116": "KHM",
+        "418": "LAO", "524": "NPL", "144": "LKA", "484": "MEX", "170": "COL",
+        "032": "ARG", "604": "PER", "152": "CHL", "862": "VEN", "218": "ECU",
+        "068": "BOL", "320": "GTM", "340": "HND", "222": "SLV", "558": "NIC",
+        "188": "CRI", "591": "PAN", "214": "DOM", "192": "CUB", "840": "USA",
+        "826": "GBR", "276": "DEU", "250": "FRA", "380": "ITA", "724": "ESP",
+        "792": "TUR", "364": "IRN", "682": "SAU", "784": "ARE", "818": "EGY",
+        "504": "MAR", "012": "DZA", "788": "TUN", "434": "LBY", "729": "SDN",
+        "368": "IRQ", "760": "SYR", "400": "JOR", "422": "LBN", "414": "KWT",
+        "634": "QAT", "048": "BHR", "512": "OMN", "710": "ZAF", "516": "NAM",
+        "072": "BWA", "454": "MWI", "426": "LSO", "748": "SWZ",
+        "528": "NLD", "056": "BEL", "756": "CHE", "040": "AUT", "620": "PRT",
+        "616": "POL", "203": "CZE", "348": "HUN", "703": "SVK", "191": "HRV",
+        "688": "SRB", "100": "BGR", "642": "ROU", "300": "GRC", "752": "SWE",
+        "578": "NOR", "208": "DNK", "246": "FIN", "352": "ISL", "233": "EST",
+        "428": "LVA", "440": "LTU", "124": "CAN", "036": "AUS", "554": "NZL",
+        "372": "IRL", "702": "SGP", "458": "MYS", "344": "HKG", "158": "TWN",
+        "392": "JPN", "410": "KOR", "858": "URY", "600": "PRY",
+        "084": "BLZ", "398": "KAZ", "860": "UZB", "795": "TKM",
+        "762": "TJK", "417": "KGZ", "004": "AFG", "496": "MNG",
+    }
+
+
 def _safe_float(v) -> float:
     import math
     try:
@@ -2911,53 +2985,162 @@ if not _human_companies:
         {"name": "Roku", "val": 89, "mins": 25, "revenue": 3.9, "users": "89M accounts", "color": "#6f1ab1", "label": "89M accounts"},
     ]
 _human_json = json.dumps(_human_companies)
-_human_height = int(min(720, max(320, 160 + len(_human_companies) * 50)))
-st.components.v1.html(
-    f"""
-<div id="wm-human-root">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
-html,body{{margin:0;padding:0;background:#020810;}}
-#wm-human-root{{background:transparent;padding:32px 24px;font-family:'DM Sans',sans-serif;color:#e6edf3;}}
-.wh-label{{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}}
-.wh-headline{{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}}
-.wh-sub{{color:#8b949e;font-size:14px;margin:0 0 32px;}}
-.wh-row{{display:flex;align-items:center;gap:16px;margin-bottom:18px;}}
-.wh-name{{width:110px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#e6edf3;text-align:right;flex-shrink:0;}}
-.wh-track{{flex:1;height:28px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden;position:relative;}}
-.wh-fill{{height:100%;border-radius:4px;width:0%;transition:width 1.4s cubic-bezier(.34,1.1,.64,1);}}
-.wh-val{{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#e6edf3;}}
-.wh-caption{{font-size:12px;color:#8b949e;margin-top:8px;}}
-</style>
-<div class="wh-label">THE HUMAN SIDE</div>
-<div class="wh-headline">Behind every dollar: a human being.</div>
-<div class="wh-sub">Paid subscribers and active users across the tracked universe.</div>
-<div id="wh-rows"></div>
-<div class="wh-caption" id="wh-caption"></div>
-<script>
-const companies={_human_json};
-const maxVal=Math.max(...companies.map(c=>c.val));
-const rows=document.getElementById('wh-rows');
-const total=companies.reduce((s,c)=>s+c.val,0);
-companies.forEach(c=>{{
-  const pct=Math.round((c.val/maxVal)*100);
-  rows.innerHTML+=`<div class="wh-row">
-    <div class="wh-name">${{c.name}}</div>
-    <div class="wh-track"><div class="wh-fill" style="background:${{c.color}}" data-w="${{pct}}"></div><span class="wh-val">${{c.label}}</span></div>
-  </div>`;
-}});
-document.getElementById('wh-caption').textContent=`Combined: ${{(total/1000).toFixed(1)}}B people — nearly half the world's population uses at least one of these platforms daily.`;
-const io=new IntersectionObserver(entries=>{{
-  if(!entries[0].isIntersecting)return;
-  document.querySelectorAll('.wh-fill').forEach(el=>el.style.width=el.dataset.w+'%');
-  io.unobserve(entries[0].target);
-}},{{threshold:0.2}});
-io.observe(rows);
-</script>
-</div>
-""",
-    height=_human_height,
+
+# ── THE HUMAN SIDE — Platform Globe ─────────────────────────────────────────
+PLATFORM_GLOBE_DATA = [
+    {
+        "platform": "YouTube",
+        "subscribers": "2.5B",
+        "color": "#4285F4",
+        "countries": ["IND", "IDN", "BRA", "NGA", "BGD", "PAK", "ETH", "COD",
+                      "TZA", "KEN", "GHA", "UGA", "MOZ", "MDG", "CMR", "CIV",
+                      "AGO", "ZMB", "ZWE", "RWA"],
+    },
+    {
+        "platform": "Facebook",
+        "subscribers": "2.1B",
+        "color": "#0866FF",
+        "countries": ["PHL", "VNM", "THA", "MMR", "KHM", "LAO", "NPL", "LKA",
+                      "MEX", "COL", "ARG", "PER", "CHL", "VEN", "ECU", "BOL",
+                      "GTM", "HND", "SLV", "NIC", "CRI", "PAN", "DOM", "CUB"],
+    },
+    {
+        "platform": "Instagram",
+        "subscribers": "2.0B",
+        "color": "#C13584",
+        "countries": ["USA", "GBR", "DEU", "FRA", "ITA", "ESP", "TUR", "IRN",
+                      "SAU", "ARE", "EGY", "MAR", "DZA", "TUN", "LBY", "SDN",
+                      "IRQ", "SYR", "JOR", "LBN", "KWT", "QAT", "BHR", "OMN"],
+    },
+    {
+        "platform": "WhatsApp",
+        "subscribers": "2.0B",
+        "color": "#25D366",
+        "countries": ["ZAF", "NAM", "BWA", "MWI", "LSO", "SWZ",
+                      "NLD", "BEL", "CHE", "AUT", "PRT", "POL", "CZE",
+                      "HUN", "SVK", "HRV", "SRB", "BGR", "ROU", "GRC"],
+    },
+    {
+        "platform": "Spotify",
+        "subscribers": "600M",
+        "color": "#1DB954",
+        "countries": ["SWE", "NOR", "DNK", "FIN", "ISL", "EST", "LVA", "LTU",
+                      "CAN", "AUS", "NZL", "IRL", "SGP", "MYS", "HKG", "TWN",
+                      "JPN", "KOR", "URY", "PRY"],
+    },
+    {
+        "platform": "Netflix",
+        "subscribers": "301M",
+        "color": "#E50914",
+        "countries": ["BLZ", "GTM", "HND", "SLV", "NIC", "CRI", "PAN"],
+    },
+    {
+        "platform": "Amazon Prime Video",
+        "subscribers": "200M",
+        "color": "#FF9900",
+        "countries": ["KAZ", "UZB", "TKM", "TJK", "KGZ"],
+    },
+    {
+        "platform": "Disney+",
+        "subscribers": "149M",
+        "color": "#113CCF",
+        "countries": ["AFG", "MNG"],
+    },
+    {
+        "platform": "Twitch",
+        "subscribers": "240M",
+        "color": "#9146FF",
+        "countries": [],
+    },
+]
+
+_country_color_map = {}
+_country_platform_map = {}
+_country_subs_map = {}
+for _pgd in PLATFORM_GLOBE_DATA:
+    for _iso in _pgd["countries"]:
+        if _iso not in _country_color_map:
+            _country_color_map[_iso] = _pgd["color"]
+            _country_platform_map[_iso] = _pgd["platform"]
+            _country_subs_map[_iso] = _pgd["subscribers"]
+
+_num_iso_map = _build_numeric_iso_map()
+_legend_html = "".join(
+    f'<div class="legend-item"><div class="legend-dot" style="background:{p["color"]}"></div>'
+    f'<span class="legend-label">{p["platform"]} \u2014 {p["subscribers"]}</span></div>'
+    for p in PLATFORM_GLOBE_DATA if p["countries"]
 )
+_platform_globe_html = (
+    """<!DOCTYPE html><html><head><style>
+html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM Sans',sans-serif;}
+#globe-root{width:100%;height:580px;position:relative;background:#020810;}
+#globe-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.95);border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;border-radius:8px;font-size:13px;pointer-events:none;z-index:100;max-width:220px;}
+#globe-legend{position:absolute;bottom:16px;left:16px;display:flex;flex-direction:column;gap:5px;}
+.legend-item{display:flex;align-items:center;gap:7px;}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.legend-label{font-size:11px;color:#9ca3af;}
+</style></head><body>
+<div id="globe-root">
+<div id="globe-tooltip"></div>
+<div id="globe-legend">"""
+    + _legend_html
+    + """</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+var countryColors="""
+    + json.dumps(_country_color_map)
+    + """;
+var countryPlatform="""
+    + json.dumps(_country_platform_map)
+    + """;
+var countrySubs="""
+    + json.dumps(_country_subs_map)
+    + """;
+var num2alpha="""
+    + json.dumps(_num_iso_map)
+    + """;
+var root=document.getElementById('globe-root');
+var tooltip=document.getElementById('globe-tooltip');
+var W=root.clientWidth||900;var H=580;
+var svg=d3.select('#globe-root').append('svg').attr('width',W).attr('height',H).style('position','absolute').style('top','0').style('left','0');
+var projection=d3.geoOrthographic().scale(Math.min(W,H)*0.42).translate([W/2,H/2]).clipAngle(90).rotate([0,-20]);
+var path=d3.geoPath().projection(projection);
+svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','#0d1f35').attr('stroke','rgba(99,179,237,0.15)').attr('stroke-width',1);
+var graticule=d3.geoGraticule()();
+svg.append('path').datum(graticule).attr('d',path).attr('fill','none').attr('stroke','rgba(99,179,237,0.08)').attr('stroke-width',0.5);
+var gCountries=svg.append('g');
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(function(r){return r.json();}).then(function(world){
+  var countries=topojson.feature(world,world.objects.countries).features;
+  gCountries.selectAll('path').data(countries).enter().append('path')
+    .attr('d',path)
+    .attr('fill',function(d){var a=num2alpha[String(d.id)]||'';return countryColors[a]||'#1a2744';})
+    .attr('stroke','rgba(255,255,255,0.08)').attr('stroke-width',0.4)
+    .on('mousemove',function(event,d){
+      var a=num2alpha[String(d.id)]||'';
+      if(countryPlatform[a]){
+        tooltip.style.display='block';
+        tooltip.style.left=(event.offsetX+12)+'px';
+        tooltip.style.top=(event.offsetY-10)+'px';
+        tooltip.innerHTML='<strong style="color:'+countryColors[a]+'">'+countryPlatform[a]+'</strong><br>'+countrySubs[a]+' users globally';
+      }
+    })
+    .on('mouseleave',function(){tooltip.style.display='none';});
+  startRotation();
+});
+var lon=0;var spinning=true;var animId=null;var lastTime=0;
+function rotate(ts){
+  if(!spinning)return;
+  if(ts-lastTime>16){lon=(lon+0.25)%360;projection.rotate([lon,-20]);gCountries.selectAll('path').attr('d',path);lastTime=ts;}
+  animId=requestAnimationFrame(rotate);
+}
+function startRotation(){spinning=true;animId=requestAnimationFrame(rotate);}
+root.addEventListener('mouseenter',function(){spinning=false;if(animId)cancelAnimationFrame(animId);tooltip.style.display='none';});
+root.addEventListener('mouseleave',function(){startRotation();});
+</script></body></html>"""
+)
+st.components.v1.html(_platform_globe_html, height=600, scrolling=False)
 _separator()
 
 _bubble_logo_aliases = {
@@ -3802,7 +3985,9 @@ try:
 	              html, body {{
 	                margin: 0;
 	                padding: 0;
-	                background: transparent;
+	                background: #020810;
+	                color: #e6edf3;
+	                overflow: hidden;
 	                border: none;
 	                outline: none;
 	              }}
@@ -3815,10 +4000,24 @@ try:
             </div>
             <script>
               (function() {{
-                var t0 = Date.now();
+                var SESSION_KEY = 'ae_clock_start_ts';
+                var SESSION_MAX_AGE_MS = 4 * 60 * 60 * 1000;
+                var _startTs;
+                try {{
+                    var stored = localStorage.getItem(SESSION_KEY);
+                    if (stored) {{
+                        var storedTs = parseInt(stored, 10);
+                        if (Date.now() - storedTs < SESSION_MAX_AGE_MS) {{ _startTs = storedTs; }}
+                    }}
+                }} catch(e) {{}}
+                if (!_startTs) {{
+                    _startTs = Date.now();
+                    try {{ localStorage.setItem(SESSION_KEY, String(_startTs)); }} catch(e) {{}}
+                }}
+                function _getElapsedSeconds() {{ return Math.floor((Date.now() - _startTs) / 1000); }}
                 var els = document.querySelectorAll('[data-rps]');
                 setInterval(function() {{
-                  var elapsed = (Date.now() - t0) / 1000;
+                  var elapsed = _getElapsedSeconds();
                   els.forEach(function(el) {{
                     var rps = parseFloat(el.getAttribute('data-rps'));
                     el.textContent = '$' + (rps * elapsed).toLocaleString('en-US', {{
