@@ -169,12 +169,13 @@ div[data-testid="block-container"] {
     color: #4aaeff !important;
     font-weight: 800;
 }
+[data-testid="stHtml"] > iframe { display: block !important; background: #020810 !important; }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.markdown('<style>iframe{border:none!important;background:transparent!important;}</style>', unsafe_allow_html=True)
+st.markdown('<style>iframe{border:none!important;background:#020810!important;}</style>', unsafe_allow_html=True)
 _resolved = resolve_financial_data_xlsx([])
 logger.info(f"STARTUP: Excel resolved to → {_resolved}")
 if "pipeline_refreshed" not in st.session_state:
@@ -3992,7 +3993,7 @@ try:
 	                outline: none;
 	              }}
 	            </style>
-	            <div style="background:transparent;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
+	            <div style="background:#020810;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
 	              {rows_html}
               <div style="color:rgba(255,255,255,0.3);font-size:0.72rem;margin-top:14px;">
                 Based on {effective_year} annual revenue ÷ seconds per year. Updates every 120ms since you opened this page.
