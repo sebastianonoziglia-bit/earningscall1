@@ -1207,6 +1207,61 @@ def main():
         "Warner Bros. Discovery": "attached_assets/adadad.png",
     }
 
+    SEGMENT_TRANSCRIPT_KEYWORDS = {
+        "google search": ["search", "search revenue", "search advertising", "query", "search queries"],
+        "google search & other": ["search", "search revenue", "search advertising", "query", "search queries"],
+        "youtube ads": ["youtube", "youtube ads", "video advertising", "reels", "shorts"],
+        "google network": ["network", "google network", "adsense", "admob", "programmatic"],
+        "google cloud": ["cloud", "google cloud", "gcp", "cloud revenue", "cloud growth"],
+        "google other": ["devices", "hardware", "pixel", "nest", "play store", "app store"],
+        "other bets": ["other bets", "waymo", "deepmind", "moonshot"],
+        "aws": ["aws", "amazon web services", "cloud", "cloud revenue"],
+        "online stores": ["online stores", "first party", "retail", "e-commerce", "online retail"],
+        "third-party seller services": ["third party", "3p", "marketplace", "seller services", "fulfillment"],
+        "advertising services": ["advertising", "ads", "sponsored", "ad revenue", "advertising revenue"],
+        "subscription services": ["prime", "subscription", "prime membership"],
+        "physical stores": ["whole foods", "physical stores", "retail stores"],
+        "iphone": ["iphone", "iphone revenue", "iphone units", "smartphone"],
+        "mac": ["mac", "macbook", "macos", "personal computer"],
+        "ipad": ["ipad", "tablet"],
+        "wearables": ["wearables", "apple watch", "airpods", "accessories"],
+        "services": ["services", "app store", "apple music", "icloud", "apple tv", "services revenue"],
+        "family of apps": ["family of apps", "facebook", "instagram", "whatsapp", "messenger", "reels", "threads"],
+        "reality labs": ["reality labs", "quest", "vr", "virtual reality", "metaverse", "ar glasses"],
+        "intelligent cloud": ["azure", "cloud", "server products", "intelligent cloud"],
+        "productivity and business processes": ["office", "microsoft 365", "linkedin", "dynamics", "productivity"],
+        "more personal computing": ["windows", "gaming", "xbox", "bing", "surface", "personal computing"],
+        "ucan": ["ucan", "united states", "canada", "north america", "us revenue"],
+        "emea": ["emea", "europe", "middle east", "africa", "european"],
+        "latam": ["latam", "latin america", "brazil", "mexico"],
+        "apac": ["apac", "asia pacific", "japan", "korea", "india"],
+        "entertainment": ["disney+", "hulu", "streaming", "disney entertainment", "content"],
+        "sports": ["espn", "sports", "live sports", "nfl", "nba"],
+        "experiences": ["parks", "theme parks", "experiences", "cruise", "disney parks"],
+        "linear networks": ["abc", "linear", "cable", "broadcast", "fx", "national geographic"],
+        "connectivity and platforms": ["broadband", "internet", "connectivity", "xfinity", "wireless"],
+        "content and experiences": ["nbcuniversal", "nbc", "peacock", "universal", "content"],
+        "sky": ["sky", "sky uk", "sky germany", "european pay"],
+        "premium": ["premium", "paid subscribers", "premium revenue", "subscription"],
+        "ad-supported": ["ad supported", "free tier", "ad revenue", "advertising", "mau"],
+        "platform": ["platform", "the roku channel", "streaming", "active accounts", "arpu"],
+        "devices": ["devices", "player", "hardware", "streaming player"],
+        "distribution": ["distribution", "max", "hbo max", "streaming", "subscribers"],
+        "advertising": ["advertising", "ad revenue", "upfront", "linear ad"],
+        "content": ["content", "film", "theatrical", "warner bros", "studio"],
+        "dtc": ["paramount+", "direct to consumer", "streaming", "dtc", "pluto"],
+        "tv media": ["cbs", "linear", "tv media", "broadcast", "cable"],
+        "filmed entertainment": ["film", "theatrical", "box office", "paramount pictures"],
+        "north america": ["north america", "us", "united states"],
+        "europe": ["europe", "european"],
+        "rest of world": ["rest of world", "international", "global"],
+        "us": ["united states", "us revenue", "domestic"],
+        "international": ["international", "global", "europe", "rest of world"],
+    }
+
+    def _normalize_seg_key(s: str) -> str:
+        return str(s).lower().strip().replace("-", " ").replace("_", " ")
+
     COMPANY_TICKERS = {
         "Alphabet": ["GOOGL", "GOOG"],
         "Google": ["GOOGL", "GOOG"],
@@ -1479,6 +1534,100 @@ def main():
         except Exception:
             return pd.DataFrame()
 
+
+    @st.cache_data(show_spinner=False)
+    def _load_transcript_for_company(excel_path: str, company: str, year: int, quarter: str = "") -> str:
+        """Load transcript text for a company/year/quarter from the Transcripts sheet."""
+        if not excel_path:
+            return ""
+        try:
+            df = pd.read_excel(excel_path, sheet_name="Transcripts")
+            df.columns = [str(c).strip().lower() for c in df.columns]
+            if not {"company", "year", "transcript_text"}.issubset(set(df.columns)):
+                return ""
+            df["_comp_norm"] = df["company"].astype(str).str.strip().str.lower()
+            df["_year"] = pd.to_numeric(df["year"], errors="coerce")
+            comp_norm = str(company).strip().lower()
+            matches = df[(df["_comp_norm"] == comp_norm) & (df["_year"] == int(year))]
+            if matches.empty:
+                matches = df[
+                    (df["_comp_norm"] == comp_norm)
+                    & (df["_year"] >= int(year) - 1)
+                    & (df["_year"] <= int(year) + 1)
+                ]
+            if matches.empty:
+                return ""
+            if quarter and "quarter" in df.columns:
+                q_matches = matches[
+                    matches["quarter"].astype(str).str.upper().str.strip() == str(quarter).upper().strip()
+                ]
+                if not q_matches.empty:
+                    matches = q_matches
+            text = str(matches.iloc[0].get("transcript_text", "") or "")
+            return text[:15000]
+        except Exception:
+            return ""
+
+    def _find_best_transcript_sentence(transcript_text: str, segment_name: str, max_len: int = 220) -> str:
+        """Find the most relevant sentence in a transcript for a given segment."""
+        if not transcript_text or not segment_name:
+            return ""
+        seg_key = _normalize_seg_key(segment_name)
+        keywords = SEGMENT_TRANSCRIPT_KEYWORDS.get(seg_key, [])
+        if not keywords:
+            words = [w for w in seg_key.split() if len(w) > 3]
+            keywords = words if words else [seg_key]
+        sentences = re.split(r'(?<=[.!?])\s+', transcript_text)
+        best_sentence = ""
+        best_score = 0
+        for sentence in sentences:
+            s = sentence.strip()
+            if len(s) < 30 or len(s) > 350:
+                continue
+            s_lower = s.lower()
+            score = sum(1 for kw in keywords if kw in s_lower)
+            if score == 0:
+                continue
+            financial_bonus = sum(1 for term in [
+                "revenue", "growth", "billion", "million", "margin", "profit",
+                "expect", "guidance", "quarter", "year", "increase", "grew"
+            ] if term in s_lower)
+            score += financial_bonus * 0.3
+            if len(s) < 60:
+                score *= 0.5
+            if score > best_score:
+                best_score = score
+                best_sentence = s
+        if not best_sentence or best_score < 0.8:
+            return ""
+        if len(best_sentence) > max_len:
+            best_sentence = best_sentence[:max_len].rsplit(" ", 1)[0] + "\u2026"
+        return best_sentence
+
+    def _build_auto_segment_insight(
+        segment_name: str,
+        segment_revenue,
+        segment_yoy,
+        transcript_sentence: str,
+        year: int,
+        quarter: str = "",
+    ) -> str:
+        """Build a compact auto-generated insight when no manual Excel insight exists."""
+        parts = []
+        period = f"{year} {quarter}".strip() if quarter else str(year)
+        if segment_revenue is not None and not pd.isna(segment_revenue):
+            rev_b = segment_revenue / 1000
+            rev_str = f"${rev_b:.1f}B" if rev_b >= 1 else f"${segment_revenue:.0f}M"
+            if segment_yoy is not None and not pd.isna(segment_yoy):
+                sign = "+" if segment_yoy >= 0 else ""
+                parts.append(f"{segment_name} generated {rev_str} in {period} ({sign}{segment_yoy:.1f}% YoY).")
+            else:
+                parts.append(f"{segment_name} generated {rev_str} in {period}.")
+        if transcript_sentence:
+            parts.append(f'On the earnings call: "{transcript_sentence}"')
+        if not parts:
+            return ""
+        return " ".join(parts)
 
     def _parse_quarter_int(value) -> int | None:
         if value is None or (isinstance(value, float) and pd.isna(value)):
@@ -3514,80 +3663,126 @@ def main():
         ]
 
     segment_insight_map = {}
+    selected_insight_qnum = _parse_quarter_int(selected_quarter)
+    desired_insight_year = int(year) if selected_insight_qnum is not None else int(segment_end)
+    segment_to_group = {}
+    segment_to_group_norm = {}
     if not segment_insights_filtered.empty:
-        selected_insight_qnum = _parse_quarter_int(selected_quarter)
-        desired_insight_year = int(year) if selected_insight_qnum is not None else int(segment_end)
         segment_to_group = {k: v for k, v in segment_insights_filtered.groupby("segment")}
         segment_to_group_norm = {
             normalize_segment(k): v for k, v in segment_to_group.items() if str(k).strip()
         }
-        if segment_labels:
-            ordered_segments = [s for s in segment_labels if normalize_segment(s) in segment_to_group_norm]
-        else:
-            ordered_segments = sorted(segment_to_group.keys())
-
+    if segment_labels:
+        ordered_segments = segment_labels
+    elif segment_to_group:
+        ordered_segments = sorted(segment_to_group.keys())
+    else:
+        ordered_segments = []
+    _transcript_text = _load_transcript_for_company(
+        str(data_processor.data_path),
+        canonical_company,
+        int(desired_insight_year),
+        selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
+    )
+    if True:
         for raw_segment_name in ordered_segments:
             segment_name = str(raw_segment_name).strip()
             group = segment_to_group_norm.get(normalize_segment(segment_name))
-            if group is None or group.empty:
-                continue
-            group = group.copy()
-            group["year"] = pd.to_numeric(group["year"], errors="coerce")
-            group_in_range = group[
-                group["year"].notna()
-                & (group["year"] >= int(segment_start))
-                & (group["year"] <= int(segment_end))
-            ]
 
             group_year = pd.DataFrame()
-            if selected_insight_qnum is not None:
-                year_focus = group[group["year"] == int(desired_insight_year)].copy()
-                if not year_focus.empty:
-                    exact_quarter = year_focus[year_focus["_quarter_num"] == int(selected_insight_qnum)].copy()
-                    if not exact_quarter.empty:
-                        group_year = exact_quarter
-                    else:
-                        annual_same_year = year_focus[
-                            year_focus["_quarter_num"].isna()
-                            | year_focus["_quarter_text"].isin(["", "ANNUAL", "FY", "YEARLY", "YEAR"])
-                        ].copy()
-                        if not annual_same_year.empty:
-                            group_year = annual_same_year
-                        else:
-                            quarter_rows = year_focus[year_focus["_quarter_num"].notna()].copy()
-                            if not quarter_rows.empty:
-                                quarter_le = quarter_rows[quarter_rows["_quarter_num"] <= int(selected_insight_qnum)].copy()
-                                if not quarter_le.empty:
-                                    best_q = int(quarter_le["_quarter_num"].max())
-                                    group_year = quarter_le[quarter_le["_quarter_num"] == best_q].copy()
-                                else:
-                                    best_q = int(quarter_rows["_quarter_num"].max())
-                                    group_year = quarter_rows[quarter_rows["_quarter_num"] == best_q].copy()
+            group_in_range = pd.DataFrame()
+            if group is not None and not group.empty:
+                group = group.copy()
+                group["year"] = pd.to_numeric(group["year"], errors="coerce")
+                group_in_range = group[
+                    group["year"].notna()
+                    & (group["year"] >= int(segment_start))
+                    & (group["year"] <= int(segment_end))
+                ]
 
-            if group_year.empty:
-                group_year = group_in_range[group_in_range["year"] == desired_insight_year]
-                if group_year.empty:
-                    if not group_in_range.empty:
-                        best_year = int(group_in_range["year"].max())
-                        group_year = group_in_range[group_in_range["year"] == best_year]
-                    else:
-                        group_le = group[group["year"].notna() & (group["year"] <= desired_insight_year)]
-                        if not group_le.empty:
-                            best_year = int(group_le["year"].max())
-                            group_year = group_le[group_le["year"] == best_year]
+                if selected_insight_qnum is not None:
+                    year_focus = group[group["year"] == int(desired_insight_year)].copy()
+                    if not year_focus.empty:
+                        exact_quarter = year_focus[year_focus["_quarter_num"] == int(selected_insight_qnum)].copy()
+                        if not exact_quarter.empty:
+                            group_year = exact_quarter
                         else:
-                            year_values = group["year"].dropna()
-                            if not year_values.empty:
-                                best_year = int(year_values.max())
-                                group_year = group[group["year"] == best_year]
+                            annual_same_year = year_focus[
+                                year_focus["_quarter_num"].isna()
+                                | year_focus["_quarter_text"].isin(["", "ANNUAL", "FY", "YEARLY", "YEAR"])
+                            ].copy()
+                            if not annual_same_year.empty:
+                                group_year = annual_same_year
                             else:
-                                group_year = group
+                                quarter_rows = year_focus[year_focus["_quarter_num"].notna()].copy()
+                                if not quarter_rows.empty:
+                                    quarter_le = quarter_rows[quarter_rows["_quarter_num"] <= int(selected_insight_qnum)].copy()
+                                    if not quarter_le.empty:
+                                        best_q = int(quarter_le["_quarter_num"].max())
+                                        group_year = quarter_le[quarter_le["_quarter_num"] == best_q].copy()
+                                    else:
+                                        best_q = int(quarter_rows["_quarter_num"].max())
+                                        group_year = quarter_rows[quarter_rows["_quarter_num"] == best_q].copy()
 
+                if group_year.empty:
+                    group_year = group_in_range[group_in_range["year"] == desired_insight_year]
+                    if group_year.empty:
+                        if not group_in_range.empty:
+                            best_year = int(group_in_range["year"].max())
+                            group_year = group_in_range[group_in_range["year"] == best_year]
+                        else:
+                            group_le = group[group["year"].notna() & (group["year"] <= desired_insight_year)]
+                            if not group_le.empty:
+                                best_year = int(group_le["year"].max())
+                                group_year = group_le[group_le["year"] == best_year]
+                            else:
+                                year_values = group["year"].dropna()
+                                if not year_values.empty:
+                                    best_year = int(year_values.max())
+                                    group_year = group[group["year"] == best_year]
+                                else:
+                                    group_year = group
+
+            # ── Pull manual insights (from Excel) ──────────────────────────
             insights = []
-            for item in group_year["insight"].tolist():
-                for part in split_insight_text(item):
-                    if part and str(part).strip():
-                        insights.append(html.escape(str(part).strip()))
+            has_manual = False
+            if group is not None and not group_year.empty:
+                for item in group_year["insight"].tolist():
+                    for part in split_insight_text(item):
+                        if part and str(part).strip():
+                            insights.append(html.escape(str(part).strip()))
+                has_manual = bool(insights)
+
+            # ── Auto-generate from transcript if no manual insight ──────────
+            if not has_manual and _transcript_text:
+                _seg_rev = None
+                _seg_yoy = None
+                try:
+                    if "composition_df" in dir() and composition_df is not None and not composition_df.empty:
+                        _row = composition_df[composition_df["segment"] == segment_name]
+                        if not _row.empty:
+                            _seg_rev = float(_row["revenue"].iloc[0])
+                    if segment_labels and segment_name in segment_labels and "segment_yoy_labels" in dir():
+                        _idx = segment_labels.index(segment_name)
+                        if _idx < len(segment_yoy_labels):
+                            _yoy_str = str(segment_yoy_labels[_idx])
+                            _m = re.search(r"([+-]?\d+\.?\d*)%", _yoy_str)
+                            if _m:
+                                _seg_yoy = float(_m.group(1))
+                except Exception:
+                    pass
+                _best_sentence = _find_best_transcript_sentence(_transcript_text, segment_name)
+                _auto_text = _build_auto_segment_insight(
+                    segment_name=segment_name,
+                    segment_revenue=_seg_rev,
+                    segment_yoy=_seg_yoy,
+                    transcript_sentence=_best_sentence,
+                    year=int(desired_insight_year),
+                    quarter=selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
+                )
+                if _auto_text:
+                    insights.append(html.escape(_auto_text))
+
             if not insights:
                 continue
             insight_items = "".join(
@@ -3598,9 +3793,15 @@ def main():
                 segment_color = match_segment_color(canonical_company, segment_name)
             if not segment_color:
                 segment_color = COMPANY_COLORS.get(canonical_company, "#111827")
+            _source_badge = (
+                "" if has_manual else
+                "<div style='font-size:0.7rem;opacity:0.75;margin-bottom:4px;"
+                "letter-spacing:0.05em;text-transform:uppercase;'>\U0001f4cb from transcript</div>"
+            )
             segment_insight_map[segment_name] = (
                 f"<div class=\"segment-insight-card\" style=\"background: {segment_color}; color: #ffffff; width: 100%;\">"
                 f"<div class=\"segment-insight-title\" style=\"color:#FFFFFF !important;\">{html.escape(segment_name)}</div>"
+                f"{_source_badge}"
                 f"<ul class=\"segment-insight-list\" style=\"color:#FFFFFF !important;\">{insight_items}</ul>"
                 "</div>"
             )
