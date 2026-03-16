@@ -3093,14 +3093,16 @@ def main():
             latest_row = series_df.iloc[-1]
             latest_price = latest_row.get("price")
             latest_date = latest_row.get("date")
-            live_ticker = str(latest_row.get("tag", "")).strip().upper()
-            if live_ticker and live_ticker not in {"NAN", "NONE", "NULL"}:
-                ticker_display = live_ticker
-            elif not ticker_display:
-                for candidate in (latest_row.get("asset"),):
-                    if isinstance(candidate, str) and candidate.strip():
-                        ticker_display = candidate.strip().upper()
-                        break
+            # Prefer hardcoded COMPANY_TICKERS — live data tags can be stale/wrong
+            if not ticker_display:
+                live_ticker = str(latest_row.get("tag", "")).strip().upper()
+                if live_ticker and live_ticker not in {"NAN", "NONE", "NULL", ""}:
+                    ticker_display = live_ticker
+                else:
+                    for candidate in (latest_row.get("asset"),):
+                        if isinstance(candidate, str) and candidate.strip():
+                            ticker_display = candidate.strip().upper()
+                            break
             if latest_price is not None and not pd.isna(latest_price):
                 stock_price_display = format_stock_value(latest_price)
             if latest_date is not None and not pd.isna(latest_date):

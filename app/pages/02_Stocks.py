@@ -741,13 +741,15 @@ with tab1:
     if _is_excluded_stock(st.session_state.get("selected_company", "")):
         del st.session_state.selected_company
 
-    # Filter out companies with no stock data to avoid empty grid slots
+    # Filter out companies with no stock data — use fast set lookup, not per-company API call
+    try:
+        _known = set(stock_processor.get_companies()) if hasattr(stock_processor, "get_companies") else set()
+    except Exception:
+        _known = set()
+    _known_lower = {c.lower() for c in _known}
+
     def _has_stock_data(name):
-        try:
-            d = stock_processor.get_company_data(name, "3M")
-            return d is not None and d.get("quote") is not None
-        except Exception:
-            return False
+        return name in _known or name.lower() in _known_lower
 
     companies_main = [c for c in companies_main if _has_stock_data(c)]
     companies_indicators = [c for c in companies_indicators if _has_stock_data(c)]
