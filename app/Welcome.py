@@ -2649,7 +2649,7 @@ if(YEARS.length>0){{currentAngles=getAngles(YEARS[0]);drawDonut(currentAngles);d
 st.components.v1.html(_build_ss_html(_ss_data_json), height=540)
 _separator()
 
-def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str = '[]') -> str:
+def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str = '[]', logos_json: str = '{}') -> str:
     return (
         """<!DOCTYPE html><html><head><meta charset='utf-8'>
 <style>
@@ -2657,7 +2657,6 @@ def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str
 html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;height:100%;overflow:hidden;}
 #wa-attn-root{position:relative;width:100%;height:520px;background:transparent;overflow:hidden;display:flex;align-items:stretch;}
 .glow-yt,.glow-sp{display:none;}
-/* dot grid */
 #wa-attn-root::before{content:none;}
 #wa-attn-left{position:relative;z-index:2;width:40%;padding:40px 32px;display:flex;flex-direction:column;justify-content:center;flex-shrink:0;}
 .attn-label{color:#4aaeff;font-size:10px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;margin-bottom:14px;}
@@ -2665,16 +2664,16 @@ html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sa
 .attn-body{color:#8899aa;font-size:13px;line-height:1.6;margin-bottom:24px;}
 .attn-stat-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8899aa;margin-bottom:4px;}
 .attn-stat-val{font-family:'Syne',sans-serif;font-size:clamp(32px,4vw,52px);font-weight:900;color:#ff0033;line-height:1;}
-.attn-legend{margin-top:24px;display:flex;flex-direction:column;gap:7px;}
-.attn-leg-row{display:flex;align-items:center;gap:8px;font-size:11px;color:#8899aa;}
-.attn-leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.attn-legend{margin-top:16px;display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;}
+.attn-leg-row{display:flex;align-items:center;gap:8px;font-size:10px;color:#8899aa;}
+.attn-leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 #wa-attn-bubbles{position:absolute;right:0;top:0;width:60%;height:100%;z-index:1;}
-.wa-bubble{position:absolute;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transform:scale(0);opacity:0;padding:14px;text-align:center;backdrop-filter:blur(8px);}
+.wa-bubble{position:absolute;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transform:scale(0);opacity:0;padding:8px;text-align:center;backdrop-filter:blur(8px);}
 .wa-bubble.pop{animation-fill-mode:forwards;}
-.wa-bubble .bletter{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.2);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#ffffff;margin-bottom:6px;}
+.wa-bubble .bletter{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.2);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#ffffff;margin-bottom:4px;}
+.wa-bubble .blogo{width:42%;height:42%;object-fit:contain;border-radius:50%;margin-bottom:4px;}
 .wa-bubble .bname{font-weight:700;text-align:center;line-height:1.15;color:#fff;}
-.wa-bubble .brev{font-size:.74em;opacity:.78;color:#fff;margin-top:3px;}
-.wa-bubble .busers{font-size:.62em;opacity:.58;color:#fff;margin-top:3px;}
+.wa-bubble .busers{font-size:.62em;opacity:.65;color:#fff;margin-top:2px;}
 @keyframes floatA{0%,100%{transform:scale(1) translateY(0);}50%{transform:scale(1) translateY(-10px);}}
 @keyframes floatB{0%,100%{transform:scale(1) translateY(0) rotate(0deg);}33%{transform:scale(1) translateY(-7px) rotate(-.4deg);}66%{transform:scale(1) translateY(5px) rotate(.4deg);}}
 @keyframes floatC{0%,100%{transform:scale(1) translateY(0);}50%{transform:scale(1) translateY(-14px);}}
@@ -2685,7 +2684,7 @@ html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sa
   <div id='wa-attn-left'>
     <div class='attn-label'>Section 01 — Attention Economy</div>
     <div class='attn-headline'>Who Owns<br>Your Time</div>
-    <div class='attn-body'>YouTube alone consumes 1 billion hours of human attention every day. Each bubble = a platform. Size = daily minutes watched globally.</div>
+    <div class='attn-body'>Each bubble = a platform. Size = subscribers or monthly active users.</div>
     <div class='attn-stat-label'>YouTube daily</div>
     <div id='wa-attn-counter' class='attn-stat-val'>0B hours</div>
     <div class='attn-legend' id='wa-attn-legend'></div>
@@ -2696,98 +2695,117 @@ html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sa
 var RAW="""
         + human_json_str
         + """;
-var FALLBACK_ATTN=[
-  {name:'YouTube',  color:'#FF0033', mins:1000, revenue:36.1, users:'2.5B'},
-  {name:'Netflix',  color:'#E50914', mins:120,  revenue:33.7, users:'301M'},
-  {name:'Disney+',  color:'#113CCF', mins:68,   revenue:14.5, users:'154M'},
-  {name:'Amazon',   color:'#FF9900', mins:55,   revenue:10.2, users:'200M+'},
-  {name:'Spotify',  color:'#1DB954', mins:30,   revenue:15.7, users:'678M'},
-  {name:'Twitch',   color:'#9147FF', mins:420,  revenue:2.8,  users:'240M'},
-  {name:'Roku',     color:'#6C2BD9', mins:25,   revenue:3.9,  users:'89M'},
-  {name:'Paramount',color:'#0064FF', mins:35,   revenue:6.8,  users:'71M'}
-];
-var FALLBACK_BY_NAME = FALLBACK_ATTN.reduce(function(acc, item) { acc[item.name] = item; return acc; }, {});
-function fallbackKey(name) {
-  var lower = String(name || '').toLowerCase();
-  if (lower.indexOf('youtube') !== -1) return 'YouTube';
-  if (lower.indexOf('netflix') !== -1) return 'Netflix';
-  if (lower.indexOf('disney') !== -1 || lower.indexOf('hulu') !== -1 || lower.indexOf('espn') !== -1) return 'Disney+';
-  if (lower.indexOf('amazon') !== -1) return 'Amazon';
-  if (lower.indexOf('spotify') !== -1) return 'Spotify';
-  if (lower.indexOf('twitch') !== -1) return 'Twitch';
-  if (lower.indexOf('roku') !== -1) return 'Roku';
-  if (lower.indexOf('paramount') !== -1) return 'Paramount';
+var LOGOS="""
+        + logos_json
+        + """;
+function logoForName(name) {
+  var n = String(name || '').toLowerCase();
+  for (var k in LOGOS) {
+    if (k.toLowerCase() === n) return LOGOS[k];
+  }
+  for (var k in LOGOS) {
+    var kl = k.toLowerCase();
+    if (n.indexOf(kl) !== -1 || kl.indexOf(n.split(/[^a-z]/)[0]) !== -1) return LOGOS[k];
+  }
   return '';
 }
-var DATA=FALLBACK_ATTN.map(function(item){ return Object.assign({}, item); });
+var DATA = [];
 if (Array.isArray(RAW) && RAW.length > 0) {
-  RAW.forEach(function(d){
-    var key = fallbackKey(d.name);
-    if (!key) return;
-    var slot = DATA.find(function(item){ return item.name === key; });
-    if (!slot) return;
-    var rawMins = Number(d.mins || d.val || 0);
-    slot.color = d.color || slot.color;
-    slot.mins = rawMins > 0 ? rawMins : slot.mins;
-    slot.revenue = Number(d.revenue || slot.revenue || 0);
-    slot.users = d.users || d.label || slot.users;
-  });
+  DATA = RAW.slice().sort(function(a, b) { return (b.val || 0) - (a.val || 0); });
 }
-var ATTN_POS = [
-  {l:'5%',  t:'8%'},
-  {l:'38%', t:'5%'},
-  {l:'62%', t:'18%'},
-  {l:'72%', t:'2%'},
-  {l:'15%', t:'52%'},
-  {l:'44%', t:'48%'},
-  {l:'68%', t:'50%'},
-  {l:'30%', t:'70%'}
+if (DATA.length === 0) {
+  DATA = [
+    {name:'YouTube',color:'#FF0033',val:2500,users:'2.5B MAUs',mins:21.9},
+    {name:'Meta \u2013 Facebook',color:'#0866ff',val:2100,users:'2.1B DAUs'},
+    {name:'Meta \u2013 Instagram',color:'#e1306c',val:2000,users:'2.0B MAUs'},
+    {name:'Twitch',color:'#9147FF',val:240,users:'240M MAUs'},
+    {name:'Spotify',color:'#1DB954',val:600,users:'600M MAUs'},
+    {name:'Netflix',color:'#E50914',val:301,users:'301M subs'},
+    {name:'Amazon Prime Video',color:'#FF9900',val:200,users:'200M actives'},
+    {name:'Disney+ / Hulu / ESPN+',color:'#113CCF',val:149,users:'149M subs'},
+    {name:'WBD Max / HBO',color:'#0047ab',val:97,users:'97M subs'},
+    {name:'Paramount+',color:'#0033a0',val:71,users:'71M subs'},
+    {name:'Comcast Peacock',color:'#2563eb',val:35,users:'35M subs'}
+  ].sort(function(a,b){ return b.val-a.val; });
+}
+var maxVal = Math.max.apply(null, DATA.map(function(d){ return d.val || 1; }));
+var ALL_POS = [
+  {l:'3%',  t:'5%'},
+  {l:'52%', t:'2%'},
+  {l:'68%', t:'18%'},
+  {l:'25%', t:'8%'},
+  {l:'42%', t:'44%'},
+  {l:'65%', t:'50%'},
+  {l:'10%', t:'50%'},
+  {l:'30%', t:'68%'},
+  {l:'57%', t:'70%'},
+  {l:'80%', t:'4%'},
+  {l:'76%', t:'36%'},
+  {l:'8%',  t:'28%'},
+  {l:'46%', t:'22%'},
+  {l:'82%', t:'62%'},
+  {l:'18%', t:'80%'},
+  {l:'63%', t:'82%'}
 ];
-var FLOATS=['floatA','floatB','floatC'];
-var rawMaxMins=Math.max.apply(null,DATA.map(function(d){return d.mins||1;}));
-var bfield=document.getElementById('wa-attn-bubbles');
-var legend=document.getElementById('wa-attn-legend');
-DATA.forEach(function(item,i){
-  var normMins = rawMaxMins > 0 ? ((item.mins || 1) / rawMaxMins) * 1000 : (item.mins || 1);
-  var size=Math.round(44+Math.sqrt(normMins/1000)*160);
-  var pos=ATTN_POS[i]||{l:(10+i*11)+'%',t:'20%'};
-  var fs=Math.max(9,Math.round(size/10));
-  var badge=(item.name||'?').replace(/[^A-Za-z0-9]+/g,' ').trim().split(' ').slice(0,2).map(function(p){return p.charAt(0).toUpperCase();}).join('').slice(0,2) || '?';
-  var revText = item.revenue ? '$'+ (item.revenue >= 10 ? item.revenue.toFixed(1) : item.revenue.toFixed(1)) +'B' : '';
-  var b=document.createElement('div');
-  b.className='wa-bubble';
-  b.style.cssText='width:'+size+'px;height:'+size+'px;left:'+pos.l+';top:'+pos.t+';background:radial-gradient(circle at 35% 35%,'+item.color+'cc,'+item.color+'66);border:1.5px solid '+item.color+'55;box-shadow:0 0 '+Math.round(size/3)+'px '+item.color+'44;';
-  b.innerHTML='<div class="bletter">'+badge+'</div><div class="bname" style="font-size:'+fs+'px;">'+item.name+'</div>'+(revText?'<div class="brev" style="font-size:'+(fs-2)+'px;">'+revText+'</div>':'')+(item.users?'<div class="busers" style="font-size:'+(Math.max(fs-3,8))+'px;">'+item.users+'</div>':'');
-  bfield.appendChild(b);
-  var delay=i*80;
-  var floatAnim=FLOATS[i%3];
-  var floatDur=3000+i*220;
-  setTimeout(function(el,fa,fd){
-    el.style.animation='popIn 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards,'+fa+' '+fd+'ms ease-in-out '+(600+el._idx*80)+'ms infinite';
-    el.classList.add('pop');
-  },delay,b,floatAnim,floatDur);
-  b._idx=i;
-  /* legend row */
-  if(i<5){
-    var row=document.createElement('div');
-    row.className='attn-leg-row';
-    row.innerHTML='<div class="attn-leg-dot" style="background:'+item.color+';"></div><span>'+item.name+(item.users?' — '+item.users:'')+'</span>';
-    legend.appendChild(row);
+var FLOATS = ['floatA','floatB','floatC'];
+var bfield = document.getElementById('wa-attn-bubbles');
+var legend = document.getElementById('wa-attn-legend');
+var ytData = DATA.find(function(d){ return String(d.name||'').toLowerCase().indexOf('youtube') !== -1; });
+var ytHoursB = 1.0;
+if (ytData && ytData.mins) {
+  ytHoursB = ytData.mins * 1e12 / 365 / 60 / 1e9;
+  if (ytHoursB < 0.1) ytHoursB = 1.0;
+}
+DATA.forEach(function(item, i) {
+  var normVal = maxVal > 0 ? (item.val || 1) / maxVal : 0.01;
+  var size = Math.round(28 + Math.sqrt(normVal) * 112);
+  var pos = ALL_POS[i] || {l: (5 + (i % 4) * 22) + '%', t: (5 + Math.floor(i / 4) * 30) + '%'};
+  var fs = Math.max(8, Math.round(size / 9));
+  var logoB64 = logoForName(item.name);
+  var innerHtml;
+  if (logoB64) {
+    innerHtml = '<img class="blogo" src="data:image/png;base64,' + logoB64 + '" alt="' + item.name + '">'
+      + '<div class="bname" style="font-size:' + fs + 'px;">' + item.name + '</div>'
+      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 3, 7) + 'px;">' + item.users + '</div>' : '');
+  } else {
+    var badge = (item.name||'?').replace(/[^A-Za-z0-9]+/g,' ').trim().split(' ').slice(0,2)
+      .map(function(p){ return p.charAt(0).toUpperCase(); }).join('').slice(0,2) || '?';
+    innerHtml = '<div class="bletter">' + badge + '</div>'
+      + '<div class="bname" style="font-size:' + fs + 'px;">' + item.name + '</div>'
+      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 3, 7) + 'px;">' + item.users + '</div>' : '');
   }
+  var b = document.createElement('div');
+  b.className = 'wa-bubble';
+  b.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + pos.l + ';top:' + pos.t
+    + ';background:radial-gradient(circle at 35% 35%,' + item.color + 'cc,' + item.color + '66)'
+    + ';border:1.5px solid ' + item.color + '55;box-shadow:0 0 ' + Math.round(size / 3) + 'px ' + item.color + '44;';
+  b.innerHTML = innerHtml;
+  bfield.appendChild(b);
+  var delay = i * 80;
+  var floatAnim = FLOATS[i % 3];
+  var floatDur = 3000 + i * 220;
+  setTimeout(function(el, fa, fd) {
+    el.style.animation = 'popIn 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards,' + fa + ' ' + fd + 'ms ease-in-out ' + (600 + el._idx * 80) + 'ms infinite';
+    el.classList.add('pop');
+  }, delay, b, floatAnim, floatDur);
+  b._idx = i;
+  var row = document.createElement('div');
+  row.className = 'attn-leg-row';
+  row.innerHTML = '<div class="attn-leg-dot" style="background:' + item.color + ';"></div><span>' + item.name + (item.users ? ' \u2014 ' + item.users : '') + '</span>';
+  legend.appendChild(row);
 });
-/* count-up */
-function countUp(el,target,dur){
-  var start=performance.now();
-  function step(now){
-    var p=Math.min((now-start)/dur,1);
-    var ease=1-Math.pow(1-p,3);
-    var value = (ease * target);
-    el.textContent=(p < 1 ? value.toFixed(1) : Math.round(value).toString())+'B hours';
-    if(p<1)requestAnimationFrame(step);
+function countUp(el, target, dur) {
+  var start = performance.now();
+  function step(now) {
+    var p = Math.min((now - start) / dur, 1);
+    var ease = 1 - Math.pow(1 - p, 3);
+    var value = ease * target;
+    el.textContent = (p < 1 ? value.toFixed(1) : Math.round(value).toString()) + 'B hours';
+    if (p < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
 }
-setTimeout(function(){countUp(document.getElementById('wa-attn-counter'),1,2000);},400);
+setTimeout(function(){ countUp(document.getElementById('wa-attn-counter'), ytHoursB, 2000); }, 400);
 </script>
 </body></html>"""
     )
@@ -2942,7 +2960,28 @@ io.observe(rows);
 )
 _separator()
 
-_attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str, _human_json)
+_bubble_logo_aliases = {
+    "YouTube": "Alphabet",
+    "Netflix": "Netflix",
+    "Twitch": None,
+    "Spotify": "Spotify",
+    "Meta \u2013 Facebook": "Facebook",
+    "Meta \u2013 Instagram": "Instagram",
+    "Disney+ / Hulu / ESPN+": "Disney",
+    "Paramount+": "Paramount Global",
+    "WBD Max / HBO": "Warner Bros. Discovery",
+    "Comcast Peacock": "Comcast",
+    "Amazon Prime Video": "Amazon",
+}
+_bubble_logo_map = {}
+for _hc in _human_companies:
+    _hname = _hc.get("name", "")
+    _logo_key = _bubble_logo_aliases.get(_hname, _hname)
+    if _logo_key:
+        _b64 = _resolve_logo(_logo_key, logos)
+        if _b64:
+            _bubble_logo_map[_hname] = _b64
+_attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str, _human_json, logos_json=json.dumps(_bubble_logo_map))
 st.components.v1.html(_attn_html, height=520)
 
 _separator()
