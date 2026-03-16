@@ -319,12 +319,26 @@ def generate_sql_query(prompt, schema, api_key=None):
     Returns:
         str: La query SQL generata
     """
+    # Try Anthropic Claude first if available
+    try:
+        from utils.anthropic_service import call_claude, is_api_available as _ant_avail
+        if _ant_avail():
+            _ant_result = call_claude(
+                "",
+                prompt,
+                None,
+            )
+            if _ant_result:
+                return _ant_result
+    except Exception:
+        pass
+
     try:
         # Check for special query types that shouldn't be converted to SQL
         if is_bitcoin_scenario_query(prompt):
             logger.info(f"Query involves Bitcoin investment scenario, bypassing SQL generation")
             return "/* This is a Bitcoin investment scenario query and will be handled by a special calculator */"
-            
+
         # Inizializza il client OpenAI
         initialize_openai_client(api_key)
         
