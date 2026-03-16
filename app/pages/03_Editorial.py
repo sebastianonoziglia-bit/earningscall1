@@ -393,7 +393,7 @@ with tab1:
                     margin=dict(l=20, r=20, t=25, b=50),
                     height=280,
                     showlegend=False,
-                    template='mfe_blue',
+                    template='plotly_white',
                     xaxis_title=None,
                     yaxis_title=None,
                     plot_bgcolor='white',
@@ -568,7 +568,7 @@ with tab2:
             yaxis_title=y_title,
             showlegend=True,
             height=500,
-            template='mfe_blue',
+            template='plotly_white',
             xaxis=dict(
                 type='category',
                 categoryorder='array',

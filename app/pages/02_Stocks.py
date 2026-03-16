@@ -667,6 +667,25 @@ st.markdown("""
         border-color: #d7e3ff;
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
     }
+    /* Override theme.py dark button styles for white-background Stocks page */
+    .stButton > button {
+        background: #f8f9fa !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #1a202c !important;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        font-size: 0.82rem !important;
+        padding: 6px 14px !important;
+        letter-spacing: 0.02em !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;
+        transition: background 0.15s ease, border-color 0.15s ease !important;
+        width: 100% !important;
+    }
+    .stButton > button:hover {
+        background: #eef2f7 !important;
+        border-color: #cbd5e0 !important;
+        color: #1a202c !important;
+    }
     .price-up {
         color: green;
     }
