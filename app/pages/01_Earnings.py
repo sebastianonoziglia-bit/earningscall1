@@ -3815,23 +3815,6 @@ def main():
                         align="right" if is_left else "left",
                         bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)", borderpad=2,
                     ))
-                    try:
-                        _h = d["col"].lstrip("#")[:6]
-                        _arrow_rgba = f"rgba({int(_h[0:2],16)},{int(_h[2:4],16)},{int(_h[4:6],16)},0.6)"
-                    except Exception:
-                        _arrow_rgba = "rgba(128,128,128,0.6)"
-                    anns.append(dict(
-                        x=elbow_x, y=label_y, ax=d["dot_x"], ay=d["dot_y"],
-                        xref="paper", yref="paper", axref="paper", ayref="paper",
-                        text="", showarrow=True, arrowhead=0, arrowwidth=1.0,
-                        arrowcolor=_arrow_rgba,
-                    ))
-                    anns.append(dict(
-                        x=run_end_x, y=label_y, ax=elbow_x, ay=label_y,
-                        xref="paper", yref="paper", axref="paper", ayref="paper",
-                        text="", showarrow=True, arrowhead=0, arrowwidth=1.0,
-                        arrowcolor=_arrow_rgba,
-                    ))
 
             _place_group(left,  is_left=True)
             _place_group(right, is_left=False)

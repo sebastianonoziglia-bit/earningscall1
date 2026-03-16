@@ -667,24 +667,28 @@ st.markdown("""
         border-color: #d7e3ff;
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
     }
-    /* Override theme.py dark button styles for white-background Stocks page */
-    .stButton > button {
-        background: #f8f9fa !important;
-        border: 1px solid #e2e8f0 !important;
-        color: #1a202c !important;
-        border-radius: 8px !important;
-        font-weight: 500 !important;
-        font-size: 0.82rem !important;
-        padding: 6px 14px !important;
-        letter-spacing: 0.02em !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;
-        transition: background 0.15s ease, border-color 0.15s ease !important;
+    /* Clean transparent pill buttons for white-background Stocks page */
+    .stButton > button,
+    .stButton > button:focus,
+    .stButton > button:active {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        border: 1.5px solid #2563eb !important;
+        color: #2563eb !important;
+        border-radius: 20px !important;
+        font-weight: 600 !important;
+        font-size: 0.8rem !important;
+        padding: 5px 16px !important;
+        letter-spacing: 0.04em !important;
+        box-shadow: none !important;
         width: 100% !important;
+        transition: background 0.15s ease !important;
     }
     .stButton > button:hover {
-        background: #eef2f7 !important;
-        border-color: #cbd5e0 !important;
-        color: #1a202c !important;
+        background: rgba(37,99,235,0.08) !important;
+        border-color: #1d4ed8 !important;
+        color: #1d4ed8 !important;
     }
     .price-up {
         color: green;
@@ -736,12 +740,23 @@ with tab1:
     company_logos = load_company_logos()
     if _is_excluded_stock(st.session_state.get("selected_company", "")):
         del st.session_state.selected_company
-    
+
+    # Filter out companies with no stock data to avoid empty grid slots
+    def _has_stock_data(name):
+        try:
+            d = stock_processor.get_company_data(name, "3M")
+            return d is not None and d.get("quote") is not None
+        except Exception:
+            return False
+
+    companies_main = [c for c in companies_main if _has_stock_data(c)]
+    companies_indicators = [c for c in companies_indicators if _has_stock_data(c)]
+
     # Company selector
     if 'selected_company' not in st.session_state:
         # Show all companies in a grid layout
         st.subheader("Select a Company to View Details")
-        
+
         # Default timeframe for overview cards
         timeframe = "3M"
 
