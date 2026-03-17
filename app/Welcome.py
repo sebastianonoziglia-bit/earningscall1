@@ -2579,23 +2579,31 @@ try:
                 st.components.v1.html("""
 <script>
 (function() {
+    var maxTries = 25;
+    var tryCount = 0;
     function tryRotate() {
-        const plots = window.parent.document.querySelectorAll('.js-plotly-plot');
-        let globePlot = null;
-        for (const p of plots) {
+        tryCount++;
+        var plots = window.parent.document.querySelectorAll('.js-plotly-plot');
+        var globePlot = null;
+        for (var i = 0; i < plots.length; i++) {
             try {
-                const layout = p._fullLayout;
+                var layout = plots[i]._fullLayout;
                 if (layout && layout.geo && layout.geo.projection &&
                     layout.geo.projection.type === 'orthographic') {
-                    globePlot = p;
+                    globePlot = plots[i];
                     break;
                 }
             } catch(e) {}
         }
-        if (!globePlot) { setTimeout(tryRotate, 800); return; }
-        let lon = 0;
-        let spinning = true;
-        let animId = null;
+        if (!globePlot) {
+            if (tryCount < maxTries) setTimeout(tryRotate, 800);
+            return;
+        }
+        var lon = 0;
+        var spinning = true;
+        var animId = null;
+        var Plotly = window.parent.Plotly || window.Plotly;
+        if (!Plotly) { if (tryCount < maxTries) setTimeout(tryRotate, 800); return; }
         function step() {
             if (!spinning) return;
             lon = (lon + 0.25) % 360;
@@ -2609,7 +2617,7 @@ try:
         globePlot.addEventListener('mouseleave', function() { spinning = true; step(); });
         step();
     }
-    setTimeout(tryRotate, 2000);
+    setTimeout(tryRotate, 3000);
 })();
 </script>
 """, height=0)
@@ -2898,7 +2906,7 @@ def _build_numeric_iso_map() -> dict:
         "392": "JPN", "410": "KOR", "858": "URY", "600": "PRY",
         "084": "BLZ", "398": "KAZ", "860": "UZB", "795": "TKM",
         "762": "TJK", "417": "KGZ", "004": "AFG", "496": "MNG",
-        "388": "JAM", "442": "LUX", "705": "SVN",
+        "388": "JAM", "442": "LUX", "705": "SVN", "332": "HTI",
     }
 
 
@@ -3017,9 +3025,9 @@ def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> li
         "Spotify Premium": {"color": "#158a3e", "logo": "Spotify",               "countries": ["AUS","NZL","CAN"],                                                                                                           "centroid": (-25.0, 133.0)},
         "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["BLZ","SLV","NIC","CRI"],                                                                                                     "centroid": (10.0, -84.0)},
         "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["FRA","BEL","LUX"],                                                                                                           "centroid": (46.2, 2.2)},
-        "WBD":             {"color": "#003087", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL"],                                                                                                                  "centroid": (54.0, -2.0)},
+        "WBD":             {"color": "#4a90d9", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL"],                                                                                                                  "centroid": (54.0, -2.0)},
         "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["DEU","AUT"],                                                                                                                  "centroid": (51.1, 10.4)},
-        "Paramount+":      {"color": "#0064FF", "logo": "Paramount",             "countries": ["ARG","COL","PER","ECU","VEN"],                                                                                               "centroid": (-34.6, -58.4)},
+        "Paramount+":      {"color": "#00C8FF", "logo": "Paramount",             "countries": ["ARG","COL","PER","ECU","VEN"],                                                                                               "centroid": (-34.6, -58.4)},
         "Peacock":         {"color": "#9B2335", "logo": "Comcast",               "countries": ["DOM","JAM"],                                                                                                                  "centroid": (18.7, -70.1)},
     }
     if not excel_path:
@@ -3065,6 +3073,40 @@ def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> li
         return []
 
 
+def _build_timeline_data(excel_path: str, source_stamp: int = 0) -> dict:
+    """Build per-year subscriber counts for globe timeline animation.
+
+    Returns { "2015": {"YouTube": 800, "Facebook": 1100, ...}, "2016": {...}, ... }
+    Values are in millions.
+    """
+    if not excel_path:
+        return {}
+    try:
+        df = pd.read_excel(excel_path, sheet_name="Company_subscribers_values")
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        if "service" not in df.columns or "subscribers" not in df.columns or "year" not in df.columns:
+            return {}
+        df["subscribers"] = pd.to_numeric(df["subscribers"], errors="coerce")
+        df["year"] = pd.to_numeric(df["year"], errors="coerce")
+        df = df.dropna(subset=["subscribers", "year"])
+        df["year"] = df["year"].astype(int)
+        if "quarter" in df.columns:
+            df["quarter"] = pd.to_numeric(df["quarter"], errors="coerce").fillna(0).astype(int)
+        result = {}
+        for year in sorted(df["year"].unique()):
+            year_df = df[df["year"] == year]
+            year_data = {}
+            for service, grp in year_df.groupby("service"):
+                grp = grp.copy()
+                if "quarter" in grp.columns:
+                    grp = grp.sort_values("quarter", ascending=False)
+                year_data[str(service).strip()] = float(grp.iloc[0]["subscribers"])
+            result[str(year)] = year_data
+        return result
+    except Exception:
+        return {}
+
+
 try:
     _source_stamp_pg = int(getattr(data_processor, "source_stamp", 0) or 0) if "data_processor" in dir() and data_processor else 0
 except Exception:
@@ -3076,6 +3118,13 @@ try:
     )
 except Exception:
     _platform_data = []
+try:
+    _timeline_data = _build_timeline_data(
+        str(excel_path) if "excel_path" in dir() and excel_path else "",
+        _source_stamp_pg,
+    )
+except Exception:
+    _timeline_data = {}
 
 # Fallback to hardcoded data if sheet unavailable
 if not _platform_data:
@@ -3134,8 +3183,9 @@ _country_color_json = json.dumps(_country_color_map)
 _country_platform_json = json.dumps(_country_platform_map)
 _country_subs_json = json.dumps(_country_subs_map)
 _num2alpha_json = json.dumps(_num_iso_map)
+_timeline_json = json.dumps(_timeline_data)
 
-_section("THE HUMAN SIDE", "Behind every platform: a billion human beings.", "")
+_section("IF PLATFORMS WERE COUNTRIES", "A billion people. One platform. One color.", "")
 st.markdown(
     "<p style='color:#8b949e;font-size:0.95rem;margin:-0.5rem 0 1rem 0;'>"
     "Countries colored by dominant platform \u00b7 territory reflects global audience scale \u00b7 hover to explore"
@@ -3148,13 +3198,21 @@ _platform_globe_html = (
 html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM Sans',sans-serif;}
 #globe-root{width:100%;height:580px;position:relative;background:#020810;}
 #globe-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.95);border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;border-radius:8px;font-size:13px;pointer-events:none;z-index:100;max-width:220px;}
-#globe-legend{position:absolute;bottom:16px;left:16px;display:flex;flex-direction:column;gap:5px;}
+#globe-legend{position:absolute;bottom:16px;left:16px;display:flex;flex-direction:column;gap:5px;max-height:220px;overflow:hidden;}
+#globe-controls{position:absolute;bottom:16px;right:16px;display:flex;align-items:center;gap:10px;z-index:10;}
+#globe-year-label{font-family:'DM Sans',sans-serif;font-size:32px;font-weight:700;color:#e6edf3;line-height:1;letter-spacing:-0.02em;opacity:0.9;}
+#globe-play-btn{background:rgba(99,179,237,0.15);border:1px solid rgba(99,179,237,0.35);color:#e6edf3;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
+#globe-play-btn:hover{background:rgba(99,179,237,0.3);}
 </style></head><body>
 <div id="globe-root">
 <div id="globe-tooltip"></div>
 <div id="globe-legend">"""
     + _pg_legend_html
     + """</div>
+<div id="globe-controls">
+  <div id="globe-year-label"></div>
+  <button id="globe-play-btn" title="Play timeline">&#9654;</button>
+</div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
@@ -3174,8 +3232,13 @@ var num2alpha="""
 var platformData="""
     + _platform_data_json
     + """;
+var timelineData="""
+    + _timeline_json
+    + """;
 var root=document.getElementById('globe-root');
 var tooltip=document.getElementById('globe-tooltip');
+var yearLabel=document.getElementById('globe-year-label');
+var playBtn=document.getElementById('globe-play-btn');
 var W=root.clientWidth||900;var H=580;
 var svg=d3.select('#globe-root').append('svg').attr('width',W).attr('height',H).style('position','absolute').style('top','0').style('left','0');
 var projection=d3.geoOrthographic().scale(Math.min(W,H)*0.42).translate([W/2,H/2]).clipAngle(90).rotate([0,-20]);
@@ -3215,6 +3278,51 @@ function drawLogos(){
     }
   });
 }
+// Timeline state
+var timelineYears=Object.keys(timelineData).sort();
+var currentYearIdx=timelineYears.length>0?timelineYears.length-1:0;
+var timelinePlaying=false;var timelineInterval=null;
+function subsLabel(v){return v>=1000?(v/1000).toFixed(1)+'B':Math.round(v)+'M';}
+function applyYear(idx){
+  if(!timelineYears.length)return;
+  var year=timelineYears[idx];
+  yearLabel.textContent=year;
+  var yd=timelineData[year]||{};
+  // Update tooltip subscriber data for this year
+  Object.keys(countryPlatform).forEach(function(iso){
+    var pl=countryPlatform[iso];
+    if(yd[pl]!==undefined){countrySubs[iso]=subsLabel(yd[pl]);}
+  });
+  // Update legend text
+  var items=document.querySelectorAll('#globe-legend span');
+  items.forEach(function(el){
+    var txt=el.textContent||'';
+    var parts=txt.split(' \u2014 ');
+    if(parts.length===2){
+      var pl=parts[0].trim();
+      if(yd[pl]!==undefined){el.textContent=pl+' \u2014 '+subsLabel(yd[pl]);}
+    }
+  });
+}
+function stopTimeline(){timelinePlaying=false;if(timelineInterval)clearInterval(timelineInterval);timelineInterval=null;playBtn.innerHTML='&#9654;';}
+function startTimeline(){
+  if(!timelineYears.length)return;
+  timelinePlaying=true;playBtn.innerHTML='&#9646;&#9646;';
+  timelineInterval=setInterval(function(){
+    currentYearIdx=(currentYearIdx+1)%timelineYears.length;
+    applyYear(currentYearIdx);
+    if(currentYearIdx===timelineYears.length-1)stopTimeline();
+  },900);
+}
+playBtn.addEventListener('click',function(){
+  if(timelinePlaying){stopTimeline();}
+  else{
+    if(currentYearIdx>=timelineYears.length-1)currentYearIdx=0;
+    startTimeline();
+  }
+});
+// Init year label to latest
+if(timelineYears.length>0){yearLabel.textContent=timelineYears[timelineYears.length-1];}
 fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(function(r){return r.json();}).then(function(world){
   var countries=topojson.feature(world,world.objects.countries).features;
   gCountries.selectAll('path').data(countries).enter().append('path')
