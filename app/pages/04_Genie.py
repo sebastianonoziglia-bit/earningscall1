@@ -84,23 +84,23 @@ def _render_ai_settings_controls(key_prefix: str = "sidebar"):
             )
     except Exception:
         pass
-    with st.expander("OpenAI fallback (optional)", expanded=False):
-        oai_key = st.text_input(
-            "OpenAI API Key",
-            type="password",
-            value=st.session_state.get("openai_api_key", ""),
-            key=f"openai_api_key_input_{key_prefix}",
-        )
-        if oai_key:
-            st.session_state["openai_api_key"] = oai_key
-        current_model = st.session_state.get("genie_model", "gpt-4o")
-        model_options = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]
-        st.selectbox(
-            "Model",
-            model_options,
-            index=model_options.index(current_model) if current_model in model_options else 0,
-            key=f"genie_model_select_{key_prefix}",
-        )
+    st.markdown("<div style='margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;'><span style='font-size:0.75rem;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;'>OpenAI fallback</span></div>", unsafe_allow_html=True)
+    oai_key = st.text_input(
+        "OpenAI API Key",
+        type="password",
+        value=st.session_state.get("openai_api_key", ""),
+        key=f"openai_api_key_input_{key_prefix}",
+    )
+    if oai_key:
+        st.session_state["openai_api_key"] = oai_key
+    current_model = st.session_state.get("genie_model", "gpt-4o")
+    model_options = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]
+    st.selectbox(
+        "Model",
+        model_options,
+        index=model_options.index(current_model) if current_model in model_options else 0,
+        key=f"genie_model_select_{key_prefix}",
+    )
     if st.button("\U0001f5d1 Clear Conversation", key=f"clear_genie_chat_{key_prefix}"):
         st.session_state["genie_history"] = []
         st.session_state["thought_map"] = {
