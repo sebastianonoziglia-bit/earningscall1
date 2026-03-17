@@ -126,18 +126,27 @@ html, body { background: #020810 !important; }
 section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
+div[data-testid="stMainBlockContainer"],
+div[data-testid="appViewBlockContainer"],
 div[data-testid="block-container"] {
     background-color: transparent !important;
     background: transparent !important;
-}
-section[data-testid="stMain"] {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-}
-div[data-testid="block-container"] {
     padding-left: 0 !important;
     padding-right: 0 !important;
     max-width: 100% !important;
+}
+section[data-testid="stMain"],
+div[data-testid="stMainBlockContainer"],
+div[data-testid="appViewBlockContainer"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+div[data-testid="block-container"],
+div[data-testid="stMainBlockContainer"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
 }
 .element-container, .stMarkdown, .stPlotlyChart,
 .stCaption, div[data-testid="stVerticalBlock"] {
@@ -303,8 +312,10 @@ def _mount_welcome_liquid_background() -> None:
       '#wlb-host{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;overflow:hidden;background:linear-gradient(135deg,#020810 0%,#0a1b2e 50%,#020810 100%);}',
       '#wlb-host canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;}',
       '.stApp,.stApp>div,section[data-testid="stMain"],section[data-testid="stMain"]>div,',
-      'div[data-testid="stAppViewContainer"],div[data-testid="block-container"]{',
-      'background:transparent!important;background-color:transparent!important;}'
+      'div[data-testid="stAppViewContainer"],div[data-testid="stMainBlockContainer"],',
+      'div[data-testid="appViewBlockContainer"],div[data-testid="block-container"]{',
+      'background:transparent!important;background-color:transparent!important;',
+      'padding-left:0!important;padding-right:0!important;max-width:100%!important;}'
     ].join('');
     doc.head.appendChild(s);
   }
@@ -1723,9 +1734,14 @@ st.markdown(
 section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
+div[data-testid="stMainBlockContainer"],
+div[data-testid="appViewBlockContainer"],
 div[data-testid="block-container"] {
     background-color: transparent !important;
     background: transparent !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    max-width: 100% !important;
 }
 .element-container, .stMarkdown, .stPlotlyChart,
 .stCaption, div[data-testid="stVerticalBlock"] {
@@ -2139,15 +2155,15 @@ def _apply_dark_chart_layout(fig, *, height=360, margin=None, extra_layout=None)
             color="#aaaaaa",
             gridcolor="#2a2a2a",
             linecolor="#333333",
-            tickfont=dict(color="#aaaaaa"),
+            tickfont=dict(color="#aaaaaa", size=13),
         ),
         yaxis=dict(
             color="#aaaaaa",
             gridcolor="#2a2a2a",
             linecolor="#333333",
-            tickfont=dict(color="#aaaaaa"),
+            tickfont=dict(color="#aaaaaa", size=13),
         ),
-        legend=dict(font=dict(color="#ffffff"), bgcolor="rgba(0,0,0,0)"),
+        legend=dict(font=dict(color="#ffffff", size=13), bgcolor="rgba(0,0,0,0)"),
         margin=margin or dict(l=0, r=0, t=32, b=40),
         height=height,
     )
@@ -2643,10 +2659,10 @@ def _build_ss_html(ss_data_json: str) -> str:
 .wm-ss-left{{width:55%;display:flex;justify-content:center;align-items:center;}}
 .wm-ss-right{{width:45%;padding:0 8px;}}
 .wm-ss-year{{font-family:'Syne',sans-serif;font-size:72px;font-weight:800;color:#e6edf3;line-height:1;}}
-.wm-ss-yearlabel{{color:#8b949e;font-size:13px;margin-top:8px;line-height:1.4;}}
-.wm-ss-total{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-top:12px;}}
-.wm-ss-legend{{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}}
-.wm-ss-leg-item{{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}}
+.wm-ss-yearlabel{{color:#c9d1d9;font-size:17px;margin-top:10px;line-height:1.45;font-weight:500;}}
+.wm-ss-total{{color:#ff5b1f;font-family:'Syne',sans-serif;font-size:23px;font-weight:700;margin-top:14px;}}
+.wm-ss-legend{{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px;}}
+.wm-ss-leg-item{{display:flex;align-items:center;gap:7px;font-size:13px;color:#8b949e;}}
 .wm-ss-leg-dot{{width:10px;height:10px;border-radius:3px;flex-shrink:0;}}
 </style>
 <div class="wm-ss-label">THE STRUCTURAL SHIFT</div>
