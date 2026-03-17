@@ -3125,7 +3125,7 @@ _country_platform_json = json.dumps(_country_platform_map)
 _country_subs_json = json.dumps(_country_subs_map)
 _num2alpha_json = json.dumps(_num_iso_map)
 
-_section("THE HUMAN SIDE", "Behind every platform: a billion human beings.")
+_section("THE HUMAN SIDE", "Behind every platform: a billion human beings.", "")
 st.markdown(
     "<p style='color:#8b949e;font-size:0.95rem;margin:-0.5rem 0 1rem 0;'>"
     "Countries colored by dominant platform \u00b7 territory reflects global audience scale \u00b7 hover to explore"
