@@ -3688,148 +3688,179 @@ def main():
         ]
 
     segment_insight_map = {}
+    # ── FULLY AUTOMATIC SEGMENT INSIGHTS ─────────────────────────────────────
     selected_insight_qnum = _parse_quarter_int(selected_quarter)
     desired_insight_year = int(year) if selected_insight_qnum is not None else int(segment_end)
-    segment_to_group = {}
-    segment_to_group_norm = {}
+
+    # Build manual insight lookup (Excel overrides)
+    _manual_lookup = {}
     if not segment_insights_filtered.empty:
-        segment_to_group = {k: v for k, v in segment_insights_filtered.groupby("segment")}
-        segment_to_group_norm = {
-            normalize_segment(k): v for k, v in segment_to_group.items() if str(k).strip()
-        }
-    if segment_labels:
-        ordered_segments = segment_labels
-    elif segment_to_group:
-        ordered_segments = sorted(segment_to_group.keys())
-    else:
-        ordered_segments = []
-    _transcript_text = _load_transcript_for_company(
-        str(data_processor.data_path),
-        canonical_company,
-        int(desired_insight_year),
-        selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
-    )
-    if True:
-        for raw_segment_name in ordered_segments:
-            segment_name = str(raw_segment_name).strip()
-            group = segment_to_group_norm.get(normalize_segment(segment_name))
+        _stg = {k: v for k, v in segment_insights_filtered.groupby("segment")}
+        _stg_norm = {normalize_segment(k): v for k, v in _stg.items() if str(k).strip()}
+        for _seg_k, _seg_v in _stg_norm.items():
+            _seg_v = _seg_v.copy()
+            _seg_v["year"] = pd.to_numeric(_seg_v["year"], errors="coerce")
+            _yr_rows = _seg_v[_seg_v["year"] == desired_insight_year]
+            if _yr_rows.empty:
+                _yr_rows = _seg_v[_seg_v["year"] == _seg_v["year"].max()] if not _seg_v.empty else pd.DataFrame()
+            if not _yr_rows.empty:
+                _texts = []
+                for _item in _yr_rows["insight"].tolist():
+                    for _part in split_insight_text(_item):
+                        if _part and str(_part).strip():
+                            _texts.append(str(_part).strip())
+                if _texts:
+                    _manual_lookup[_seg_k] = _texts
 
-            group_year = pd.DataFrame()
-            group_in_range = pd.DataFrame()
-            if group is not None and not group.empty:
-                group = group.copy()
-                group["year"] = pd.to_numeric(group["year"], errors="coerce")
-                group_in_range = group[
-                    group["year"].notna()
-                    & (group["year"] >= int(segment_start))
-                    & (group["year"] <= int(segment_end))
-                ]
+    # Use ALL segment labels from donut (not just ones with manual rows)
+    _all_ordered = segment_labels if segment_labels else sorted(_manual_lookup.keys())
 
-                if selected_insight_qnum is not None:
-                    year_focus = group[group["year"] == int(desired_insight_year)].copy()
-                    if not year_focus.empty:
-                        exact_quarter = year_focus[year_focus["_quarter_num"] == int(selected_insight_qnum)].copy()
-                        if not exact_quarter.empty:
-                            group_year = exact_quarter
-                        else:
-                            annual_same_year = year_focus[
-                                year_focus["_quarter_num"].isna()
-                                | year_focus["_quarter_text"].isin(["", "ANNUAL", "FY", "YEARLY", "YEAR"])
-                            ].copy()
-                            if not annual_same_year.empty:
-                                group_year = annual_same_year
-                            else:
-                                quarter_rows = year_focus[year_focus["_quarter_num"].notna()].copy()
-                                if not quarter_rows.empty:
-                                    quarter_le = quarter_rows[quarter_rows["_quarter_num"] <= int(selected_insight_qnum)].copy()
-                                    if not quarter_le.empty:
-                                        best_q = int(quarter_le["_quarter_num"].max())
-                                        group_year = quarter_le[quarter_le["_quarter_num"] == best_q].copy()
-                                    else:
-                                        best_q = int(quarter_rows["_quarter_num"].max())
-                                        group_year = quarter_rows[quarter_rows["_quarter_num"] == best_q].copy()
+    # Load transcript once for this company/year
+    _seg_transcript = ""
+    try:
+        _seg_transcript = _load_transcript_for_company(
+            str(data_processor.data_path),
+            canonical_company,
+            int(desired_insight_year),
+            selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
+        )
+    except Exception:
+        pass
 
-                if group_year.empty:
-                    group_year = group_in_range[group_in_range["year"] == desired_insight_year]
-                    if group_year.empty:
-                        if not group_in_range.empty:
-                            best_year = int(group_in_range["year"].max())
-                            group_year = group_in_range[group_in_range["year"] == best_year]
-                        else:
-                            group_le = group[group["year"].notna() & (group["year"] <= desired_insight_year)]
-                            if not group_le.empty:
-                                best_year = int(group_le["year"].max())
-                                group_year = group_le[group_le["year"] == best_year]
-                            else:
-                                year_values = group["year"].dropna()
-                                if not year_values.empty:
-                                    best_year = int(year_values.max())
-                                    group_year = group[group["year"] == best_year]
-                                else:
-                                    group_year = group
+    # Check if Anthropic API is available
+    _ant_available = False
+    try:
+        from utils.anthropic_service import is_api_available as _ant_check
+        _ant_available = _ant_check()
+    except Exception:
+        pass
 
-            # ── Pull manual insights (from Excel) ──────────────────────────
-            insights = []
-            has_manual = False
-            if group is not None and not group_year.empty:
-                for item in group_year["insight"].tolist():
-                    for part in split_insight_text(item):
-                        if part and str(part).strip():
-                            insights.append(html.escape(str(part).strip()))
-                has_manual = bool(insights)
+    for raw_segment_name in _all_ordered:
+        segment_name = str(raw_segment_name).strip()
+        if not segment_name:
+            continue
 
-            # ── Auto-generate from transcript if no manual insight ──────────
-            if not has_manual and _transcript_text:
-                _seg_rev = None
-                _seg_yoy = None
-                try:
-                    if "composition_df" in dir() and composition_df is not None and not composition_df.empty:
-                        _row = composition_df[composition_df["segment"] == segment_name]
-                        if not _row.empty:
-                            _seg_rev = float(_row["revenue"].iloc[0])
-                    if segment_labels and segment_name in segment_labels and "segment_yoy_labels" in dir():
-                        _idx = segment_labels.index(segment_name)
-                        if _idx < len(segment_yoy_labels):
-                            _yoy_str = str(segment_yoy_labels[_idx])
-                            _m = re.search(r"([+-]?\d+\.?\d*)%", _yoy_str)
-                            if _m:
-                                _seg_yoy = float(_m.group(1))
-                except Exception:
-                    pass
-                _best_sentence = _find_best_transcript_sentence(_transcript_text, segment_name)
-                _auto_text = _build_auto_segment_insight(
+        segment_color = segment_colors.get(segment_name)
+        if not segment_color:
+            segment_color = match_segment_color(canonical_company, segment_name)
+        if not segment_color:
+            segment_color = COMPANY_COLORS.get(canonical_company, "#111827")
+
+        # PRIORITY 0 — Manual Excel row (override)
+        _manual_key = normalize_segment(segment_name)
+        if _manual_key in _manual_lookup:
+            _items = _manual_lookup[_manual_key]
+            _items_html = "".join(
+                f"<li style='color:#FFFFFF !important;'>{html.escape(t)}</li>"
+                for t in _items
+            )
+            segment_insight_map[segment_name] = (
+                f"<div class='segment-insight-card' style='background:{segment_color};color:#ffffff;width:100%;'>"
+                f"<div class='segment-insight-title' style='color:#FFFFFF !important;'>{html.escape(segment_name)}</div>"
+                f"<ul class='segment-insight-list' style='color:#FFFFFF !important;'>{_items_html}</ul>"
+                f"</div>"
+            )
+            continue
+
+        # Get segment revenue and YoY for context
+        _seg_rev = None
+        _seg_rev_prev = None
+        _seg_yoy = None
+        try:
+            _rev_range = list(range(int(desired_insight_year) - 1, int(desired_insight_year) + 1))
+            _sd = get_segment_data(canonical_company, segment_name, _rev_range)
+            if _sd and desired_insight_year in _sd:
+                _seg_rev = _sd[desired_insight_year]
+                _prev = desired_insight_year - 1
+                if _prev in _sd and _sd[_prev] and float(_sd[_prev]) != 0:
+                    _seg_rev_prev = _sd[_prev]
+                    _seg_yoy = (_seg_rev - _seg_rev_prev) / abs(_seg_rev_prev) * 100
+        except Exception:
+            pass
+
+        # Fallback: pull revenue + YoY from composition_df / segment_yoy_labels
+        if _seg_rev is None:
+            try:
+                if "composition_df" in dir() and composition_df is not None and not composition_df.empty:
+                    _row = composition_df[composition_df["segment"] == segment_name]
+                    if not _row.empty:
+                        _seg_rev = float(_row["revenue"].iloc[0])
+                if _seg_yoy is None and segment_labels and segment_name in segment_labels and "segment_yoy_labels" in dir():
+                    _idx = segment_labels.index(segment_name)
+                    if _idx < len(segment_yoy_labels):
+                        _yoy_str = str(segment_yoy_labels[_idx])
+                        _m = re.search(r"([+-]?\d+\.?\d*)%", _yoy_str)
+                        if _m:
+                            _seg_yoy = float(_m.group(1))
+            except Exception:
+                pass
+
+        # Get best transcript sentence for this segment
+        _seg_sentence = ""
+        try:
+            _seg_sentence = _find_best_transcript_sentence(_seg_transcript, segment_name)
+        except Exception:
+            pass
+
+        # PRIORITY 1 — Claude API insight (if available)
+        _insight_text = ""
+        _source_badge = ""
+
+        if _ant_available:
+            try:
+                from utils.anthropic_service import generate_segment_insight
+                _insight_text = generate_segment_insight(
+                    company=canonical_company,
+                    segment=segment_name,
+                    revenue_m=_seg_rev,
+                    yoy_pct=_seg_yoy,
+                    year=int(desired_insight_year),
+                    quarter=selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
+                    transcript_sentence=_seg_sentence,
+                )
+                if _insight_text:
+                    _source_badge = (
+                        "<div style='font-size:0.65rem;opacity:0.7;margin-bottom:4px;"
+                        "letter-spacing:0.06em;text-transform:uppercase;'>✨ AI generated</div>"
+                    )
+            except Exception:
+                _insight_text = ""
+
+        # PRIORITY 2 — Tier 1 template (revenue + transcript sentence)
+        if not _insight_text:
+            try:
+                _insight_text = _build_auto_segment_insight(
                     segment_name=segment_name,
                     segment_revenue=_seg_rev,
                     segment_yoy=_seg_yoy,
-                    transcript_sentence=_best_sentence,
+                    transcript_sentence=_seg_sentence,
                     year=int(desired_insight_year),
                     quarter=selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
                 )
-                if _auto_text:
-                    insights.append(html.escape(_auto_text))
+                if _insight_text:
+                    _source_badge = (
+                        "<div style='font-size:0.65rem;opacity:0.7;margin-bottom:4px;"
+                        "letter-spacing:0.06em;text-transform:uppercase;'>📋 from transcript</div>"
+                    )
+            except Exception:
+                _insight_text = ""
 
-            if not insights:
-                continue
-            insight_items = "".join(
-                f"<li style=\"color:#FFFFFF !important;\">{item}</li>" for item in insights
-            )
-            segment_color = segment_colors.get(segment_name)
-            if not segment_color:
-                segment_color = match_segment_color(canonical_company, segment_name)
-            if not segment_color:
-                segment_color = COMPANY_COLORS.get(canonical_company, "#111827")
-            _source_badge = (
-                "" if has_manual else
-                "<div style='font-size:0.7rem;opacity:0.75;margin-bottom:4px;"
-                "letter-spacing:0.05em;text-transform:uppercase;'>\U0001f4cb from transcript</div>"
-            )
-            segment_insight_map[segment_name] = (
-                f"<div class=\"segment-insight-card\" style=\"background: {segment_color}; color: #ffffff; width: 100%;\">"
-                f"<div class=\"segment-insight-title\" style=\"color:#FFFFFF !important;\">{html.escape(segment_name)}</div>"
-                f"{_source_badge}"
-                f"<ul class=\"segment-insight-list\" style=\"color:#FFFFFF !important;\">{insight_items}</ul>"
-                "</div>"
-            )
+        # PRIORITY 3 — Generic fallback (always show something)
+        if not _insight_text:
+            _period = f"{desired_insight_year} {selected_quarter}".strip() if selected_quarter and selected_quarter != "Annual" else str(desired_insight_year)
+            _insight_text = f"{segment_name} data for {canonical_company} in {_period}. Revenue data not yet available for this segment."
+            _source_badge = ""
+
+        _insight_escaped = html.escape(_insight_text)
+        segment_insight_map[segment_name] = (
+            f"<div class='segment-insight-card' style='background:{segment_color};color:#ffffff;width:100%;'>"
+            f"<div class='segment-insight-title' style='color:#FFFFFF !important;'>{html.escape(segment_name)}</div>"
+            f"{_source_badge}"
+            f"<ul class='segment-insight-list' style='color:#FFFFFF !important;'>"
+            f"<li style='color:#FFFFFF !important;'>{_insight_escaped}</li>"
+            f"</ul>"
+            f"</div>"
+        )
 
     composition_cols = st.columns([0.95, 1.55], gap="large")
     with composition_cols[0]:
