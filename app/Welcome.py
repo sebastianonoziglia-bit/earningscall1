@@ -121,32 +121,39 @@ st.markdown(
   --alp: #4285f4;
   --meta: #0082fb;
 }
-html, body { background: #020810 !important; }
-.stApp > div, .main, .main > div,
+html, body, :root {
+    background: #020810 !important;
+    background-color: #020810 !important;
+    color-scheme: dark !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow-x: hidden !important;
+}
+.stApp,
+.stApp > *,
+.main,
+.main > div,
 section[data-testid="stMain"],
 section[data-testid="stMain"] > div,
 div[data-testid="stAppViewContainer"],
 div[data-testid="stMainBlockContainer"],
 div[data-testid="appViewBlockContainer"],
-div[data-testid="block-container"] {
-    background-color: transparent !important;
-    background: transparent !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    max-width: 100% !important;
-}
-section[data-testid="stMain"],
-div[data-testid="stMainBlockContainer"],
-div[data-testid="appViewBlockContainer"] {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-}
 div[data-testid="block-container"],
-div[data-testid="stMainBlockContainer"] {
+div[data-testid="stDecoration"] {
+    background-color: #020810 !important;
+    background: #020810 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
+    border: none !important;
+    outline: none !important;
+}
+header[data-testid="stHeader"] {
+    background: transparent !important;
+}
+div[data-testid="stSidebarContent"] {
+    background: #020810 !important;
 }
 .element-container, .stMarkdown, .stPlotlyChart,
 .stCaption, div[data-testid="stVerticalBlock"] {
@@ -311,11 +318,14 @@ def _mount_welcome_liquid_background() -> None:
     s.textContent = [
       '#wlb-host{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;overflow:hidden;background:linear-gradient(135deg,#020810 0%,#0a1b2e 50%,#020810 100%);}',
       '#wlb-host canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;}',
-      '.stApp,.stApp>div,section[data-testid="stMain"],section[data-testid="stMain"]>div,',
+      'html,body,:root{background:#020810!important;background-color:#020810!important;color-scheme:dark!important;margin:0!important;padding:0!important;}',
+      '.stApp,.stApp>*,.main,.main>div,',
+      'section[data-testid="stMain"],section[data-testid="stMain"]>div,',
       'div[data-testid="stAppViewContainer"],div[data-testid="stMainBlockContainer"],',
-      'div[data-testid="appViewBlockContainer"],div[data-testid="block-container"]{',
-      'background:transparent!important;background-color:transparent!important;',
-      'padding-left:0!important;padding-right:0!important;max-width:100%!important;}'
+      'div[data-testid="appViewBlockContainer"],div[data-testid="block-container"],',
+      'div[data-testid="stDecoration"]{',
+      'background:#020810!important;background-color:#020810!important;',
+      'padding-left:0!important;padding-right:0!important;max-width:100%!important;width:100%!important;border:none!important;}'
     ].join('');
     doc.head.appendChild(s);
   }
