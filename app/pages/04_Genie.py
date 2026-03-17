@@ -2317,6 +2317,14 @@ if (
 
 
     fig.update_layout(**layout_dict)
+    fig.update_layout(
+        font=dict(family="DM Sans, Inter, sans-serif", size=12, color="#374151"),
+        xaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', showline=False,
+                   zeroline=False, tickfont=dict(size=11, color="#374151")),
+        legend=dict(font=dict(color="#374151")),
+        hoverlabel=dict(bgcolor="rgba(17,24,39,0.95)", bordercolor="rgba(99,179,237,0.4)",
+                        font=dict(size=12, color="#f9fafb")),
+    )
 
     # Update hover templates for country traces
     for trace in fig.data:
@@ -3503,12 +3511,24 @@ padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;'>
                         ]
                     )
                     topic_fig.update_layout(
-                        template=local_plotly_template,
+                        template="plotly_white",
                         title=f"Topic Mentions — {context_company} {int(context_year)} {context_quarter}",
+                        title_font=dict(color="#111827", size=13),
                         xaxis_title="Mentions",
                         yaxis_title="Topic",
                         margin=dict(l=20, r=20, t=60, b=20),
                         height=380,
+                        plot_bgcolor='white',
+                        paper_bgcolor='white',
+                        font=dict(family="DM Sans, Inter, sans-serif", size=12, color="#374151"),
+                        xaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)',
+                                   showline=False, zeroline=False,
+                                   tickfont=dict(size=11, color="#374151")),
+                        yaxis=dict(showgrid=False, showline=False, zeroline=False,
+                                   tickfont=dict(size=11, color="#374151")),
+                        hoverlabel=dict(bgcolor="rgba(17,24,39,0.95)",
+                                        bordercolor="rgba(99,179,237,0.4)",
+                                        font=dict(size=12, color="#f9fafb")),
                     )
                     topic_fig.update_yaxes(autorange="reversed")
                     st.plotly_chart(topic_fig, use_container_width=True)
@@ -3600,8 +3620,166 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-render_thought_map(height=520)
-render_thought_map_controls()
+# ── D3 THOUGHT MAP ────────────────────────────────────────────────────────
+_tm_history = st.session_state.get("genie_history", [])
+_tm_nodes = []
+_tm_edges = []
+
+for _i, _msg in enumerate(_tm_history):
+    if _msg.get("role") not in {"user", "assistant"}:
+        continue
+    _content = str(_msg.get("content", ""))[:120]
+    _role = _msg.get("role", "")
+    try:
+        _intent = _extract_node_intent(_content)
+        _co = _intent.get("primary_company", "")
+        _ntype = _intent.get("node_type", "default")
+        _color = (COMPANY_BRAND_COLORS.get(_co.lower(), "") or
+                  TOPIC_NODE_COLORS.get(_ntype, "#94A3B8"))
+        _logo = ""
+        try:
+            _logos_dict = st.session_state.get("_cached_logos") or {}
+            if not _logos_dict:
+                from utils.logos import load_company_logos
+                _logos_dict = load_company_logos()
+                st.session_state["_cached_logos"] = _logos_dict
+            for _k in _logos_dict:
+                if _co and _k.lower() == _co.lower():
+                    _logo = _logos_dict[_k]
+                    break
+        except Exception:
+            pass
+    except Exception:
+        _color = "#60A5FA" if _role == "user" else "#94A3B8"
+        _co = ""
+        _logo = ""
+
+    _tm_nodes.append({
+        "id": _i,
+        "label": _content[:60] + ("..." if len(_content) > 60 else ""),
+        "color": _color,
+        "role": _role,
+        "company": _co,
+        "logo": _logo,
+    })
+    if _i > 0:
+        _tm_edges.append({"from": _i - 1, "to": _i, "color": _color})
+
+import json as _tm_json
+_nodes_json = _tm_json.dumps(_tm_nodes)
+_edges_json = _tm_json.dumps(_tm_edges)
+
+_tm_html = (
+    """<!DOCTYPE html><html><head><style>
+html,body{margin:0;padding:0;background:#0d1117;overflow:hidden;font-family:'DM Sans',sans-serif;}
+#tm-root{width:100%;height:480px;position:relative;}
+svg{width:100%;height:100%;}
+.node-card{cursor:pointer;}
+#tm-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.97);
+border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;
+border-radius:8px;font-size:12px;pointer-events:none;z-index:100;max-width:280px;line-height:1.5;}
+</style></head><body>
+<div id="tm-root"><div id="tm-tooltip"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+var nodes="""
+    + _nodes_json
+    + """;
+var edges="""
+    + _edges_json
+    + """;
+if(!nodes.length){
+    d3.select('#tm-root').append('div')
+        .style('display','flex').style('align-items','center')
+        .style('justify-content','center').style('height','100%')
+        .style('color','#4b5563').style('font-size','14px')
+        .text('Ask Genie something to see your thought map grow here.');
+} else {
+var W=document.getElementById('tm-root').clientWidth||900;
+var H=480;
+var tooltip=document.getElementById('tm-tooltip');
+var svg=d3.select('#tm-root').append('svg');
+var simulation=d3.forceSimulation(nodes)
+    .force('link',d3.forceLink(edges).id(function(d){return d.id;}).distance(120).strength(0.8))
+    .force('charge',d3.forceManyBody().strength(-300))
+    .force('center',d3.forceCenter(W/2,H/2))
+    .force('collision',d3.forceCollide(60));
+svg.append('defs').append('marker')
+    .attr('id','arrowhead').attr('viewBox','0 0 10 10')
+    .attr('refX',28).attr('refY',5)
+    .attr('markerWidth',6).attr('markerHeight',6)
+    .attr('orient','auto-start-reverse')
+    .append('path').attr('d','M2 1L8 5L2 9')
+    .attr('fill','none').attr('stroke','#4b5563').attr('stroke-width',1.5);
+var edgeG=svg.append('g');
+var edgeLines=edgeG.selectAll('path').data(edges).enter().append('path')
+    .attr('fill','none').attr('stroke-opacity',0.4).attr('stroke-width',1.5)
+    .attr('stroke-dasharray','4 2')
+    .attr('stroke',function(d){return d.color||'#4b5563';})
+    .attr('marker-end','url(#arrowhead)');
+var nodeG=svg.append('g');
+var drag=d3.drag()
+    .on('start',function(event,d){if(!event.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
+    .on('drag',function(event,d){d.fx=event.x;d.fy=event.y;})
+    .on('end',function(event,d){if(!event.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;});
+var nodeGroups=nodeG.selectAll('g').data(nodes).enter().append('g')
+    .attr('class','node-card').call(drag)
+    .on('mouseover',function(event,d){
+        tooltip.style.display='block';
+        tooltip.style.left=(event.offsetX+12)+'px';
+        tooltip.style.top=(event.offsetY-10)+'px';
+        tooltip.innerHTML=(d.company?'<strong style="color:'+d.color+'">'+d.company+'</strong><br>':'')+
+            '<span style="color:#9ca3af;font-size:10px;text-transform:uppercase">'+d.role+'</span><br>'+d.label;
+    })
+    .on('mouseout',function(){tooltip.style.display='none';});
+nodeGroups.append('circle')
+    .attr('r',function(d){return d.role==='user'?24:20;})
+    .attr('fill',function(d){return d.color+'22';})
+    .attr('stroke',function(d){return d.color;})
+    .attr('stroke-width',function(d){return d.role==='user'?2:1.5;});
+nodeGroups.each(function(d){
+    var g=d3.select(this);
+    var r=d.role==='user'?14:12;
+    if(d.logo){
+        var clipId='clip-tm-'+d.id;
+        svg.select('defs').append('clipPath').attr('id',clipId)
+            .append('circle').attr('r',r);
+        g.append('image')
+            .attr('href','data:image/png;base64,'+d.logo)
+            .attr('x',-r).attr('y',-r).attr('width',r*2).attr('height',r*2)
+            .attr('clip-path','url(#'+clipId+')');
+    } else {
+        g.append('text')
+            .attr('text-anchor','middle').attr('dominant-baseline','central')
+            .attr('font-size',d.role==='user'?'13px':'11px')
+            .attr('font-weight','700').attr('fill',d.color)
+            .text(d.company?d.company[0]:(d.role==='user'?'Q':'A'));
+    }
+});
+nodeGroups.append('circle')
+    .attr('cx',16).attr('cy',-16).attr('r',6)
+    .attr('fill',function(d){return d.role==='user'?'#3b82f6':'#8b5cf6';})
+    .attr('stroke','#0d1117').attr('stroke-width',1.5);
+nodeGroups.append('text')
+    .attr('x',16).attr('y',-16).attr('text-anchor','middle')
+    .attr('dominant-baseline','central').attr('font-size','7px')
+    .attr('fill','white').attr('font-weight','700')
+    .text(function(d){return d.role==='user'?'Q':'A';});
+simulation.on('tick',function(){
+    edgeLines.attr('d',function(d){
+        var dx=d.target.x-d.source.x;
+        var dy=d.target.y-d.source.y;
+        var dr=Math.sqrt(dx*dx+dy*dy)*1.2;
+        return 'M'+d.source.x+','+d.source.y+'A'+dr+','+dr+' 0 0,1 '+d.target.x+','+d.target.y;
+    });
+    nodeGroups.attr('transform',function(d){
+        return 'translate('+Math.max(30,Math.min(W-30,d.x))+','+Math.max(30,Math.min(H-30,d.y))+')';
+    });
+});
+}
+</script></body></html>"""
+)
+st.components.v1.html(_tm_html, height=500, scrolling=False)
 st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
 
 # Show helper message if no data is selected
