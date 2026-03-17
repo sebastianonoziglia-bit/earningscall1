@@ -2441,9 +2441,12 @@ if (
             sub_fig.update_layout(
                 height=360,
                 margin=dict(t=30, l=40, r=20, b=40),
-                xaxis=dict(title="Year"),
-                yaxis=dict(title="Subscribers / Users"),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font=dict(color="#374151"),
+                xaxis=dict(title="Year", tickfont=dict(color="#374151"), title_font=dict(color="#6b7280")),
+                yaxis=dict(title="Subscribers / Users", tickfont=dict(color="#374151"), title_font=dict(color="#6b7280")),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(color="#374151")),
             )
             st.plotly_chart(sub_fig, use_container_width=True)
         else:
@@ -3060,6 +3063,25 @@ _suggestions = [
     "What macro signals (M2, Fed rate) correlate most with ad market growth?",
     f"Generate a 1-paragraph strategic brief on {_primary} for a European broadcaster",
 ]
+st.markdown("""<style>
+div[data-testid="stButton"] > button {
+    background-color: #f8fafc !important;
+    color: #374151 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    font-size: 0.82rem !important;
+    padding: 0.4rem 0.75rem !important;
+    white-space: normal !important;
+    text-align: left !important;
+    height: auto !important;
+    min-height: 2.5rem !important;
+}
+div[data-testid="stButton"] > button:hover {
+    background-color: #f1f5f9 !important;
+    border-color: #94a3b8 !important;
+    color: #111827 !important;
+}
+</style>""", unsafe_allow_html=True)
 st.markdown("**Suggested questions:**")
 _chip_cols = st.columns(min(len(_suggestions), 3))
 for _i, _sugg in enumerate(_suggestions):

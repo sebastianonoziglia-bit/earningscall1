@@ -1073,25 +1073,25 @@ def main():
         fig.update_layout(
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#e6edf3"),
+            font=dict(color="#374151"),
             hoverlabel=HOVERLABEL_STYLE,
         )
         fig.update_xaxes(
-            tickfont=dict(color="#8b949e"),
-            title_font=dict(color="#c9d1d9"),
+            tickfont=dict(color="#374151"),
+            title_font=dict(color="#374151"),
             gridcolor="#21262d",
             showline=False,
             zeroline=False,
         )
         fig.update_yaxes(
-            tickfont=dict(color="#8b949e"),
-            title_font=dict(color="#c9d1d9"),
+            tickfont=dict(color="#374151"),
+            title_font=dict(color="#374151"),
             gridcolor="#21262d",
             showline=False,
             zeroline=False,
         )
         fig.update_layout(legend=dict(
-            font=dict(color="#c9d1d9"),
+            font=dict(color="#374151"),
             bgcolor="rgba(0,0,0,0)",
             borderwidth=0,
         ))
@@ -4185,7 +4185,7 @@ def main():
                                 line=dict(color="rgba(0,0,0,0.18)", width=1),
                             ),
                             textinfo="percent",
-                            textfont=dict(color="#ffffff", size=10),
+                            textfont=dict(color="#374151", size=10),
                             hovertemplate=(
                                 "<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}"
                                 "<extra></extra>"
@@ -4217,7 +4217,7 @@ def main():
                 hole=0.55, sort=False, direction="clockwise", rotation=90,
                 domain=dict(x=[0, 0.72], y=[0, 1]),
                 marker=_f0.marker,
-                textinfo="percent", textfont=dict(color="#ffffff", size=10),
+                textinfo="percent", textfont=dict(color="#374151", size=10),
                 hovertemplate="<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}<extra></extra>",
             )]
             _init_anns = list(_pie_frames[_init_idx].layout.annotations or [])
@@ -4249,7 +4249,7 @@ def main():
                             domain=dict(x=[0, 0.72], y=[0, 1]),
                             marker=dict(colors=_fy_fc, line=dict(color="rgba(0,0,0,0.18)", width=1)),
                             textinfo="percent",
-                            textfont=dict(color="#ffffff", size=10),
+                            textfont=dict(color="#374151", size=10),
                             hovertemplate="<b>%{label}</b><br>$%{value:,.0f}M &nbsp;%{percent}<extra></extra>",
                         )]
                 else:
@@ -4300,8 +4300,8 @@ def main():
                         orientation="v",
                         x=1.02, y=0.5, yanchor="middle",
                         bgcolor="rgba(0,0,0,0)",
-                        font=dict(color="#e6edf3", size=11),
-                        title=dict(text="Segments", font=dict(color="#c9d1d9", size=11)),
+                        font=dict(color="#374151", size=11),
+                        title=dict(text="Segments", font=dict(color="#374151", size=11)),
                     ),
                     margin=dict(l=140, r=200, t=80, b=120),
                     updatemenus=[{

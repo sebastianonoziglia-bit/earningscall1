@@ -503,6 +503,8 @@ with tab1:
                             mode="lines+markers",
                             name=service,
                             hovertemplate=hovertemplate,
+                            line=dict(width=2.5, shape='spline'),
+                            marker=dict(size=5, opacity=0.8),
                         )
                     )
                 else:
@@ -512,6 +514,8 @@ with tab1:
                             y=df_service[column_name],
                             name=service,
                             hovertemplate=hovertemplate,
+                            marker_line_width=0,
+                            opacity=0.85,
                         )
                     )
 
@@ -524,14 +528,29 @@ with tab1:
                     yaxis_title=None,
                     plot_bgcolor='white',
                     paper_bgcolor='white',
+                    font=dict(family="DM Sans, Inter, sans-serif", size=12, color="#374151"),
                     xaxis=dict(
                         type='category',
                         categoryorder='array',
                         categoryarray=df_service["Quarter"].tolist(),
                         tickangle=45,
                         showgrid=False,
+                        showline=False,
+                        zeroline=False,
+                        tickfont=dict(size=11, color="#374151"),
                     ),
-                    yaxis=dict(showgrid=True, gridcolor='#f0f0f0'),
+                    yaxis=dict(
+                        showgrid=True,
+                        gridcolor='rgba(0,0,0,0.05)',
+                        showline=False,
+                        zeroline=False,
+                        tickfont=dict(size=11, color="#374151"),
+                    ),
+                    hoverlabel=dict(
+                        bgcolor="rgba(17,24,39,0.95)",
+                        bordercolor="rgba(99,179,237,0.4)",
+                        font=dict(size=12, color="#f9fafb", family="DM Sans, Inter, sans-serif"),
+                    ),
                 )
 
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -666,6 +685,8 @@ with tab2:
                         connectgaps=False,
                         name=service_name,
                         hovertemplate=hover_template,
+                        line=dict(width=2.5, shape='spline'),
+                        marker=dict(size=5, opacity=0.8),
                     )
                 )
             else:
@@ -675,6 +696,8 @@ with tab2:
                         y=df_service["value"],
                         name=service_name,
                         hovertemplate=hover_template,
+                        marker_line_width=0,
+                        opacity=0.85,
                     )
                 )
 
@@ -690,24 +713,49 @@ with tab2:
 
         fig.update_layout(
             title=f"Service Comparison — {series_title}",
+            title_font=dict(color="#111827", size=14),
             xaxis_title="Quarter",
             yaxis_title=y_title,
             showlegend=True,
             height=500,
             template='plotly_white',
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(family="DM Sans, Inter, sans-serif", size=12, color="#374151"),
             xaxis=dict(
                 type='category',
                 categoryorder='array',
                 categoryarray=quarter_order,
                 tickangle=45,
+                showgrid=False,
+                showline=False,
+                zeroline=False,
+                tickfont=dict(size=11, color="#374151"),
+                title_font=dict(color="#6b7280"),
+            ),
+            yaxis=dict(
                 showgrid=True,
+                gridcolor='rgba(0,0,0,0.05)',
+                showline=False,
+                zeroline=False,
+                tickfont=dict(size=11, color="#374151"),
+                title_font=dict(color="#6b7280"),
             ),
             legend=dict(
+                bgcolor="rgba(255,255,255,0.95)",
+                bordercolor="rgba(0,0,0,0.08)",
+                borderwidth=1,
+                font=dict(size=11, color="#374151"),
                 orientation="h",
                 yanchor="bottom",
                 y=1.02,
                 xanchor="right",
                 x=1,
+            ),
+            hoverlabel=dict(
+                bgcolor="rgba(17,24,39,0.95)",
+                bordercolor="rgba(99,179,237,0.4)",
+                font=dict(size=12, color="#f9fafb", family="DM Sans, Inter, sans-serif"),
             ),
             barmode='group' if comparison_chart_type == "Bar" else None,
         )
@@ -720,77 +768,164 @@ with tab2:
     else:
         st.info("Select services to compare.")
 
+# ── TRANSCRIPT INTELLIGENCE ─────────────────────────────────────────────────
 st.markdown("<hr style='margin: 3rem 0 1.5rem 0;'>", unsafe_allow_html=True)
 st.markdown("## Transcript Intelligence")
 st.markdown(
     "<p style='color:#6b7280;margin-bottom:1.5rem;'>"
-    "Key statements from earnings call transcripts, organised by company.</p>",
+    "Management statements from earnings calls \u2014 organised by company, "
+    "period and theme. Click any company to explore.</p>",
     unsafe_allow_html=True
 )
-_ti_insights = _load_transcript_editorial_insights(max_per_company=6)
+
+_ti_insights = _load_transcript_editorial_insights(max_per_company=20)
+
 if not _ti_insights:
     st.info("No transcript insights loaded. Ensure transcripts are in the Excel Transcripts sheet.")
 else:
     _ti_by_company: dict = {}
-    for item in _ti_insights:
-        _parent_co = _normalize_service_to_company(item["company"])
-        _ti_by_company.setdefault(_parent_co, []).append(item)
+    for _item in _ti_insights:
+        _parent_co = _normalize_service_to_company(_item["company"])
+        _ti_by_company.setdefault(_parent_co, []).append(_item)
+
     for _co in sorted(_ti_by_company.keys(), key=lambda c: -len(_ti_by_company[c])):
-        _co_insights = _ti_by_company[_co]
+        _co_items = _ti_by_company[_co]
         _meta = COMPANY_ASSET_MAP.get(_co, {})
         _color = _meta.get("color", "#374151")
         _primary_biz = _meta.get("primary_business", "")
         _key_assets = _meta.get("key_assets", [])
         _ad_products = _meta.get("ad_products", [])
         _note = _meta.get("competitive_note", "")
+
         with st.expander(
-            f"**{_co}** \u2014 {_primary_biz}" if _primary_biz else f"**{_co}**",
+            f"**{_co}** \u2014 {_primary_biz} \u00b7 {len(_co_items)} signals" if _primary_biz
+            else f"**{_co}** \u00b7 {len(_co_items)} signals",
             expanded=False
         ):
             if _key_assets or _note:
-                _ctx_col1, _ctx_col2 = st.columns([0.6, 0.4])
-                with _ctx_col1:
+                _h_col1, _h_col2 = st.columns([0.55, 0.45])
+                with _h_col1:
                     if _key_assets:
-                        _dot = " \u00b7 "
+                        _sep = " \u00b7 "
                         st.markdown(
-                            f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:0.5rem;'>"
+                            f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:4px;'>"
                             f"<strong style='color:#374151'>Key assets:</strong> "
-                            f"{_dot.join(_key_assets[:6])}</div>",
+                            f"{_sep.join(_key_assets[:5])}</div>",
                             unsafe_allow_html=True
                         )
                     if _ad_products:
-                        _dot = " \u00b7 "
+                        _sep = " \u00b7 "
                         st.markdown(
-                            f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:0.75rem;'>"
+                            f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:12px;'>"
                             f"<strong style='color:#374151'>Ad products:</strong> "
-                            f"{_dot.join(_ad_products[:4])}</div>",
+                            f"{_sep.join(_ad_products[:4])}</div>",
                             unsafe_allow_html=True
                         )
-                with _ctx_col2:
+                with _h_col2:
                     if _note:
                         st.markdown(
                             f"<div style='font-size:0.8rem;color:#4b5563;background:#f9fafb;"
                             f"border-left:3px solid {_color};padding:8px 12px;"
-                            f"border-radius:0 6px 6px 0;margin-bottom:0.75rem;'>{_note}</div>",
+                            f"border-radius:0 6px 6px 0;margin-bottom:12px;'>{_note}</div>",
                             unsafe_allow_html=True
                         )
-            for _item in _co_insights:
-                if not _item.get("highlight"):
-                    continue
-                _badge = f"{_item['year']} {_item['quarter']}"
-                _cat = _item.get("category", "")
-                _speaker = _item.get("speaker", "")
-                st.markdown(
-                    f"""<div style='border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:10px;background:#ffffff;'>
-<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'>
-<span style='background:{_color}18;color:{_color};padding:2px 10px;border-radius:10px;font-size:0.72rem;font-weight:600;'>{_badge}</span>
-{f'<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:10px;font-size:0.72rem;">{_cat}</span>' if _cat else ''}
-{f'<span style="color:#9ca3af;font-size:0.75rem;font-style:italic;">{_speaker}</span>' if _speaker else ''}
-</div>
-<p style='margin:0;font-size:0.88rem;color:#1f2937;line-height:1.55;'>"{_item['highlight']}"</p>
-</div>""",
-                    unsafe_allow_html=True
+
+            _by_period: dict = {}
+            for _item in _co_items:
+                _period = f"{_item['year']} {_item['quarter']}".strip()
+                _by_period.setdefault(_period, []).append(_item)
+
+            def _period_sort_key(p: str) -> tuple:
+                parts = p.split()
+                yr = int(parts[0]) if parts and parts[0].isdigit() else 0
+                q = int(parts[1][1]) if len(parts) > 1 and parts[1].startswith("Q") else 0
+                return (yr, q)
+
+            _sorted_periods = sorted(_by_period.keys(), key=_period_sort_key, reverse=True)
+
+            if len(_sorted_periods) > 1:
+                _sel_period = st.radio(
+                    "Period",
+                    _sorted_periods,
+                    horizontal=True,
+                    key=f"ti_period_{_co.replace(' ','_').replace('.','_')}",
+                    label_visibility="collapsed",
                 )
+            else:
+                _sel_period = _sorted_periods[0] if _sorted_periods else ""
+
+            if _sel_period and _sel_period in _by_period:
+                _period_items = _by_period[_sel_period]
+
+                _by_cat: dict = {}
+                for _item in _period_items:
+                    _cat = _item.get("category", "Outlook")
+                    _by_cat.setdefault(_cat, []).append(_item)
+
+                _cat_colors = {
+                    "Outlook": "#3b82f6",
+                    "AI & Technology": "#8b5cf6",
+                    "Advertising": "#f59e0b",
+                    "Subscribers & Users": "#10b981",
+                    "Cost & Margin": "#ef4444",
+                    "Macro & Market": "#6366f1",
+                    "Revenue & Growth": "#06b6d4",
+                }
+
+                _kpi_cols = st.columns(min(len(_by_cat), 4))
+                for _ki, (_cat_name, _cat_items) in enumerate(
+                    sorted(_by_cat.items(), key=lambda x: -len(x[1]))
+                ):
+                    if _ki >= len(_kpi_cols):
+                        break
+                    _cat_col = _cat_colors.get(_cat_name, "#6b7280")
+                    with _kpi_cols[_ki]:
+                        st.markdown(
+                            f"<div style='background:{_cat_col}12;border:1px solid {_cat_col}30;"
+                            f"border-radius:8px;padding:10px 12px;text-align:center;'>"
+                            f"<div style='font-size:1.4rem;font-weight:700;color:{_cat_col};'>"
+                            f"{len(_cat_items)}</div>"
+                            f"<div style='font-size:0.72rem;color:#6b7280;margin-top:2px;"
+                            f"text-transform:uppercase;letter-spacing:.05em;'>{_cat_name}</div>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
+                st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
+
+                for _cat_name, _cat_items in sorted(_by_cat.items(), key=lambda x: -len(x[1])):
+                    _cat_col = _cat_colors.get(_cat_name, "#6b7280")
+                    st.markdown(
+                        f"<div style='font-size:0.75rem;font-weight:700;color:{_cat_col};"
+                        f"text-transform:uppercase;letter-spacing:.07em;"
+                        f"margin-bottom:8px;margin-top:12px;'>{_cat_name}</div>",
+                        unsafe_allow_html=True
+                    )
+                    _card_cols = st.columns(min(len(_cat_items), 2))
+                    for _ci, _item in enumerate(_cat_items[:6]):
+                        with _card_cols[_ci % len(_card_cols)]:
+                            _highlight = _item.get("highlight", "")
+                            _speaker = _item.get("speaker", "")
+                            if not _highlight:
+                                continue
+                            _speaker_html = (
+                                f"<div style='font-size:0.7rem;color:{_cat_col};"
+                                f"font-weight:600;margin-bottom:4px;'>{_speaker}</div>"
+                                if _speaker else ""
+                            )
+                            _excerpt = _highlight[:200] + ("..." if len(_highlight) > 200 else "")
+                            st.markdown(
+                                f"<div style='border:1px solid {_cat_col}25;"
+                                f"border-left:3px solid {_cat_col};"
+                                f"border-radius:0 8px 8px 0;padding:10px 14px;"
+                                f"background:#fafafa;margin-bottom:8px;'>"
+                                f"{_speaker_html}"
+                                f"<p style='margin:0;font-size:0.85rem;color:#1f2937;"
+                                f"line-height:1.55;font-style:italic;'>"
+                                f"&ldquo;{_excerpt}&rdquo;"
+                                f"</p></div>",
+                                unsafe_allow_html=True
+                            )
 
 # Update AI context
 dashboard_state = {

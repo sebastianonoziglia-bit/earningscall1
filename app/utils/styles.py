@@ -21,32 +21,32 @@ PLOTLY_HOVERLABEL_STYLE = dict(
 )
 
 def apply_plotly_theme():
-    # Build the dark MFE template
-    mfe_dark = go.layout.Template()
-    mfe_dark.layout = go.Layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#e6edf3", family="Montserrat, DM Sans, sans-serif"),
-        title=dict(font=dict(color="#ffffff")),
+    # Build the light MFE template (white bg, dark text for non-Welcome pages)
+    mfe_blue = go.layout.Template()
+    mfe_blue.layout = go.Layout(
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(color="#374151", family="DM Sans, Inter, sans-serif"),
+        title=dict(font=dict(color="#111827", size=14)),
         xaxis=dict(
-            tickfont=dict(color="#8b949e"),
-            title_font=dict(color="#c9d1d9"),
-            gridcolor="#21262d",
+            tickfont=dict(color="#374151", size=11),
+            title_font=dict(color="#6b7280"),
+            gridcolor="rgba(0,0,0,0.05)",
             showline=False,
             zeroline=False,
         ),
         yaxis=dict(
-            tickfont=dict(color="#8b949e"),
-            title_font=dict(color="#c9d1d9"),
-            gridcolor="#21262d",
+            tickfont=dict(color="#374151", size=11),
+            title_font=dict(color="#6b7280"),
+            gridcolor="rgba(0,0,0,0.05)",
             showline=False,
             zeroline=False,
         ),
         legend=dict(
-            font=dict(color="#c9d1d9"),
-            bgcolor="rgba(0,0,0,0)",
-            bordercolor="rgba(0,0,0,0)",
-            borderwidth=0,
+            font=dict(color="#374151", size=11),
+            bgcolor="rgba(255,255,255,0.95)",
+            bordercolor="rgba(0,0,0,0.08)",
+            borderwidth=1,
         ),
         colorway=[
             "#4285F4", "#FF5B1F", "#1DB954", "#E50914",
@@ -54,8 +54,9 @@ def apply_plotly_theme():
         ],
     )
 
-    pio.templates["mfe_dark"] = mfe_dark
-    pio.templates.default = "plotly_dark+mfe_dark"  # plotly_dark not plotly_white
+    pio.templates["mfe_blue"] = mfe_blue
+    pio.templates["mfe_dark"] = mfe_blue  # alias so old references still work
+    pio.templates.default = "plotly_white+mfe_blue"
 
 apply_plotly_theme()
 
