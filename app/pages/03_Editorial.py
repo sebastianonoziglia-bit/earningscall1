@@ -21,6 +21,33 @@ from io import BytesIO
 from utils.page_transition import apply_page_transition_fix
 from pathlib import Path
 
+SERVICE_COLOR_MAP = {
+    "Disney+": "#113CCF",
+    "Netflix": "#E50914",
+    "Spotify": "#1DB954",
+    "Spotify Premium": "#1DB954",
+    "Facebook": "#0866FF",
+    "Instagram": "#C13584",
+    "WhatsApp": "#25D366",
+    "WBD": "#4a90d9",
+    "Warner Bros. Discovery": "#4a90d9",
+    "Amazon Prime": "#FF9900",
+    "Amazon Prime Video": "#FF9900",
+    "YouTube": "#FF0000",
+    "Peacock": "#C01F33",
+    "Paramount+": "#7B2FBE",
+}
+
+def _service_color(service: str) -> str:
+    return SERVICE_COLOR_MAP.get(service, "#6366f1")
+
+def _hex_to_rgb(h: str) -> tuple:
+    h = h.lstrip("#")
+    try:
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except Exception:
+        return (99, 102, 241)
+
 # Apply fix for page transitions to prevent background bleed-through
 apply_page_transition_fix()
 
@@ -229,7 +256,10 @@ def load_company_logos():
         'Facebook': _first_existing('attached_assets/Facebook.png', 'attached_assets/12.png'),
         'Amazon': 'attached_assets/Amazon_icon.png',
         'Roku': 'attached_assets/rokudef.png',
-        'Comcast': 'attached_assets/6.png'
+        'Comcast': 'attached_assets/6.png',
+        'YouTube': _first_existing('attached_assets/youtube_logo.png', 'attached_assets/8.png'),
+        'Amazon Prime': _first_existing('attached_assets/Amazon_icon.png', 'attached_assets/Amazon.png'),
+        'Peacock': _first_existing('attached_assets/6.png'),
     }
     
     logos = {}
@@ -380,12 +410,30 @@ with tab1:
                 else 0
             )
 
+            SERVICE_TO_LOGO = {
+                "YouTube": "YouTube",
+                "Amazon Prime": "Amazon Prime",
+                "Amazon Prime Video": "Amazon",
+                "Peacock": "Peacock",
+                "Disney+": "Disney+",
+                "Netflix": "Netflix",
+                "Spotify": "Spotify",
+                "Spotify Premium": "Spotify",
+                "Facebook": "Facebook",
+                "Instagram": "Instagram",
+                "WhatsApp": "WhatsApp",
+                "WBD": "Warner Bros. Discovery",
+                "Paramount+": "Paramount+",
+            }
+
             header_cols = st.columns([0.07, 0.24, 0.37, 0.14, 0.18])
             with header_cols[0]:
                 logo_key_candidates = [
+                    SERVICE_TO_LOGO.get(service, service),
                     service,
                     processor.df_subscribers[processor.df_subscribers["service"] == service]["company"].iloc[0]
-                    if "company" in processor.df_subscribers.columns and (processor.df_subscribers["service"] == service).any()
+                    if "company" in processor.df_subscribers.columns
+                    and (processor.df_subscribers["service"] == service).any()
                     else "",
                 ]
                 logo_b64 = None
@@ -485,77 +533,122 @@ with tab1:
                     delta=f"{yoy_growth:+.1f}%" if yoy_growth is not None else None,
                     delta_color="normal",
                 )
-                st.caption(f"Quarter: {latest_quarter}")
+                st.markdown(
+                    f"<p style='color:#6b7280;font-size:0.78rem;margin:2px 0 0 0;'>Period: {latest_quarter}</p>",
+                    unsafe_allow_html=True
+                )
 
             with chart_col:
-                fig = go.Figure()
-                hovertemplate = (
-                    f"<b>{service}</b><br>"
-                    "Quarter: %{x}<br>"
-                    f"Value: %{{y:.1f}} {service_data.get('unit', 'millions')}<br>"
-                    "<extra></extra>"
-                )
-                if service_chart_type == "Line":
-                    fig.add_trace(
-                        go.Scatter(
-                            x=df_service["Quarter"],
-                            y=df_service[column_name],
-                            mode="lines+markers",
-                            name=service,
-                            hovertemplate=hovertemplate,
-                            line=dict(width=2.5, shape='spline'),
-                            marker=dict(size=5, opacity=0.8),
-                        )
-                    )
-                else:
-                    fig.add_trace(
-                        go.Bar(
-                            x=df_service["Quarter"],
-                            y=df_service[column_name],
-                            name=service,
-                            hovertemplate=hovertemplate,
-                            marker_line_width=0,
-                            opacity=0.85,
-                        )
-                    )
+                _color = _service_color(service)
+                _r, _g, _b = _hex_to_rgb(_color)
+                _fill_color = f"rgba({_r},{_g},{_b},0.08)"
 
+                _frames = []
+                _y_vals = pd.to_numeric(df_service[column_name], errors="coerce")
+                for _fi in range(2, len(df_service) + 1):
+                    _frames.append(go.Frame(
+                        data=[go.Scatter(
+                            x=df_service["Quarter"].iloc[:_fi],
+                            y=_y_vals.iloc[:_fi],
+                            mode="lines",
+                            line=dict(width=2.5, color=_color, shape="spline"),
+                            fill="tozeroy",
+                            fillcolor=_fill_color,
+                        )],
+                        name=str(_fi),
+                    ))
+
+                fig = go.Figure(
+                    data=[go.Scatter(
+                        x=df_service["Quarter"].iloc[:1],
+                        y=_y_vals.iloc[:1],
+                        mode="lines",
+                        line=dict(width=2.5, color=_color, shape="spline"),
+                        fill="tozeroy",
+                        fillcolor=_fill_color,
+                        hovertemplate=(
+                            f"<b>{service}</b><br>Quarter: %{{x}}<br>"
+                            f"Value: %{{y:.1f}} {service_data.get('unit','millions')}<extra></extra>"
+                        ),
+                    )],
+                    frames=_frames,
+                )
                 fig.update_layout(
                     margin=dict(l=20, r=20, t=25, b=50),
-                    height=280,
+                    height=220,
                     showlegend=False,
-                    template='plotly_white',
+                    template="plotly_white",
                     xaxis_title=None,
                     yaxis_title=None,
-                    plot_bgcolor='white',
-                    paper_bgcolor='white',
-                    font=dict(family="DM Sans, Inter, sans-serif", size=12, color="#374151"),
+                    plot_bgcolor="white",
+                    paper_bgcolor="white",
+                    font=dict(family="DM Sans, Inter, sans-serif", size=11, color="#374151"),
                     xaxis=dict(
-                        type='category',
-                        categoryorder='array',
+                        type="category",
+                        categoryorder="array",
                         categoryarray=df_service["Quarter"].tolist(),
                         tickangle=45,
                         showgrid=False,
-                        showline=False,
-                        zeroline=False,
-                        tickfont=dict(size=11, color="#374151"),
+                        tickfont=dict(size=10, color="#6b7280"),
                     ),
                     yaxis=dict(
                         showgrid=True,
-                        gridcolor='rgba(0,0,0,0.05)',
-                        showline=False,
-                        zeroline=False,
-                        tickfont=dict(size=11, color="#374151"),
+                        gridcolor="rgba(0,0,0,0.05)",
+                        tickfont=dict(size=10, color="#6b7280"),
                     ),
-                    hoverlabel=dict(
-                        bgcolor="rgba(17,24,39,0.95)",
-                        bordercolor="rgba(99,179,237,0.4)",
-                        font=dict(size=12, color="#f9fafb", family="DM Sans, Inter, sans-serif"),
-                    ),
+                    updatemenus=[dict(
+                        type="buttons",
+                        showactive=False,
+                        visible=False,
+                        buttons=[dict(
+                            label="Play",
+                            method="animate",
+                            args=[None, dict(
+                                frame=dict(duration=60, redraw=True),
+                                fromcurrent=True,
+                                mode="immediate",
+                                transition=dict(duration=0),
+                            )],
+                        )],
+                    )],
                 )
 
+                _chart_key = f"chart_{service.replace(' ','_').replace('+','plus')}_{abs(hash(service))}"
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key=_chart_key)
                 st.markdown('</div>', unsafe_allow_html=True)
+
+                _js_key = f"anim_{abs(hash(service)) % 99999}"
+                st.components.v1.html(f"""
+<script>
+(function() {{
+    var attempts = 0;
+    function tryPlay() {{
+        attempts++;
+        if (attempts > 20) return;
+        var plots = window.parent.document.querySelectorAll('.js-plotly-plot');
+        for (var i = 0; i < plots.length; i++) {{
+            var el = plots[i];
+            if (el._played_{_js_key}) continue;
+            if (el._fullData && el._fullData.length > 0) {{
+                el._played_{_js_key} = true;
+                try {{
+                    Plotly.animate(el, null, {{
+                        frame: {{duration: 60, redraw: true}},
+                        fromcurrent: true,
+                        mode: 'immediate',
+                        transition: {{duration: 0}},
+                    }});
+                }} catch(e) {{ el._played_{_js_key} = false; }}
+                break;
+            }}
+        }}
+        if (attempts < 20) setTimeout(tryPlay, 300);
+    }}
+    setTimeout(tryPlay, 400);
+}})();
+</script>
+""", height=0)
 
             st.markdown("---")
 
@@ -772,158 +865,134 @@ with tab2:
 st.markdown("<hr style='margin: 3rem 0 1.5rem 0;'>", unsafe_allow_html=True)
 st.markdown("## Transcript Intelligence")
 st.markdown(
-    "<p style='color:#6b7280;margin-bottom:1.5rem;'>"
-    "Management statements from earnings calls \u2014 organised by company, "
-    "period and theme. Click any company to explore.</p>",
+    "<p style='color:#6b7280;margin-bottom:1.5rem;'>Management statements from earnings calls — "
+    "organised by theme. Select a company to explore.</p>",
     unsafe_allow_html=True
 )
 
 _ti_insights = _load_transcript_editorial_insights(max_per_company=20)
 
-if not _ti_insights:
-    st.info("No transcript insights loaded. Ensure transcripts are in the Excel Transcripts sheet.")
-else:
-    _ti_by_company: dict = {}
+_ti_by_company: dict = {}
+if _ti_insights:
     for _item in _ti_insights:
         _parent_co = _normalize_service_to_company(_item["company"])
-        _ti_by_company.setdefault(_parent_co, []).append(_item)
+        if _parent_co not in _ti_by_company:
+            _ti_by_company[_parent_co] = {"signals": []}
+        _ti_by_company[_parent_co]["signals"].append(_item)
 
-    for _co in sorted(_ti_by_company.keys(), key=lambda c: -len(_ti_by_company[c])):
-        _co_items = _ti_by_company[_co]
-        _meta = COMPANY_ASSET_MAP.get(_co, {})
-        _color = _meta.get("color", "#374151")
-        _primary_biz = _meta.get("primary_business", "")
-        _key_assets = _meta.get("key_assets", [])
-        _ad_products = _meta.get("ad_products", [])
-        _note = _meta.get("competitive_note", "")
+_ti_companies = sorted(_ti_by_company.keys()) if _ti_by_company else []
+if not _ti_companies:
+    st.info("No transcript insights loaded. Ensure transcripts are in the Excel Transcripts sheet.")
+else:
+    _selected_ti_co = st.session_state.get("ti_selected_company", _ti_companies[0])
+    if _selected_ti_co not in _ti_companies:
+        _selected_ti_co = _ti_companies[0]
 
-        with st.expander(
-            f"**{_co}** \u2014 {_primary_biz} \u00b7 {len(_co_items)} signals" if _primary_biz
-            else f"**{_co}** \u00b7 {len(_co_items)} signals",
-            expanded=False
-        ):
-            if _key_assets or _note:
-                _h_col1, _h_col2 = st.columns([0.55, 0.45])
-                with _h_col1:
-                    if _key_assets:
-                        _sep = " \u00b7 "
-                        st.markdown(
-                            f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:4px;'>"
-                            f"<strong style='color:#374151'>Key assets:</strong> "
-                            f"{_sep.join(_key_assets[:5])}</div>",
-                            unsafe_allow_html=True
+    pills_html = "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.5rem;'>"
+    for _co in _ti_companies:
+        _count = len(_ti_by_company.get(_co, {}).get("signals", []))
+        _active = _co == _selected_ti_co
+        _bg = "#111827" if _active else "#f3f4f6"
+        _col = "white" if _active else "#374151"
+        _border = "#111827" if _active else "#e5e7eb"
+        pills_html += (
+            f"<span style='background:{_bg};color:{_col};border:1px solid {_border};"
+            f"border-radius:20px;padding:6px 14px;font-size:0.82rem;"
+            f"font-family:DM Sans,sans-serif;font-weight:500;display:inline-block;'>"
+            f"{_co} <span style='opacity:0.6;font-size:0.75rem;'>·&nbsp;{_count}</span>"
+            f"</span>"
+        )
+    pills_html += "</div>"
+    st.markdown(pills_html, unsafe_allow_html=True)
+
+    _selected_ti_co = st.selectbox(
+        "Company",
+        _ti_companies,
+        index=_ti_companies.index(_selected_ti_co) if _selected_ti_co in _ti_companies else 0,
+        key="ti_company_selector",
+        label_visibility="collapsed",
+    )
+    st.session_state["ti_selected_company"] = _selected_ti_co
+
+    _co_data = _ti_by_company.get(_selected_ti_co, {})
+    _signals = _co_data.get("signals", [])
+
+    if not _signals:
+        st.info(f"No transcript signals found for {_selected_ti_co}.")
+    else:
+        from collections import defaultdict as _dd
+        _by_cat = _dd(list)
+        for _sig in _signals:
+            _by_cat[_sig.get("category", "General")].append(_sig)
+
+        _cats = sorted(_by_cat.keys())
+        if _cats:
+            _cat_tabs = st.tabs(_cats)
+            for _tab, _cat in zip(_cat_tabs, _cats):
+                with _tab:
+                    _cat_signals = _by_cat[_cat]
+                    _periods = sorted(set(
+                        f"{s.get('year','')} {s.get('quarter','')}".strip()
+                        for s in _cat_signals
+                        if s.get("year")
+                    ), reverse=True)
+
+                    if len(_periods) > 1:
+                        _sel_period = st.select_slider(
+                            "Period",
+                            options=_periods,
+                            value=_periods[0],
+                            key=f"ti_period_{_selected_ti_co}_{_cat}",
+                            label_visibility="collapsed",
                         )
-                    if _ad_products:
-                        _sep = " \u00b7 "
-                        st.markdown(
-                            f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:12px;'>"
-                            f"<strong style='color:#374151'>Ad products:</strong> "
-                            f"{_sep.join(_ad_products[:4])}</div>",
-                            unsafe_allow_html=True
-                        )
-                with _h_col2:
-                    if _note:
-                        st.markdown(
-                            f"<div style='font-size:0.8rem;color:#4b5563;background:#f9fafb;"
-                            f"border-left:3px solid {_color};padding:8px 12px;"
-                            f"border-radius:0 6px 6px 0;margin-bottom:12px;'>{_note}</div>",
-                            unsafe_allow_html=True
-                        )
+                    else:
+                        _sel_period = _periods[0] if _periods else None
 
-            _by_period: dict = {}
-            for _item in _co_items:
-                _period = f"{_item['year']} {_item['quarter']}".strip()
-                _by_period.setdefault(_period, []).append(_item)
+                    if _sel_period:
+                        _yr_str, *_q_parts = _sel_period.split()
+                        _q_str = _q_parts[0] if _q_parts else ""
+                        _filtered = [
+                            s for s in _cat_signals
+                            if str(s.get("year", "")) == _yr_str
+                            and (not _q_str or str(s.get("quarter", "")).upper() == _q_str.upper())
+                        ]
+                    else:
+                        _filtered = _cat_signals
 
-            def _period_sort_key(p: str) -> tuple:
-                parts = p.split()
-                yr = int(parts[0]) if parts and parts[0].isdigit() else 0
-                q = int(parts[1][1]) if len(parts) > 1 and parts[1].startswith("Q") else 0
-                return (yr, q)
+                    _sig_cols = st.columns(2)
+                    for _si, _sig in enumerate(_filtered[:20]):
+                        with _sig_cols[_si % 2]:
+                            _quote = str(_sig.get("quote", _sig.get("text", _sig.get("highlight", "")))).strip()
+                            _speaker = str(_sig.get("speaker", "")).strip()
+                            _role = str(_sig.get("role", _sig.get("role_bucket", ""))).strip()
+                            _period = f"{_sig.get('year', '')} {_sig.get('quarter', '')}".strip()
 
-            _sorted_periods = sorted(_by_period.keys(), key=_period_sort_key, reverse=True)
+                            if len(_quote) > 200:
+                                _quote = _quote[:200].rsplit(" ", 1)[0] + "…"
 
-            if len(_sorted_periods) > 1:
-                _sel_period = st.radio(
-                    "Period",
-                    _sorted_periods,
-                    horizontal=True,
-                    key=f"ti_period_{_co.replace(' ','_').replace('.','_')}",
-                    label_visibility="collapsed",
-                )
-            else:
-                _sel_period = _sorted_periods[0] if _sorted_periods else ""
-
-            if _sel_period and _sel_period in _by_period:
-                _period_items = _by_period[_sel_period]
-
-                _by_cat: dict = {}
-                for _item in _period_items:
-                    _cat = _item.get("category", "Outlook")
-                    _by_cat.setdefault(_cat, []).append(_item)
-
-                _cat_colors = {
-                    "Outlook": "#3b82f6",
-                    "AI & Technology": "#8b5cf6",
-                    "Advertising": "#f59e0b",
-                    "Subscribers & Users": "#10b981",
-                    "Cost & Margin": "#ef4444",
-                    "Macro & Market": "#6366f1",
-                    "Revenue & Growth": "#06b6d4",
-                }
-
-                _kpi_cols = st.columns(min(len(_by_cat), 4))
-                for _ki, (_cat_name, _cat_items) in enumerate(
-                    sorted(_by_cat.items(), key=lambda x: -len(x[1]))
-                ):
-                    if _ki >= len(_kpi_cols):
-                        break
-                    _cat_col = _cat_colors.get(_cat_name, "#6b7280")
-                    with _kpi_cols[_ki]:
-                        st.markdown(
-                            f"<div style='background:{_cat_col}12;border:1px solid {_cat_col}30;"
-                            f"border-radius:8px;padding:10px 12px;text-align:center;'>"
-                            f"<div style='font-size:1.4rem;font-weight:700;color:{_cat_col};'>"
-                            f"{len(_cat_items)}</div>"
-                            f"<div style='font-size:0.72rem;color:#6b7280;margin-top:2px;"
-                            f"text-transform:uppercase;letter-spacing:.05em;'>{_cat_name}</div>"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
-
-                st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
-
-                for _cat_name, _cat_items in sorted(_by_cat.items(), key=lambda x: -len(x[1])):
-                    _cat_col = _cat_colors.get(_cat_name, "#6b7280")
-                    st.markdown(
-                        f"<div style='font-size:0.75rem;font-weight:700;color:{_cat_col};"
-                        f"text-transform:uppercase;letter-spacing:.07em;"
-                        f"margin-bottom:8px;margin-top:12px;'>{_cat_name}</div>",
-                        unsafe_allow_html=True
-                    )
-                    _card_cols = st.columns(min(len(_cat_items), 2))
-                    for _ci, _item in enumerate(_cat_items[:6]):
-                        with _card_cols[_ci % len(_card_cols)]:
-                            _highlight = _item.get("highlight", "")
-                            _speaker = _item.get("speaker", "")
-                            if not _highlight:
+                            if not _quote:
                                 continue
-                            _speaker_html = (
-                                f"<div style='font-size:0.7rem;color:{_cat_col};"
-                                f"font-weight:600;margin-bottom:4px;'>{_speaker}</div>"
-                                if _speaker else ""
-                            )
-                            _excerpt = _highlight[:200] + ("..." if len(_highlight) > 200 else "")
+
+                            _speaker_line = ""
+                            if _speaker and _speaker.lower() not in ("", "unknown", "nan"):
+                                _role_html = (
+                                    f"&nbsp;·&nbsp;<span style=\"color:#9ca3af\">{_role}</span>"
+                                    if _role else ""
+                                )
+                                _speaker_line = (
+                                    f"<div style='font-size:0.75rem;color:#6b7280;margin-top:6px;'>"
+                                    f"{_speaker}{_role_html}</div>"
+                                )
+
                             st.markdown(
-                                f"<div style='border:1px solid {_cat_col}25;"
-                                f"border-left:3px solid {_cat_col};"
-                                f"border-radius:0 8px 8px 0;padding:10px 14px;"
-                                f"background:#fafafa;margin-bottom:8px;'>"
-                                f"{_speaker_html}"
-                                f"<p style='margin:0;font-size:0.85rem;color:#1f2937;"
-                                f"line-height:1.55;font-style:italic;'>"
-                                f"&ldquo;{_excerpt}&rdquo;"
-                                f"</p></div>",
+                                f"<div style='border:1px solid #e5e7eb;border-radius:8px;"
+                                f"padding:12px 14px;margin-bottom:8px;background:#fafafa;"
+                                f"border-left:3px solid #111827;'>"
+                                f"<p style='margin:0;font-size:0.85rem;color:#374151;"
+                                f"line-height:1.6;font-style:italic;'>\"{_quote}\"</p>"
+                                f"{_speaker_line}"
+                                f"<div style='font-size:0.7rem;color:#9ca3af;margin-top:4px;'>{_period}</div>"
+                                f"</div>",
                                 unsafe_allow_html=True
                             )
 

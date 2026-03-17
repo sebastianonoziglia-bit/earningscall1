@@ -604,6 +604,21 @@ filter_options = get_cached_filters()
 # Add custom styling for select chips to the Genie page styles
 st.markdown("""
 <style>
+/* Fix suggestion chip buttons — light background, dark text */
+div[data-testid="stButton"] button {
+    background-color: #f3f4f6 !important;
+    color: #111827 !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 20px !important;
+    font-size: 0.82rem !important;
+    padding: 6px 14px !important;
+    font-weight: 500 !important;
+}
+div[data-testid="stButton"] button:hover {
+    background-color: #111827 !important;
+    color: #ffffff !important;
+    border-color: #111827 !important;
+}
     /* Company Analysis section chips */
     [data-testid="stMultiSelect"]:has([aria-label*="Select Companies"]) .st-emotion-cache-12w0qpk,
     [data-testid="stMultiSelect"]:has([aria-label*="Company Metrics"]) .st-emotion-cache-12w0qpk,

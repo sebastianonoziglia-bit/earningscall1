@@ -58,6 +58,35 @@ FINANCIAL_SCORE_TERMS = [
 ]
 
 
+def score_quote_topics(quote: str) -> list[str]:
+    """
+    Return which TOPIC_KEYWORDS categories are mentioned in a quote.
+    Used to tag signals, filter by topic, and enrich AI context.
+    """
+    q_lower = quote.lower()
+    matched = []
+    for topic, keywords in TOPIC_KEYWORDS.items():
+        if any(kw in q_lower for kw in keywords):
+            matched.append(topic)
+    return matched
+
+
+def enrich_signals_with_topics(signals: list[dict]) -> list[dict]:
+    """
+    Add a 'topics' list and use it as 'category' if category is missing.
+    Call this after extracting any signals/quotes.
+    """
+    for sig in signals:
+        quote = str(sig.get("quote", sig.get("text", ""))).lower()
+        topics = score_quote_topics(quote)
+        sig["topics"] = topics
+        if not sig.get("category") and topics:
+            sig["category"] = topics[0]
+        elif not sig.get("category"):
+            sig["category"] = "General"
+    return signals
+
+
 def _detect_role(title_lower: str) -> str:
     if any(t in title_lower for t in CEO_TITLES):
         return "CEO"
@@ -192,6 +221,12 @@ def extract_ceo_cfo_quotes(
                     "quote": sent,
                     "score": score,
                 })
+    # Enrich with topic tags
+    try:
+        for role in result:
+            result[role] = enrich_signals_with_topics(result[role])
+    except Exception:
+        pass
     return result
 
 
