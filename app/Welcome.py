@@ -130,6 +130,15 @@ div[data-testid="block-container"] {
     background-color: transparent !important;
     background: transparent !important;
 }
+section[data-testid="stMain"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+div[data-testid="block-container"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    max-width: 100% !important;
+}
 .element-container, .stMarkdown, .stPlotlyChart,
 .stCaption, div[data-testid="stVerticalBlock"] {
     background: transparent !important;
@@ -2889,6 +2898,7 @@ def _build_numeric_iso_map() -> dict:
         "392": "JPN", "410": "KOR", "858": "URY", "600": "PRY",
         "084": "BLZ", "398": "KAZ", "860": "UZB", "795": "TKM",
         "762": "TJK", "417": "KGZ", "004": "AFG", "496": "MNG",
+        "388": "JAM", "442": "LUX", "705": "SVN",
     }
 
 
@@ -2999,18 +3009,18 @@ _human_json = json.dumps(_human_companies)
 def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> list:
     """Load latest subscriber counts from Company_subscribers_values sheet."""
     PLATFORM_META = {
-        "YouTube":         {"color": "#FF0000", "logo": "YouTube",               "countries": ["IND","IDN","BRA","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MOZ","MDG","CMR","CIV","AGO","ZMB","ZWE","RWA"], "centroid": (20.5, 78.9)},
-        "Facebook":        {"color": "#0866FF", "logo": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","COL","ARG","PER","CHL","VEN","ECU","BOL","GTM","HND","SLV","NIC"], "centroid": (12.8, 121.7)},
-        "Instagram":       {"color": "#C13584", "logo": "Instagram",             "countries": ["USA","GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN"], "centroid": (37.1, -95.7)},
-        "WhatsApp":        {"color": "#25D366", "logo": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","NLD","BEL","CHE","AUT","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC"], "centroid": (-30.5, 22.9)},
-        "Spotify":         {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","CAN","AUS","NZL","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","PRY"], "centroid": (60.1, 18.6)},
-        "Spotify Premium": {"color": "#158a3e", "logo": "Spotify",               "countries": ["CHE","AUT","NLD","BEL","PRT"],                                                                                              "centroid": (47.0, 8.2)},
-        "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["BLZ","GTM","HND","SLV","NIC","CRI","PAN"],                                                                                  "centroid": (37.1, -95.7)},
-        "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["FRA","ITA","ESP","PRT","BEL"],                                                                                               "centroid": (46.2, 2.2)},
-        "WBD":             {"color": "#003087", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL","AUS","NZL"],                                                                                                     "centroid": (51.5, -0.1)},
-        "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["DEU","AUT","POL","CZE","HUN"],                                                                                               "centroid": (51.1, 10.4)},
-        "Paramount+":      {"color": "#0064FF", "logo": "Paramount",             "countries": ["ARG","CHL","URY","BOL","ECU"],                                                                                               "centroid": (-34.6, -58.4)},
-        "Peacock":         {"color": "#C01F33", "logo": "Comcast",               "countries": ["DOM","CUB","JAM","HTI","PRI"],                                                                                               "centroid": (18.7, -70.1)},
+        "YouTube":         {"color": "#FF0000", "logo": "YouTube",               "countries": ["USA","CAN","IND","IDN","BRA","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MOZ","MDG","CMR","CIV","AGO","ZWE","RWA"], "centroid": (38.0, -97.0)},
+        "Facebook":        {"color": "#0866FF", "logo": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","GTM","HND","SLV","NIC","CRI","PAN","DOM","CUB","HTI","PRY","BOL"],    "centroid": (12.8, 121.7)},
+        "Instagram":       {"color": "#C13584", "logo": "Instagram",             "countries": ["GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN","LBY"],    "centroid": (41.9, 12.5)},
+        "WhatsApp":        {"color": "#25D366", "logo": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","MOZ","ZMB","NLD","BEL","CHE","AUT","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC"], "centroid": (-26.0, 28.0)},
+        "Spotify":         {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","CHL"],                     "centroid": (59.3, 18.1)},
+        "Spotify Premium": {"color": "#158a3e", "logo": "Spotify",               "countries": ["AUS","NZL","CAN"],                                                                                                           "centroid": (-25.0, 133.0)},
+        "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["BLZ","SLV","NIC","CRI"],                                                                                                     "centroid": (10.0, -84.0)},
+        "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["FRA","BEL","LUX"],                                                                                                           "centroid": (46.2, 2.2)},
+        "WBD":             {"color": "#003087", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL"],                                                                                                                  "centroid": (54.0, -2.0)},
+        "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["DEU","AUT"],                                                                                                                  "centroid": (51.1, 10.4)},
+        "Paramount+":      {"color": "#0064FF", "logo": "Paramount",             "countries": ["ARG","COL","PER","ECU","VEN"],                                                                                               "centroid": (-34.6, -58.4)},
+        "Peacock":         {"color": "#9B2335", "logo": "Comcast",               "countries": ["DOM","JAM"],                                                                                                                  "centroid": (18.7, -70.1)},
     }
     if not excel_path:
         return []
@@ -3209,7 +3219,8 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(fun
   var countries=topojson.feature(world,world.objects.countries).features;
   gCountries.selectAll('path').data(countries).enter().append('path')
     .attr('d',path)
-    .attr('fill',function(d){var a=num2alpha[String(d.id)]||'';return countryColors[a]||'#1a2744';})
+    .attr('fill',function(d){var a=num2alpha[String(d.id)]||'';var c=countryColors[a];return c||'#1a2744';})
+    .attr('opacity',function(d){var a=num2alpha[String(d.id)]||'';return countryColors[a]?0.75:1;})
     .attr('stroke','rgba(255,255,255,0.08)').attr('stroke-width',0.4)
     .on('mousemove',function(event,d){
       var a=num2alpha[String(d.id)]||'';
@@ -3225,14 +3236,40 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(fun
   startRotation();
 });
 var lon=0;var spinning=true;var animId=null;var lastTime=0;
+var isDragging=false;var dragStart=null;var rotateStart=[0,-20];
 function rotate(ts){
   if(!spinning)return;
   if(ts-lastTime>16){lon=(lon+0.25)%360;projection.rotate([lon,-20]);gCountries.selectAll('path').attr('d',path);svg.select('path').attr('d',path);drawLogos();lastTime=ts;}
   animId=requestAnimationFrame(rotate);
 }
 function startRotation(){spinning=true;animId=requestAnimationFrame(rotate);}
-root.addEventListener('mouseenter',function(){spinning=false;if(animId)cancelAnimationFrame(animId);tooltip.style.display='none';});
-root.addEventListener('mouseleave',function(){startRotation();});
+root.addEventListener('mousedown',function(e){
+  isDragging=true;spinning=false;
+  if(animId)cancelAnimationFrame(animId);
+  dragStart=[e.clientX,e.clientY];
+  rotateStart=projection.rotate().slice();
+  tooltip.style.display='none';
+});
+root.addEventListener('mousemove',function(e){
+  if(!isDragging||!dragStart)return;
+  var dx=e.clientX-dragStart[0];
+  var dy=e.clientY-dragStart[1];
+  var newLon=rotateStart[0]+dx*0.4;
+  var newLat=Math.max(-60,Math.min(60,rotateStart[1]-dy*0.4));
+  lon=newLon%360;
+  projection.rotate([lon,newLat]);
+  gCountries.selectAll('path').attr('d',path);
+  svg.select('path').attr('d',path);
+  drawLogos();
+});
+root.addEventListener('mouseup',function(){
+  isDragging=false;dragStart=null;
+  setTimeout(function(){if(!isDragging)startRotation();},2000);
+});
+root.addEventListener('mouseleave',function(){
+  isDragging=false;dragStart=null;
+  startRotation();
+});
 </script></body></html>"""
 )
 st.components.v1.html(_platform_globe_html, height=600, scrolling=False)
