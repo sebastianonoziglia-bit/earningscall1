@@ -3291,18 +3291,17 @@ _country_subs_json = json.dumps(_country_subs_map)
 _num2alpha_json = json.dumps(_num_iso_map)
 _timeline_json = json.dumps(_timeline_data)
 
-_section("IF PLATFORMS WERE COUNTRIES", "A billion people. One platform. One color.", "")
-st.markdown(
-    "<p style='color:#8b949e;font-size:0.95rem;margin:-0.5rem 0 1rem 0;'>"
-    "Countries colored by dominant platform \u00b7 territory reflects global audience scale \u00b7 hover to explore"
-    "</p>",
-    unsafe_allow_html=True,
-)
-
 _platform_globe_html = (
-    """<!DOCTYPE html><html><head><style>
+    """<!DOCTYPE html><html><head>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap">
+<style>
 html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM Sans',sans-serif;}
-#globe-root{width:100%;height:580px;position:relative;background:#020810;}
+#globe-wrap{display:flex;flex-direction:column;width:100%;background:#020810;}
+#globe-header{padding:32px 28px 12px;background:#020810;}
+.globe-eyebrow{color:#4aaeff;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
+.globe-title{font-family:'Syne',sans-serif;font-size:clamp(20px,2.4vw,30px);font-weight:800;color:#e6edf3;line-height:1.18;margin:0 0 8px;}
+.globe-subtitle{color:#8b949e;font-size:14px;line-height:1.55;margin:0;}
+#globe-root{width:100%;height:520px;position:relative;background:#020810;flex-shrink:0;}
 #globe-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.95);border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;border-radius:8px;font-size:13px;pointer-events:none;z-index:100;max-width:220px;}
 #globe-legend{position:absolute;bottom:16px;left:16px;display:flex;flex-direction:column;gap:5px;max-height:220px;overflow:hidden;}
 #globe-controls{position:absolute;bottom:16px;right:16px;display:flex;align-items:center;gap:10px;z-index:10;}
@@ -3310,6 +3309,12 @@ html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM 
 #globe-play-btn{background:rgba(99,179,237,0.15);border:1px solid rgba(99,179,237,0.35);color:#e6edf3;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
 #globe-play-btn:hover{background:rgba(99,179,237,0.3);}
 </style></head><body>
+<div id="globe-wrap">
+<div id="globe-header">
+  <div class="globe-eyebrow">IF PLATFORMS WERE COUNTRIES</div>
+  <div class="globe-title">If the world were divided by platform,<br>this is how it would look.</div>
+  <p class="globe-subtitle">A billion people. One platform. One color. &nbsp;·&nbsp; Countries colored by dominant platform &nbsp;·&nbsp; Hover to explore &nbsp;·&nbsp; Drag to rotate</p>
+</div>
 <div id="globe-root">
 <div id="globe-tooltip"></div>
 <div id="globe-legend">"""
@@ -3318,6 +3323,7 @@ html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM 
 <div id="globe-controls">
   <div id="globe-year-label"></div>
   <button id="globe-play-btn" title="Play timeline">&#9654;</button>
+</div>
 </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
@@ -3486,7 +3492,7 @@ root.addEventListener('mouseleave',function(){
 });
 </script></body></html>"""
 )
-st.components.v1.html(_platform_globe_html, height=600, scrolling=False)
+st.components.v1.html(_platform_globe_html, height=720, scrolling=False)
 _separator()
 
 _bubble_logo_aliases = {

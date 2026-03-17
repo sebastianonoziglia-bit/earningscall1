@@ -199,6 +199,46 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
        (only re-downloads if file is older than 1 hour)
     2. Existing *.xlsx files in app/attached_assets/ as fallback
     """
+    import os as _os
+    import time as _time
+
+    # ── HuggingFace: always fetch fresh from Google Sheet ─────────────────
+    _is_hf = bool(_os.environ.get("SPACE_ID") or _os.environ.get("HF_SPACE_ID"))
+    _gsheet_url = _os.environ.get("GOOGLE_SHEET_URL", "").strip()
+
+    if _is_hf and _gsheet_url:
+        _cache_path = "/tmp/ae_workbook_live.xlsx"
+        _cache_age = (
+            _time.time() - _os.path.getmtime(_cache_path)
+            if _os.path.exists(_cache_path) else 999999
+        )
+        if _cache_age > 14400:  # re-download if older than 4 hours
+            try:
+                import requests as _req
+                logger.info("Downloading fresh workbook from Google Sheet...")
+                _resp = _req.get(_gsheet_url, timeout=30)
+                if _resp.status_code == 200 and len(_resp.content) > 50000:
+                    with open(_cache_path, "wb") as _f:
+                        _f.write(_resp.content)
+                    logger.info("Workbook cached (%d bytes)", len(_resp.content))
+                else:
+                    logger.warning("Google Sheet download failed: status=%s size=%d",
+                                   _resp.status_code, len(_resp.content))
+                    _cache_path = None
+            except Exception as _e:
+                logger.warning("Google Sheet fetch error: %s", _e)
+                _cache_path = None
+
+        if _cache_path and _os.path.exists(_cache_path):
+            try:
+                import zipfile as _zf
+                with _zf.ZipFile(_cache_path) as _z:
+                    if "xl/workbook.xml" in _z.namelist():
+                        return _cache_path
+            except Exception:
+                pass
+    # ── End HF live fetch — fall through to local resolution below ────────
+
     google_sheet_url = os.getenv("GOOGLE_SHEET_URL", "").strip()
     attached_assets = Path(__file__).resolve().parent.parent / "attached_assets"
     attached_assets.mkdir(parents=True, exist_ok=True)
