@@ -5600,7 +5600,11 @@ def _render_auto_insight_graph(
 
     if graph in {"topic_mentions_bar", "transcript_kpi_mix", "subscriber_signal_company"}:
         if graph == "topic_mentions_bar":
-            topic_df = _load_transcript_topic_metrics()
+            topic_df = _load_transcript_topic_metrics(
+                excel_path=str(excel_path) if excel_path else "",
+                selected_year=int(selected_year) if selected_year else 0,
+                selected_quarter=selected_quarter if selected_quarter else "",
+            )
             if topic_df.empty:
                 st.info("Topic metrics are unavailable. Run transcript topic extraction first.")
                 return
@@ -5749,44 +5753,41 @@ def _render_generated_auto_insights(
 
 
 @st.cache_data(show_spinner=False)
-def _load_transcript_topic_metrics() -> pd.DataFrame:
+def _load_transcript_topic_metrics(excel_path: str = "", selected_year: int = 0, selected_quarter: str = "") -> pd.DataFrame:
+    # Try CSV first (pipeline output)
     repo_root = Path(__file__).resolve().parents[2]
     metrics_path = repo_root / "earningscall_transcripts" / "topic_metrics.csv"
-    if not metrics_path.exists():
-        return pd.DataFrame()
-    try:
-        df = pd.read_csv(metrics_path)
-    except Exception:
-        return pd.DataFrame()
-    if df is None or df.empty:
-        return pd.DataFrame()
+    if metrics_path.exists():
+        try:
+            df = pd.read_csv(metrics_path)
+            if df is not None and not df.empty:
+                required = ["year", "quarter", "topic", "mention_count", "companies_mentioned", "total_companies", "importance_pct", "growth_pct"]
+                for col in required:
+                    if col not in df.columns:
+                        df[col] = np.nan if col not in {"topic"} else ""
+                df["year"] = pd.to_numeric(df["year"], errors="coerce")
+                df["quarter"] = pd.to_numeric(df["quarter"], errors="coerce")
+                df = df.dropna(subset=["year", "quarter"]).copy()
+                if not df.empty:
+                    df["year"] = df["year"].astype(int)
+                    df["quarter"] = df["quarter"].apply(_normalize_quarter_label)
+                    df["topic"] = df["topic"].astype(str).str.strip()
+                    for col in ["mention_count", "companies_mentioned", "total_companies", "importance_pct", "growth_pct"]:
+                        df[col] = pd.to_numeric(df[col], errors="coerce")
+                    df = df[df["topic"] != ""].copy()
+                    if not df.empty:
+                        return df
+        except Exception:
+            pass
 
-    required = [
-        "year",
-        "quarter",
-        "topic",
-        "mention_count",
-        "companies_mentioned",
-        "total_companies",
-        "importance_pct",
-        "growth_pct",
-    ]
-    for col in required:
-        if col not in df.columns:
-            df[col] = np.nan if col not in {"topic"} else ""
-
-    df["year"] = pd.to_numeric(df["year"], errors="coerce")
-    df["quarter"] = pd.to_numeric(df["quarter"], errors="coerce")
-    df = df.dropna(subset=["year", "quarter"]).copy()
-    if df.empty:
-        return pd.DataFrame()
-    df["year"] = df["year"].astype(int)
-    df["quarter"] = df["quarter"].apply(_normalize_quarter_label)
-    df["topic"] = df["topic"].astype(str).str.strip()
-    for col in ["mention_count", "companies_mentioned", "total_companies", "importance_pct", "growth_pct"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    df = df[df["topic"] != ""].copy()
-    return df
+    # Fallback — live extraction from Transcripts sheet
+    if excel_path and selected_year:
+        try:
+            from utils.transcript_live import extract_topic_metrics as _live_topics
+            return _live_topics(excel_path, int(selected_year), selected_quarter)
+        except Exception:
+            pass
+    return pd.DataFrame()
 
 
 _OVERVIEW_ICONIC_QUOTES_COLUMN_ALIASES = {
@@ -5889,6 +5890,20 @@ def _render_iconic_quote_section(
     sheet_df = _load_overview_iconic_quotes_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
     csv_df = _load_overview_iconic_quotes_csv()
     quotes_df = sheet_df if not sheet_df.empty else csv_df
+    if quotes_df.empty:
+        # Fallback — live extraction from Transcripts sheet
+        try:
+            from utils.transcript_live import extract_iconic_quotes as _live_iconic
+            _live_df = _live_iconic(
+                str(excel_path) if excel_path else "",
+                year=int(selected_year),
+                quarter=selected_quarter,
+                max_quotes=12,
+            )
+            if not _live_df.empty:
+                quotes_df = _live_df
+        except Exception:
+            pass
     if quotes_df.empty:
         return False
 
@@ -6481,7 +6496,17 @@ def _render_transcript_topic_growth_chart(
     selected_quarter: str,
     plotly_config: dict,
 ) -> bool:
-    metrics_df = _load_transcript_topic_metrics()
+    _ep = ""
+    try:
+        from utils.workbook_source import resolve_financial_data_xlsx
+        _ep = resolve_financial_data_xlsx([]) or ""
+    except Exception:
+        pass
+    metrics_df = _load_transcript_topic_metrics(
+        excel_path=str(_ep) if _ep else "",
+        selected_year=int(selected_year) if selected_year else 0,
+        selected_quarter=selected_quarter if selected_quarter else "",
+    )
     if metrics_df.empty:
         return False
 

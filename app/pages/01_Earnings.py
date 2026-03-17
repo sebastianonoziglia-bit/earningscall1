@@ -1870,144 +1870,10 @@ def main():
         st.markdown(summary)
 
 
-    @st.cache_data(show_spinner=False)
-    @st.cache_data(ttl=3600, show_spinner=False)
-    def _extract_ceo_cfo_quotes(
-        excel_path: str,
-        company: str,
-        year: int,
-        quarter: str = "",
-        max_per_role: int = 3,
-    ) -> dict:
-        """
-        Extract CEO/CFO quotes directly from the Transcripts sheet.
-        Returns {"CEO": [...], "CFO": [...]} each entry is
-        {"speaker": str, "quote": str, "role": str}
-
-        Speaker detection: scans for lines like:
-        "Sundar Pichai -- Chief Executive Officer"
-        "Ruth Porat -- Senior Vice President and Chief Financial Officer"
-        Then attributes following sentences to that speaker until next speaker line.
-        """
-        if not excel_path:
-            return {"CEO": [], "CFO": []}
-        try:
-            df = pd.read_excel(excel_path, sheet_name="Transcripts")
-            df.columns = [str(c).strip().lower() for c in df.columns]
-            if not {"company", "year", "transcript_text"}.issubset(set(df.columns)):
-                return {"CEO": [], "CFO": []}
-            df["_comp"] = df["company"].astype(str).str.strip().str.lower()
-            df["_year"] = pd.to_numeric(df["year"], errors="coerce")
-            comp_norm = str(company).strip().lower()
-            matches = df[(df["_comp"] == comp_norm) & (df["_year"] == int(year))]
-            if matches.empty:
-                matches = df[(df["_comp"] == comp_norm) & (df["_year"].between(year-1, year+1))]
-            if matches.empty:
-                return {"CEO": [], "CFO": []}
-            if quarter and "quarter" in df.columns:
-                q_matches = matches[matches["quarter"].astype(str).str.upper().str.strip() == str(quarter).upper().strip()]
-                if not q_matches.empty:
-                    matches = q_matches
-            text = str(matches.iloc[0].get("transcript_text", "") or "")
-            if not text:
-                return {"CEO": [], "CFO": []}
-        except Exception:
-            return {"CEO": [], "CFO": []}
-
-        # CEO/CFO title keywords
-        CEO_TITLES = ["chief executive officer", "ceo", "president and chief executive",
-                      "co-founder and ceo", "co-founder and chief executive"]
-        CFO_TITLES = ["chief financial officer", "cfo", "senior vice president and chief financial",
-                      "executive vice president and chief financial", "evp and chief financial"]
-
-        def _detect_role(line_lower):
-            if any(t in line_lower for t in CEO_TITLES):
-                return "CEO"
-            if any(t in line_lower for t in CFO_TITLES):
-                return "CFO"
-            return None
-
-        # Parse transcript into speaker blocks
-        lines = text.split("\n")
-        current_speaker = ""
-        current_role = ""
-        blocks = []  # [(speaker, role, text_block)]
-        current_block = []
-
-        import re as _re
-        speaker_pattern = _re.compile(
-            r"^([A-Z][A-Za-z\s\.''-]{2,50})\s*(?:--|—|-|:)\s*(.{5,80})$"
-        )
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            match = speaker_pattern.match(line)
-            if match:
-                # Save previous block
-                if current_speaker and current_block:
-                    blocks.append((current_speaker, current_role, " ".join(current_block)))
-                current_block = []
-                candidate_name = match.group(1).strip()
-                candidate_title = match.group(2).strip().lower()
-                role = _detect_role(candidate_title)
-                if role:
-                    current_speaker = candidate_name
-                    current_role = role
-                else:
-                    if "operator" in candidate_title or "analyst" in candidate_title:
-                        current_speaker = ""
-                        current_role = ""
-            else:
-                if line and len(line) > 20:
-                    current_block.append(line)
-
-        if current_speaker and current_block:
-            blocks.append((current_speaker, current_role, " ".join(current_block)))
-
-        # Score sentences within each CEO/CFO block
-        FINANCIAL_TERMS = [
-            "revenue", "growth", "billion", "million", "margin", "profit",
-            "operating income", "eps", "guidance", "quarter", "year",
-            "advertising", "cloud", "subscribers", "users", "capex",
-            "expect", "increase", "grew", "strong", "momentum", "opportunity",
-        ]
-
-        result = {"CEO": [], "CFO": []}
-        for speaker, role, block_text in blocks:
-            if role not in result:
-                continue
-            sentences = _re.split(r"(?<=[.!?])\s+", block_text)
-            scored = []
-            for sent in sentences:
-                s = sent.strip()
-                if len(s) < 40 or len(s) > 400:
-                    continue
-                score = sum(1 for t in FINANCIAL_TERMS if t in s.lower())
-                if score > 0:
-                    scored.append((score, s))
-            scored.sort(key=lambda x: -x[0])
-            for score, sent in scored[:max_per_role]:
-                if len(result[role]) < max_per_role:
-                    result[role].append({
-                        "speaker": speaker,
-                        "role": role,
-                        "quote": sent,
-                        "score": score,
-                    })
-
-        return result
-
-
     def render_transcript_highlights(company_name: str, selected_year: int, selected_quarter: str) -> None:
-        """
-        Render CEO/CFO highlights extracted directly from Transcripts sheet.
-        Falls back to CSV if available. Removes section entirely if no data.
-        """
-        # Try live extraction from Transcripts sheet first
         try:
-            quotes = _extract_ceo_cfo_quotes(
+            from utils.transcript_live import extract_ceo_cfo_quotes
+            quotes = extract_ceo_cfo_quotes(
                 str(data_processor.data_path),
                 canonical_company,
                 int(selected_year),
@@ -2016,57 +1882,30 @@ def main():
         except Exception:
             quotes = {"CEO": [], "CFO": []}
 
-        # Fall back to CSV if live extraction empty
-        if not quotes["CEO"] and not quotes["CFO"]:
-            try:
-                repo_root = Path(__file__).resolve().parents[2]
-                csv_path = repo_root / "earningscall_transcripts" / "transcript_highlights.csv"
-                if csv_path.exists():
-                    _df = pd.read_csv(csv_path)
-                    _df.columns = [str(c).strip().lower() for c in _df.columns]
-                    _df["_comp"] = _df["company"].astype(str).str.strip().apply(normalize_company)
-                    _df["_year"] = pd.to_numeric(_df["year"], errors="coerce")
-                    _qnum = _parse_quarter_int(selected_quarter)
-                    _scoped = _df[(_df["_comp"] == canonical_company) & (_df["_year"] == int(selected_year))]
-                    if _qnum is not None and "quarter" in _df.columns:
-                        _qscoped = _scoped[_scoped["quarter"].astype(str).str.upper().str.strip() == f"Q{_qnum}"]
-                        if not _qscoped.empty:
-                            _scoped = _qscoped
-                    for _, row in _scoped.iterrows():
-                        role = str(row.get("role_bucket", "")).upper()
-                        if role not in quotes:
-                            continue
-                        _speaker = str(row.get("speaker", "") or "").strip()
-                        _quote = str(row.get("quote", "") or "").strip()
-                        if _quote and _speaker and _speaker.lower() != "unknown":
-                            quotes[role].append({"speaker": _speaker, "role": role, "quote": _quote})
-            except Exception:
-                pass
-
-        # If still nothing — skip section entirely (no empty placeholder)
         if not quotes["CEO"] and not quotes["CFO"]:
             return
 
-        period = f"Q{_parse_quarter_int(selected_quarter)} {selected_year}" if _parse_quarter_int(selected_quarter) else f"{selected_year}"
+        period = f"Q{_parse_quarter_int(selected_quarter)} {selected_year}" if _parse_quarter_int(selected_quarter) else str(selected_year)
+        st.markdown("#### Management commentary")
 
-        for role, role_label, limit in [("CEO", "Chief Executive Officer", 3), ("CFO", "Chief Financial Officer", 2)]:
+        for role, label, limit in [("CEO", "Chief Executive Officer", 3), ("CFO", "Chief Financial Officer", 2)]:
             role_quotes = quotes.get(role, [])[:limit]
             if not role_quotes:
                 continue
-            speaker_name = role_quotes[0]["speaker"] if role_quotes else role_label
+            speaker_name = role_quotes[0]["speaker"]
             st.markdown(
-                f"<div style='margin-bottom:4px;'>"
-                f"<span style='font-weight:700;color:#111827;font-size:0.9rem;'>{speaker_name}</span>"
-                f"<span style='color:#6b7280;font-size:0.8rem;margin-left:8px;'>{role_label} — {period}</span>"
+                f"<div style='margin:12px 0 6px 0;'>"
+                f"<span style='font-weight:700;color:#111827;font-size:0.9rem;'>{html.escape(speaker_name)}</span>"
+                f"<span style='color:#6b7280;font-size:0.8rem;margin-left:8px;'>{label} · {period}</span>"
                 f"</div>",
                 unsafe_allow_html=True
             )
             for q in role_quotes:
                 st.markdown(
-                    f"<div style='border-left:3px solid #e5e7eb;padding:8px 14px;margin-bottom:8px;"
+                    f"<div style='border-left:3px solid #e2e8f0;padding:8px 14px;margin-bottom:8px;"
                     f"background:#f9fafb;border-radius:0 6px 6px 0;'>"
                     f"<p style='margin:0;font-size:0.88rem;color:#374151;line-height:1.6;"
-                    f"font-style:italic;'>\"{q['quote']}\"</p>"
+                    f"font-style:italic;'>\"{html.escape(q['quote'])}\"</p>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
@@ -4969,40 +4808,43 @@ def main():
             company_insights_filtered["category"] = company_insights_filtered["category"].fillna("")
 
     if company_insights_filtered.empty:
-        # Auto-generate company insights from transcript if no manual rows
         _co_insight_generated = False
-        if _ant_available:
+        _ant_available_ci = False
+        try:
+            from utils.anthropic_service import is_api_available as _ci_ant_check, call_claude as _ci_call
+            _ant_available_ci = _ci_ant_check()
+        except Exception:
+            pass
+        if _ant_available_ci:
             try:
-                from utils.anthropic_service import call_claude
-                _co_transcript = _load_transcript_for_company(
-                    str(data_processor.data_path), canonical_company,
-                    int(year),
+                _ci_transcript = _load_transcript_for_company(
+                    str(data_processor.data_path), canonical_company, int(year),
                     selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
                 )
-                if _co_transcript:
-                    _co_system = (
+                if _ci_transcript:
+                    _ci_system = (
                         "You are a senior media & technology financial analyst. "
-                        "Write 3 concise insight bullets for an executive dashboard. "
-                        "Format: one sentence per bullet, separated by |. "
-                        "Cover: revenue performance, key strategic development, outlook. "
-                        "Be specific with numbers. No headers."
+                        "Write exactly 3 insight bullets about this company's performance. "
+                        "Format: one sentence per bullet, separated by | character. "
+                        "Cover: revenue performance, key business development, forward outlook. "
+                        "Be specific with numbers. No bullet symbols, no headers, no markdown."
                     )
-                    _period = f"Q{_parse_quarter_int(selected_quarter)} {year}" if _parse_quarter_int(selected_quarter) else str(year)
-                    _co_user = (
-                        f"Company: {canonical_company}\nPeriod: {_period}\n"
-                        f"Transcript excerpt (first 3000 chars):\n{_co_transcript[:3000]}\n\n"
-                        f"Write 3 insight bullets separated by |"
+                    _ci_period = f"Q{_parse_quarter_int(selected_quarter)} {year}" if _parse_quarter_int(selected_quarter) else str(year)
+                    _ci_result = _ci_call(
+                        _ci_system,
+                        f"Company: {canonical_company}\nPeriod: {_ci_period}\n"
+                        f"Transcript (first 3000 chars):\n{_ci_transcript[:3000]}\n\nWrite 3 insight bullets separated by |",
+                        max_tokens=350,
                     )
-                    _co_result = call_claude(_co_system, _co_user, max_tokens=300)
-                    if _co_result:
-                        _co_parts = [p.strip() for p in _co_result.split("|") if p.strip()]
-                        if _co_parts:
+                    if _ci_result:
+                        _ci_parts = [p.strip().lstrip("•-·").strip() for p in _ci_result.split("|") if p.strip()]
+                        if _ci_parts:
                             company_color = (
                                 COMPANY_COLORS.get(company)
                                 or COMPANY_COLORS.get(canonical_company)
                                 or "#111827"
                             )
-                            _items_html = "".join(f"<li>{html.escape(p)}</li>" for p in _co_parts)
+                            _items_html = "".join(f"<li>{html.escape(p)}</li>" for p in _ci_parts[:3])
                             _card = (
                                 f"<div class='company-insight-card insight-card' style='border-left:4px solid {company_color};'>"
                                 f"<div class='company-insight-title'>✨ AI Analysis</div>"
@@ -5019,8 +4861,6 @@ def main():
                             _co_insight_generated = True
             except Exception:
                 pass
-        if not _co_insight_generated:
-            pass  # Show nothing rather than "not available" message
     else:
         st.markdown("#### Company insights")
         st.caption(f"Source: {insight_source_label}")

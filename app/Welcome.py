@@ -1539,6 +1539,20 @@ def _load_transcript_pulse_quotes(repo_root_path: str, db_path: str, selected_ye
             source_label = "earningscall_intelligence.db (transcript_highlights)"
 
     if working.empty:
+        # Fallback 3 — live extraction from Transcripts sheet
+        try:
+            from utils.transcript_live import extract_pulse_quotes as _live_pulse
+            _ep = page_data.get("data_path", "") if "page_data" in dir() else ""
+            _live_results = _live_pulse(str(_ep), max_quotes=25)
+            if _live_results:
+                _live_df = pd.DataFrame(_live_results)
+                _live_df = _live_df.rename(columns={"role": "role_bucket"})
+                for col in ["company", "speaker", "role_bucket", "quote", "year", "quarter"]:
+                    if col not in _live_df.columns:
+                        _live_df[col] = ""
+                return (_live_df, "live transcript extraction")
+        except Exception:
+            pass
         return (pd.DataFrame(), "")
 
     working = working[working["role_bucket"] == "CEO"].copy()
