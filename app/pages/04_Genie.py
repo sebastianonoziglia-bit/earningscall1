@@ -144,36 +144,6 @@ def get_company_color(company_name):
     # Return the mapped color or a default if company not in mapping
     return company_colors.get(company_name, '#808080')  # Default gray
 
-# Add additional styling for the Genie page
-st.markdown("""
-<style>
-    /* Main container styling */
-    .insights-content {
-        margin-top: 2rem;
-        padding: 1rem;
-        background-color: #f8f9fa;
-        border-radius: 0.5rem;
-        border-left: 4px solid #4285f4;
-    }
-    
-    /* Scrollable container */
-    .insights-container {
-        max-height: 400px;
-        overflow-y: auto;
-        padding-right: 10px;
-    }
-    
-    /* Better spacing for options */
-    .stCheckbox {
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Title alignment */
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
-        margin-top: 1.5rem !important;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # Check if user is logged in, redirect to Welcome page if not
 # Always authenticated - no password check needed
@@ -659,50 +629,29 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Create a title layout with columns
-col1, col2, col3 = st.columns([0.75, 0.15, 0.10])
-with col1:
-    st.markdown("""
-    <h1 style="margin-bottom: 0.2rem;">Financial Genie <span style="color: #FF4204; font-size: 0.65em; font-weight: bold;">(SPECIAL)</span></h1>
-    """, unsafe_allow_html=True)
-with col2:
-    st.image("attached_assets/Copy - Cover Layout.gif", use_column_width=True)
-with col3:
-    st.markdown("""
-    <a href="#genie-chat-section" class="go-to-genie-btn">
-        Go to Genie
-    </a>
-    """, unsafe_allow_html=True)
-    
-st.write("Advanced comparative analysis with inflation adjustments and advertising spend")
-
-# Add CSS for the Go to Genie button
 st.markdown("""
 <style>
-.go-to-genie-btn {
-    display: inline-block;
-    background-color: #4285F4;
-    color: white !important;
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    border-radius: 4px;
-    text-decoration: none !important;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    margin-top: 10px;
-    text-align: center;
-}
-.go-to-genie-btn:hover {
-    background-color: #3367D6;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-    transform: translateY(-1px);
-}
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap');
+.genie-hdr{padding:20px 0 16px 0;border-bottom:1px solid #f1f5f9;margin-bottom:20px;}
+.genie-hdr-label{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#ff5b1f;font-weight:700;margin-bottom:6px;}
+.genie-hdr-title{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:#0f172a;line-height:1.1;margin:0 0 6px 0;}
+.genie-hdr-title .acc{color:#ff5b1f;}
+.genie-hdr-sub{font-size:0.88rem;color:#6b7280;margin:0 0 10px 0;}
+.genie-hdr-tags{display:flex;gap:8px;flex-wrap:wrap;}
+.genie-hdr-tag{background:#fff7f4;border:1px solid #fed7aa;color:#c2410c;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;}
 </style>
+<div class="genie-hdr">
+  <div class="genie-hdr-label">AI FINANCIAL ANALYST</div>
+  <div class="genie-hdr-title">Financial Genie <span class="acc">↗</span></div>
+  <p class="genie-hdr-sub">Company KPIs · Advertising spend · Macro overlays · Earnings transcript AI</p>
+  <div class="genie-hdr-tags">
+    <span class="genie-hdr-tag">Company Analysis</span>
+    <span class="genie-hdr-tag">Ad Spend</span>
+    <span class="genie-hdr-tag">Macro Indicators</span>
+    <span class="genie-hdr-tag">Earnings Intelligence</span>
+  </div>
+</div>
 """, unsafe_allow_html=True)
-
-# Add some spacing
-st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
 def load_recession_periods():
     """
@@ -836,7 +785,8 @@ with col1:
             "Select Company Financial Metrics",
             options=list(available_metrics.keys()),
             default=['Revenue'],
-            help="Select financial metrics to compare across companies"
+            help="Select financial metrics to compare across companies",
+            key="company_metrics_selector"
         )
         
         # Segment selection section
@@ -1364,8 +1314,10 @@ if (
     recession_df = load_recession_periods() if show_recessions else None
 
     # Create color mapping for consistent colors
-    color_sequence = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-                     '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+    color_sequence = [
+        '#4285F4', '#ff5b1f', '#1DB954', '#E50914', '#7C3AED',
+        '#0866FF', '#FF9900', '#C13584', '#25D366', '#113CCF'
+    ]
                      
     # Store color mapping in session state to reference in detailed insights
     if 'color_mapping' not in st.session_state:
@@ -1913,8 +1865,8 @@ if (
 
     # Initialize layout dictionary with default settings
     layout_dict = {
-        'title': "Financial Analysis",
-        'height': 600,
+        'title': dict(text="Financial Analysis", font=dict(family="'DM Sans', Inter, sans-serif", size=13, color="#0f172a"), x=0, pad=dict(b=8)),
+        'height': 520,
         'xaxis_title': "Year",
         'yaxis': dict(
             title="Country Values" + (" (YoY % Change)" if show_growth_rates else " (In millions of USD)"),
@@ -1933,8 +1885,9 @@ if (
             x=1
         ),
         'margin': dict(t=50, l=50, r=120, b=50),  # Increased right margin from 100 to 120 for better label visibility
-        'plot_bgcolor': 'white',
-        'paper_bgcolor': 'white'
+        'plot_bgcolor': '#fafbfc',
+        'paper_bgcolor': 'white',
+        'font': dict(family="'DM Sans', Inter, sans-serif", size=12, color="#374151"),
     }
 
     # Initialize M2 growth variable before using it
@@ -2469,53 +2422,52 @@ st.subheader("🔍 Detailed Insights")
 st.markdown("""
 <style>
 .insight-box {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    border-left: 4px solid #ccc;
-    background-color: white;
-    border-radius: 6px;
-    padding: 15px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background: white;
+    border: 1px solid #f1f5f9;
+    border-left: 3px solid #ff5b1f;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    font-size: 0.88rem;
+    color: #1e293b;
+    line-height: 1.5;
+    transition: box-shadow 0.15s ease;
 }
 .insight-box:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 3px 8px rgba(255,91,31,0.08);
+    border-left-color: #ff5b1f;
 }
 .insight-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
-    margin-top: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
 }
 .macro-insight-box {
-    border-left: 4px solid #4b8bfe;
-    background-color: #f7f9ff;
-    border-radius: 6px;
-    padding: 15px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background: #fafbfc;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #4285F4;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    font-size: 0.88rem;
+    color: #1e293b;
 }
 .pp-adjusted-box {
-    border-left: 4px solid #35a853;
-    background-color: #f0f9f0;
-    border-radius: 6px;
-    padding: 15px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border-left: 3px solid #1DB954;
+    background: #f0fdf4;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    font-size: 0.88rem;
+    color: #1e293b;
 }
-.cagr-value {
-    font-weight: bold;
-    color: #1a73e8;
-}
-.macro-title {
-    font-size: 1.1rem;
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: #555;
-}
+.cagr-value { font-weight: 700; color: #ff5b1f; }
+.macro-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; color: #0f172a; }
 </style>
-<div style="margin-bottom: 8px; font-size: 0.85rem; color: #666;">
-<i>Note: Insight boxes are color-coded to match their corresponding chart elements</i>
+<div style="font-size:0.82rem;color:#9ca3af;margin-bottom:8px;">
+Insight boxes are color-coded to match their chart elements
 </div>
 """, unsafe_allow_html=True)
 insights_placeholder = st.empty()
@@ -3072,24 +3024,30 @@ _suggestions = [
     f"Generate a 1-paragraph strategic brief on {_primary} for a European broadcaster",
 ]
 st.markdown("""<style>
-div[data-testid="stButton"] > button {
-    background-color: #f8fafc !important;
-    color: #374151 !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 8px !important;
-    font-size: 0.82rem !important;
-    padding: 0.4rem 0.75rem !important;
+/* Suggestion chips */
+.genie-chips-wrap div[data-testid="stButton"] > button,
+.genie-chips-wrap [data-testid="stColumn"] div[data-testid="stButton"] > button {
+    background: #fff7f4 !important;
+    color: #7c2d12 !important;
+    border: 1.5px solid #fed7aa !important;
+    border-radius: 999px !important;
+    font-size: 0.8rem !important;
+    padding: 0.35rem 0.85rem !important;
     white-space: normal !important;
     text-align: left !important;
     height: auto !important;
-    min-height: 2.5rem !important;
+    min-height: 2.2rem !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease !important;
 }
-div[data-testid="stButton"] > button:hover {
-    background-color: #f1f5f9 !important;
-    border-color: #94a3b8 !important;
-    color: #111827 !important;
+.genie-chips-wrap div[data-testid="stButton"] > button:hover,
+.genie-chips-wrap [data-testid="stColumn"] div[data-testid="stButton"] > button:hover {
+    background: #ffedd5 !important;
+    border-color: #ff5b1f !important;
+    color: #ff5b1f !important;
 }
 </style>""", unsafe_allow_html=True)
+st.markdown('<div class="genie-chips-wrap">', unsafe_allow_html=True)
 st.markdown("**Suggested questions:**")
 _chip_cols = st.columns(min(len(_suggestions), 3))
 for _i, _sugg in enumerate(_suggestions):
@@ -3105,6 +3063,7 @@ for _i, _sugg in enumerate(_suggestions):
             )
             st.rerun()
 st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ── Forward Signals Panel ─────────────────────────────────────────────────
 st.markdown("<hr style='margin: 2rem 0 1rem 0;'>", unsafe_allow_html=True)
@@ -3115,6 +3074,29 @@ st.markdown(
     "Click any signal to ask Genie about it.</p>",
     unsafe_allow_html=True
 )
+st.markdown("""<style>
+/* Guidance signal buttons — readable text on white */
+.guidance-signals-wrap div[data-testid="stButton"] > button {
+    background: #f8fafc !important;
+    color: #1e293b !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px !important;
+    font-size: 0.82rem !important;
+    text-align: left !important;
+    white-space: normal !important;
+    height: auto !important;
+    min-height: 2rem !important;
+    padding: 0.4rem 0.7rem !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+}
+.guidance-signals-wrap div[data-testid="stButton"] > button:hover {
+    background: #fff7f4 !important;
+    border-color: #ff5b1f !important;
+    color: #0f172a !important;
+}
+</style>""", unsafe_allow_html=True)
+st.markdown('<div class="guidance-signals-wrap">', unsafe_allow_html=True)
 _fs_companies = selected_companies if "selected_companies" in dir() and selected_companies else []
 _fs_excel = str(excel_path) if "excel_path" in dir() and excel_path else ""
 _all_signals = []
@@ -3136,9 +3118,10 @@ if _all_signals:
                 col_chip, col_text = st.columns([0.22, 0.78])
                 with col_chip:
                     st.markdown(
-                        f"<span style='background:#eff6ff;color:#1d4ed8;padding:3px 10px;"
-                        f"border-radius:12px;font-size:0.75rem;font-weight:600;white-space:nowrap;'>"
-                        f"{sig['company']} \u00b7 {sig['year']} {sig['quarter']}</span>",
+                        f"<span style='background:#fff7f4;color:#c2410c;padding:3px 10px;"
+                        f"border-radius:12px;font-size:0.75rem;font-weight:600;white-space:nowrap;"
+                        f"border:1px solid #fed7aa;'>"
+                        f"{sig['company']} · {sig['year']} {sig['quarter']}</span>",
                         unsafe_allow_html=True
                     )
                 with col_text:
@@ -3164,6 +3147,7 @@ else:
         else "No forward-looking signals found in transcripts."
     )
 
+st.markdown("</div>", unsafe_allow_html=True)
 render_enhanced_chat_interface(dashboard_state=dashboard_state, on_new_response=_store_last_genie_response)
 
 # Fallback for pre-existing chat sessions where callback has not fired yet in this run.
@@ -3449,6 +3433,25 @@ padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;'>
                     )
                     st.rerun()
 
+            # Thought map → chart: pre-populate selectors from Genie intent
+            _chart_cos = [c for c in intent.get("companies", []) if c in companies]
+            _metric_name_map = {v: k for k, v in {"Revenue":"Revenue","Operating Income":"Operating Income","Net Income":"Net Income","R&D":"R&D","Market Cap":"Market Cap","Capex":"Capex","Cash Balance":"Cash Balance"}.items()}
+            _chart_metrics = [m for m in intent.get("metrics", []) if m in available_metrics]
+            if _chart_cos or _chart_metrics:
+                st.markdown("<div style='margin-top:10px;padding:10px 14px;background:#fff7f4;border:1px solid #fed7aa;border-radius:8px;'>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size:12px;color:#c2410c;font-weight:600;margin-bottom:6px;'>📊 Chart this analysis</div>", unsafe_allow_html=True)
+                if _chart_cos:
+                    st.markdown(f"<div style='font-size:11px;color:#6b7280;margin-bottom:4px;'>Companies: <strong style='color:#0f172a'>{', '.join(_chart_cos[:3])}</strong></div>", unsafe_allow_html=True)
+                if _chart_metrics:
+                    st.markdown(f"<div style='font-size:11px;color:#6b7280;margin-bottom:6px;'>Metrics: <strong style='color:#0f172a'>{', '.join(_chart_metrics[:3])}</strong></div>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("📊 Plot these in the chart", key=f"tm_chart_{_resp_key}_plot", use_container_width=True):
+                    if _chart_cos:
+                        st.session_state["company_selector"] = _chart_cos[:3]
+                    if _chart_metrics:
+                        st.session_state["company_metrics_selector"] = _chart_metrics[:3]
+                    st.rerun()
+
         topic_breakdown_df = pd.DataFrame(columns=["topic", "total"])
         with st.expander("Topic breakdown", expanded=False):
             if not db_path.exists() or not context_company or context_year is None or not context_quarter:
@@ -3671,7 +3674,7 @@ _edges_json = _tm_json.dumps(_tm_edges)
 
 _tm_html = (
     """<!DOCTYPE html><html><head><style>
-html,body{margin:0;padding:0;background:#0d1117;overflow:hidden;font-family:'DM Sans',sans-serif;}
+html,body{margin:0;padding:0;background:#fafbfc;overflow:hidden;font-family:'DM Sans',sans-serif;}
 #tm-root{width:100%;height:480px;position:relative;}
 svg{width:100%;height:100%;}
 .node-card{cursor:pointer;}
@@ -3692,7 +3695,7 @@ if(!nodes.length){
     d3.select('#tm-root').append('div')
         .style('display','flex').style('align-items','center')
         .style('justify-content','center').style('height','100%')
-        .style('color','#4b5563').style('font-size','14px')
+        .style('color','#9ca3af').style('font-size','14px')
         .text('Ask Genie something to see your thought map grow here.');
 } else {
 var W=document.getElementById('tm-root').clientWidth||900;
@@ -3710,7 +3713,7 @@ svg.append('defs').append('marker')
     .attr('markerWidth',6).attr('markerHeight',6)
     .attr('orient','auto-start-reverse')
     .append('path').attr('d','M2 1L8 5L2 9')
-    .attr('fill','none').attr('stroke','#4b5563').attr('stroke-width',1.5);
+    .attr('fill','none').attr('stroke','#cbd5e1').attr('stroke-width',1.5);
 var edgeG=svg.append('g');
 var edgeLines=edgeG.selectAll('path').data(edges).enter().append('path')
     .attr('fill','none').attr('stroke-opacity',0.4).attr('stroke-width',1.5)
@@ -3759,7 +3762,7 @@ nodeGroups.each(function(d){
 nodeGroups.append('circle')
     .attr('cx',16).attr('cy',-16).attr('r',6)
     .attr('fill',function(d){return d.role==='user'?'#3b82f6':'#8b5cf6';})
-    .attr('stroke','#0d1117').attr('stroke-width',1.5);
+    .attr('stroke','#fafbfc').attr('stroke-width',1.5);
 nodeGroups.append('text')
     .attr('x',16).attr('y',-16).attr('text-anchor','middle')
     .attr('dominant-baseline','central').attr('font-size','7px')

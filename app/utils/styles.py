@@ -879,25 +879,26 @@ def load_overview_specific_styles():
         display: flex !important;
         align-items: center !important;
         width: 100% !important;
-        background: rgba(37, 99, 235, 0.12) !important;
-        border: 1px solid rgba(37, 99, 235, 0.28) !important;
-        color: #FFFFFF !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #374151 !important;
         border-radius: 8px !important;
         font-weight: 500 !important;
         letter-spacing: 0.02em !important;
         transition: background 0.2s ease, border-color 0.2s ease !important;
-        padding: 10px 20px !important;
+        padding: 8px 16px !important;
     }
     div[data-testid="stVerticalBlock"] .stButton > button:hover {
-        background: rgba(37, 99, 235, 0.22) !important;
-        border-color: rgba(37, 99, 235, 0.5) !important;
+        background: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+        color: #111827 !important;
     }
     div[data-testid="stVerticalBlock"] .stButton > button:focus,
     div[data-testid="stVerticalBlock"] .stButton > button:active,
     div[data-testid="stVerticalBlock"] .stButton > button:focus-visible {
         outline: none !important;
-        background: rgba(37, 99, 235, 0.32) !important;
-        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) !important;
+        background: #f1f5f9 !important;
+        box-shadow: 0 0 0 2px rgba(255,91,31,0.25) !important;
     }
     
     @media (max-width: 768px) {
