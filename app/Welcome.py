@@ -170,6 +170,20 @@ div[data-testid="block-container"] {
     font-weight: 800;
 }
 [data-testid="stHtml"] > iframe { display: block !important; background: #020810 !important; }
+section[data-testid="stMain"] > div,
+section[data-testid="stMain"] > div > div,
+div[data-testid="stVerticalBlock"],
+div[data-testid="stVerticalBlockBorderWrapper"],
+div[data-testid="element-container"],
+div[data-testid="stHorizontalBlock"],
+div.stMarkdown,
+div[data-testid="stPlotlyChart"],
+div[data-testid="stHtml"],
+div[data-testid="stHtml"] > iframe,
+div.block-container {
+    background-color: #020810 !important;
+    background: #020810 !important;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -2560,40 +2574,33 @@ try:
         const plots = window.parent.document.querySelectorAll('.js-plotly-plot');
         let globePlot = null;
         for (const p of plots) {
-            const layout = p._fullLayout;
-            if (layout && layout.geo && layout.geo.projection &&
-                layout.geo.projection.type === 'orthographic') {
-                globePlot = p;
-                break;
-            }
+            try {
+                const layout = p._fullLayout;
+                if (layout && layout.geo && layout.geo.projection &&
+                    layout.geo.projection.type === 'orthographic') {
+                    globePlot = p;
+                    break;
+                }
+            } catch(e) {}
         }
-        if (!globePlot) { setTimeout(tryRotate, 500); return; }
-
+        if (!globePlot) { setTimeout(tryRotate, 800); return; }
         let lon = 0;
         let spinning = true;
         let animId = null;
-
         function step() {
             if (!spinning) return;
-            lon = (lon + 0.3) % 360;
-            Plotly.relayout(globePlot, {
-                'geo.projection.rotation.lon': lon
-            });
+            lon = (lon + 0.25) % 360;
+            try { Plotly.relayout(globePlot, {'geo.projection.rotation.lon': lon}); } catch(e) {}
             animId = requestAnimationFrame(step);
         }
-
-        globePlot.addEventListener('mouseenter', () => {
+        globePlot.addEventListener('mouseenter', function() {
             spinning = false;
             if (animId) cancelAnimationFrame(animId);
         });
-        globePlot.addEventListener('mouseleave', () => {
-            spinning = true;
-            step();
-        });
-
+        globePlot.addEventListener('mouseleave', function() { spinning = true; step(); });
         step();
     }
-    setTimeout(tryRotate, 1500);
+    setTimeout(tryRotate, 2000);
 })();
 </script>
 """, height=0)
@@ -2626,7 +2633,7 @@ def _build_ss_html(ss_data_json: str) -> str:
 .wm-ss-leg-dot{{width:10px;height:10px;border-radius:3px;flex-shrink:0;}}
 </style>
 <div class="wm-ss-label">THE STRUCTURAL SHIFT</div>
-<div class="wm-ss-headline">Television had the world's total attention.<br>Then new players came to compete.</div>
+<div class="wm-ss-headline">Television had the world's total attention. Then new players came to compete. Now it&#39;s holding its ground.</div>
 <div class="wm-ss-body">Global advertising by channel. Watch where the money moved.</div>
 <div class="wm-ss-main">
   <div class="wm-ss-left"><canvas id="wm-ss-canvas" width="280" height="280"></canvas></div>
@@ -2987,120 +2994,166 @@ if not _human_companies:
     ]
 _human_json = json.dumps(_human_companies)
 
-# ── THE HUMAN SIDE — Platform Globe ─────────────────────────────────────────
-PLATFORM_GLOBE_DATA = [
-    {
-        "platform": "YouTube",
-        "subscribers": "2.5B",
-        "color": "#4285F4",
-        "countries": ["IND", "IDN", "BRA", "NGA", "BGD", "PAK", "ETH", "COD",
-                      "TZA", "KEN", "GHA", "UGA", "MOZ", "MDG", "CMR", "CIV",
-                      "AGO", "ZMB", "ZWE", "RWA"],
-    },
-    {
-        "platform": "Facebook",
-        "subscribers": "2.1B",
-        "color": "#0866FF",
-        "countries": ["PHL", "VNM", "THA", "MMR", "KHM", "LAO", "NPL", "LKA",
-                      "MEX", "COL", "ARG", "PER", "CHL", "VEN", "ECU", "BOL",
-                      "GTM", "HND", "SLV", "NIC", "CRI", "PAN", "DOM", "CUB"],
-    },
-    {
-        "platform": "Instagram",
-        "subscribers": "2.0B",
-        "color": "#C13584",
-        "countries": ["USA", "GBR", "DEU", "FRA", "ITA", "ESP", "TUR", "IRN",
-                      "SAU", "ARE", "EGY", "MAR", "DZA", "TUN", "LBY", "SDN",
-                      "IRQ", "SYR", "JOR", "LBN", "KWT", "QAT", "BHR", "OMN"],
-    },
-    {
-        "platform": "WhatsApp",
-        "subscribers": "2.0B",
-        "color": "#25D366",
-        "countries": ["ZAF", "NAM", "BWA", "MWI", "LSO", "SWZ",
-                      "NLD", "BEL", "CHE", "AUT", "PRT", "POL", "CZE",
-                      "HUN", "SVK", "HRV", "SRB", "BGR", "ROU", "GRC"],
-    },
-    {
-        "platform": "Spotify",
-        "subscribers": "600M",
-        "color": "#1DB954",
-        "countries": ["SWE", "NOR", "DNK", "FIN", "ISL", "EST", "LVA", "LTU",
-                      "CAN", "AUS", "NZL", "IRL", "SGP", "MYS", "HKG", "TWN",
-                      "JPN", "KOR", "URY", "PRY"],
-    },
-    {
-        "platform": "Netflix",
-        "subscribers": "301M",
-        "color": "#E50914",
-        "countries": ["BLZ", "GTM", "HND", "SLV", "NIC", "CRI", "PAN"],
-    },
-    {
-        "platform": "Amazon Prime Video",
-        "subscribers": "200M",
-        "color": "#FF9900",
-        "countries": ["KAZ", "UZB", "TKM", "TJK", "KGZ"],
-    },
-    {
-        "platform": "Disney+",
-        "subscribers": "149M",
-        "color": "#113CCF",
-        "countries": ["AFG", "MNG"],
-    },
-    {
-        "platform": "Twitch",
-        "subscribers": "240M",
-        "color": "#9146FF",
-        "countries": [],
-    },
-]
+# ── THE HUMAN SIDE — Platform Globe (dynamic from Company_subscribers_values) ─
+@st.cache_data(ttl=3600)
+def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> list:
+    """Load latest subscriber counts from Company_subscribers_values sheet."""
+    PLATFORM_META = {
+        "YouTube":         {"color": "#FF0000", "logo": "YouTube",               "countries": ["IND","IDN","BRA","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MOZ","MDG","CMR","CIV","AGO","ZMB","ZWE","RWA"], "centroid": (20.5, 78.9)},
+        "Facebook":        {"color": "#0866FF", "logo": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","COL","ARG","PER","CHL","VEN","ECU","BOL","GTM","HND","SLV","NIC"], "centroid": (12.8, 121.7)},
+        "Instagram":       {"color": "#C13584", "logo": "Instagram",             "countries": ["USA","GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN"], "centroid": (37.1, -95.7)},
+        "WhatsApp":        {"color": "#25D366", "logo": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","NLD","BEL","CHE","AUT","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC"], "centroid": (-30.5, 22.9)},
+        "Spotify":         {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","CAN","AUS","NZL","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","PRY"], "centroid": (60.1, 18.6)},
+        "Spotify Premium": {"color": "#158a3e", "logo": "Spotify",               "countries": ["CHE","AUT","NLD","BEL","PRT"],                                                                                              "centroid": (47.0, 8.2)},
+        "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["BLZ","GTM","HND","SLV","NIC","CRI","PAN"],                                                                                  "centroid": (37.1, -95.7)},
+        "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["FRA","ITA","ESP","PRT","BEL"],                                                                                               "centroid": (46.2, 2.2)},
+        "WBD":             {"color": "#003087", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL","AUS","NZL"],                                                                                                     "centroid": (51.5, -0.1)},
+        "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["DEU","AUT","POL","CZE","HUN"],                                                                                               "centroid": (51.1, 10.4)},
+        "Paramount+":      {"color": "#0064FF", "logo": "Paramount",             "countries": ["ARG","CHL","URY","BOL","ECU"],                                                                                               "centroid": (-34.6, -58.4)},
+        "Peacock":         {"color": "#C01F33", "logo": "Comcast",               "countries": ["DOM","CUB","JAM","HTI","PRI"],                                                                                               "centroid": (18.7, -70.1)},
+    }
+    if not excel_path:
+        return []
+    try:
+        df = pd.read_excel(excel_path, sheet_name="Company_subscribers_values")
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        if "service" not in df.columns or "subscribers" not in df.columns:
+            return []
+        df["subscribers"] = pd.to_numeric(df["subscribers"], errors="coerce")
+        df = df.dropna(subset=["subscribers"])
+        latest = {}
+        for service, grp in df.groupby("service"):
+            grp = grp.copy()
+            if "year" in grp.columns:
+                grp["year"] = pd.to_numeric(grp["year"], errors="coerce")
+                sort_cols = ["year", "quarter"] if "quarter" in grp.columns else ["year"]
+                grp = grp.sort_values(sort_cols, ascending=False)
+            latest[str(service).strip()] = float(grp.iloc[0]["subscribers"])
+        result = []
+        for service, subs_millions in latest.items():
+            meta = PLATFORM_META.get(service, {
+                "color": "#6b7280",
+                "logo": service.split()[0] if service else "Unknown",
+                "countries": [],
+                "centroid": (0, 0),
+            })
+            result.append({
+                "platform": service,
+                "subscribers_m": subs_millions,
+                "subscribers_label": (
+                    f"{subs_millions/1000:.1f}B" if subs_millions >= 1000
+                    else f"{subs_millions:.0f}M"
+                ),
+                "color": meta["color"],
+                "logo_name": meta.get("logo", service),
+                "countries": meta.get("countries", []),
+                "centroid": meta.get("centroid", (0, 0)),
+            })
+        result.sort(key=lambda x: -x["subscribers_m"])
+        return result
+    except Exception:
+        return []
 
+
+_source_stamp_pg = int(getattr(data_processor, "source_stamp", 0) or 0) if data_processor else 0
+_platform_data = _load_platform_subscriber_data(str(excel_path or ""), _source_stamp_pg)
+
+# Fallback to hardcoded data if sheet unavailable
+if not _platform_data:
+    _platform_data = [
+        {"platform": "YouTube",      "subscribers_m": 2500, "subscribers_label": "2.5B", "color": "#FF0000", "logo_name": "YouTube",               "countries": ["IND","IDN","BRA","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MOZ","MDG","CMR","CIV","AGO","ZMB","ZWE","RWA"], "centroid": (20.5,78.9)},
+        {"platform": "Facebook",     "subscribers_m": 2100, "subscribers_label": "2.1B", "color": "#0866FF", "logo_name": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","COL","ARG","PER","CHL","VEN","ECU","BOL","GTM","HND","SLV","NIC"], "centroid": (12.8,121.7)},
+        {"platform": "Instagram",    "subscribers_m": 2000, "subscribers_label": "2.0B", "color": "#C13584", "logo_name": "Instagram",             "countries": ["USA","GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN"], "centroid": (37.1,-95.7)},
+        {"platform": "WhatsApp",     "subscribers_m": 2000, "subscribers_label": "2.0B", "color": "#25D366", "logo_name": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","NLD","BEL","CHE","AUT","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC"], "centroid": (-30.5,22.9)},
+        {"platform": "Spotify",      "subscribers_m": 675,  "subscribers_label": "675M", "color": "#1DB954", "logo_name": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","CAN","AUS","NZL","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","PRY"], "centroid": (60.1,18.6)},
+        {"platform": "Netflix",      "subscribers_m": 301,  "subscribers_label": "301M", "color": "#E50914", "logo_name": "Netflix",               "countries": ["BLZ","CRI","PAN"],                                                                                                          "centroid": (9.9,-84.1)},
+        {"platform": "Amazon Prime", "subscribers_m": 200,  "subscribers_label": "200M", "color": "#FF9900", "logo_name": "Amazon",                "countries": ["KAZ","UZB","TKM","TJK","KGZ"],                                                                                              "centroid": (48.0,66.9)},
+        {"platform": "Disney+",      "subscribers_m": 174,  "subscribers_label": "174M", "color": "#113CCF", "logo_name": "Disney",                "countries": ["FRA","ITA","ESP","PRT","BEL"],                                                                                               "centroid": (46.2,2.2)},
+        {"platform": "Paramount+",   "subscribers_m": 77,   "subscribers_label": "77M",  "color": "#0064FF", "logo_name": "Paramount",             "countries": ["ARG","CHL","URY","BOL","ECU"],                                                                                               "centroid": (-34.6,-58.4)},
+        {"platform": "WBD",          "subscribers_m": 116,  "subscribers_label": "116M", "color": "#003087", "logo_name": "Warner Bros. Discovery","countries": ["GBR","IRL","AUS","NZL"],                                                                                                     "centroid": (51.5,-0.1)},
+    ]
+
+# Load logos for all platforms
+_platform_logos = {}
+for _pd_item in _platform_data:
+    try:
+        _logo = _resolve_logo(_pd_item["logo_name"], logos)
+        if _logo:
+            _platform_logos[_pd_item["platform"]] = _logo
+    except Exception:
+        pass
+
+# Build country→platform mapping dynamically
 _country_color_map = {}
 _country_platform_map = {}
 _country_subs_map = {}
-for _pgd in PLATFORM_GLOBE_DATA:
-    for _iso in _pgd["countries"]:
+for _pd_item in _platform_data:
+    for _iso in _pd_item["countries"]:
         if _iso not in _country_color_map:
-            _country_color_map[_iso] = _pgd["color"]
-            _country_platform_map[_iso] = _pgd["platform"]
-            _country_subs_map[_iso] = _pgd["subscribers"]
+            _country_color_map[_iso] = _pd_item["color"]
+            _country_platform_map[_iso] = _pd_item["platform"]
+            _country_subs_map[_iso] = _pd_item["subscribers_label"]
 
 _num_iso_map = _build_numeric_iso_map()
-_legend_html = "".join(
-    f'<div class="legend-item"><div class="legend-dot" style="background:{p["color"]}"></div>'
-    f'<span class="legend-label">{p["platform"]} \u2014 {p["subscribers"]}</span></div>'
-    for p in PLATFORM_GLOBE_DATA if p["countries"]
+
+_pg_legend_html = "".join(
+    "<div style='display:flex;align-items:center;gap:6px;margin-bottom:4px;'>"
+    "<div style='width:10px;height:10px;border-radius:50%;background:" + p["color"] + ";flex-shrink:0;'></div>"
+    "<span style='font-size:11px;color:#9ca3af;'>" + p["platform"] + " \u2014 " + p["subscribers_label"] + "</span>"
+    "</div>"
+    for p in _platform_data if p["countries"]
 )
+
+_platform_data_json = json.dumps([{
+    "platform": p["platform"],
+    "color": p["color"],
+    "subscribers_label": p["subscribers_label"],
+    "centroid": list(p["centroid"]),
+    "logo": _platform_logos.get(p["platform"], ""),
+} for p in _platform_data])
+_country_color_json = json.dumps(_country_color_map)
+_country_platform_json = json.dumps(_country_platform_map)
+_country_subs_json = json.dumps(_country_subs_map)
+_num2alpha_json = json.dumps(_num_iso_map)
+
+_section("THE HUMAN SIDE", "Behind every platform: a billion human beings.")
+st.markdown(
+    "<p style='color:#8b949e;font-size:0.95rem;margin:-0.5rem 0 1rem 0;'>"
+    "Countries colored by dominant platform \u00b7 territory reflects global audience scale \u00b7 hover to explore"
+    "</p>",
+    unsafe_allow_html=True,
+)
+
 _platform_globe_html = (
     """<!DOCTYPE html><html><head><style>
 html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM Sans',sans-serif;}
 #globe-root{width:100%;height:580px;position:relative;background:#020810;}
 #globe-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.95);border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;border-radius:8px;font-size:13px;pointer-events:none;z-index:100;max-width:220px;}
 #globe-legend{position:absolute;bottom:16px;left:16px;display:flex;flex-direction:column;gap:5px;}
-.legend-item{display:flex;align-items:center;gap:7px;}
-.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.legend-label{font-size:11px;color:#9ca3af;}
 </style></head><body>
 <div id="globe-root">
 <div id="globe-tooltip"></div>
 <div id="globe-legend">"""
-    + _legend_html
+    + _pg_legend_html
     + """</div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
 var countryColors="""
-    + json.dumps(_country_color_map)
+    + _country_color_json
     + """;
 var countryPlatform="""
-    + json.dumps(_country_platform_map)
+    + _country_platform_json
     + """;
 var countrySubs="""
-    + json.dumps(_country_subs_map)
+    + _country_subs_json
     + """;
 var num2alpha="""
-    + json.dumps(_num_iso_map)
+    + _num2alpha_json
+    + """;
+var platformData="""
+    + _platform_data_json
     + """;
 var root=document.getElementById('globe-root');
 var tooltip=document.getElementById('globe-tooltip');
@@ -3112,6 +3165,37 @@ svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).
 var graticule=d3.geoGraticule()();
 svg.append('path').datum(graticule).attr('d',path).attr('fill','none').attr('stroke','rgba(99,179,237,0.08)').attr('stroke-width',0.5);
 var gCountries=svg.append('g');
+var gLogos=svg.append('g');
+var logoImgs={};
+platformData.forEach(function(p){
+  if(p.logo){
+    var img=new Image();
+    img.src='data:image/png;base64,'+p.logo;
+    logoImgs[p.platform]=img;
+  }
+});
+function drawLogos(){
+  gLogos.selectAll('*').remove();
+  platformData.forEach(function(p){
+    if(!p.centroid||!p.centroid[0])return;
+    var coords=[p.centroid[1],p.centroid[0]];
+    var proj=projection(coords);
+    if(!proj)return;
+    var angle=d3.geoDistance(coords,[-projection.rotate()[0],-projection.rotate()[1]]);
+    if(angle>Math.PI/2)return;
+    var x=proj[0],y=proj[1],r=18;
+    var img=logoImgs[p.platform];
+    if(img&&img.complete&&img.naturalWidth>0){
+      var clipId='clip-'+p.platform.replace(/[^a-z0-9]/gi,'');
+      gLogos.append('clipPath').attr('id',clipId).append('circle').attr('cx',x).attr('cy',y).attr('r',r);
+      gLogos.append('image').attr('href','data:image/png;base64,'+p.logo).attr('x',x-r).attr('y',y-r).attr('width',r*2).attr('height',r*2).attr('clip-path','url(#'+clipId+')');
+      gLogos.append('circle').attr('cx',x).attr('cy',y).attr('r',r).attr('fill','none').attr('stroke','white').attr('stroke-width',2).attr('opacity',0.8);
+    } else {
+      gLogos.append('circle').attr('cx',x).attr('cy',y).attr('r',r).attr('fill',p.color).attr('opacity',0.9);
+      gLogos.append('text').attr('x',x).attr('y',y).attr('text-anchor','middle').attr('dominant-baseline','central').attr('font-size','13px').attr('font-weight','700').attr('fill','white').text(p.platform[0]);
+    }
+  });
+}
 fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(function(r){return r.json();}).then(function(world){
   var countries=topojson.feature(world,world.objects.countries).features;
   gCountries.selectAll('path').data(countries).enter().append('path')
@@ -3124,16 +3208,17 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(fun
         tooltip.style.display='block';
         tooltip.style.left=(event.offsetX+12)+'px';
         tooltip.style.top=(event.offsetY-10)+'px';
-        tooltip.innerHTML='<strong style="color:'+countryColors[a]+'">'+countryPlatform[a]+'</strong><br>'+countrySubs[a]+' users globally';
+        tooltip.innerHTML='<strong style="color:'+countryColors[a]+'">'+countryPlatform[a]+'</strong><br>'+countrySubs[a]+' subscribers globally';
       }
     })
     .on('mouseleave',function(){tooltip.style.display='none';});
+  drawLogos();
   startRotation();
 });
 var lon=0;var spinning=true;var animId=null;var lastTime=0;
 function rotate(ts){
   if(!spinning)return;
-  if(ts-lastTime>16){lon=(lon+0.25)%360;projection.rotate([lon,-20]);gCountries.selectAll('path').attr('d',path);lastTime=ts;}
+  if(ts-lastTime>16){lon=(lon+0.25)%360;projection.rotate([lon,-20]);gCountries.selectAll('path').attr('d',path);svg.select('path').attr('d',path);drawLogos();lastTime=ts;}
   animId=requestAnimationFrame(rotate);
 }
 function startRotation(){spinning=true;animId=requestAnimationFrame(rotate);}
