@@ -2739,10 +2739,10 @@ html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sa
 #wa-attn-bubbles{position:absolute;right:0;top:0;width:60%;height:100%;z-index:1;}
 .wa-bubble{position:absolute;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transform:scale(0);opacity:0;padding:8px;text-align:center;backdrop-filter:blur(8px);}
 .wa-bubble.pop{animation-fill-mode:forwards;}
-.wa-bubble .bletter{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.2);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#ffffff;margin-bottom:4px;}
-.wa-bubble .blogo{width:42%;height:42%;object-fit:contain;border-radius:50%;margin-bottom:4px;}
-.wa-bubble .bname{font-weight:700;text-align:center;line-height:1.15;color:#fff;}
-.wa-bubble .busers{font-size:.62em;opacity:.65;color:#fff;margin-top:2px;}
+.wa-bubble .bletter{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#ffffff;margin-bottom:3px;}
+.wa-bubble .blogo{width:36%;height:36%;object-fit:contain;border-radius:50%;margin-bottom:3px;box-shadow:0 0 0 3px rgba(255,255,255,0.22);}
+.wa-bubble .bname{font-weight:700;text-align:center;line-height:1.2;color:#fff;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
+.wa-bubble .busers{font-size:.58em;opacity:.7;color:#fff;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90%;}
 @keyframes floatA{0%,100%{transform:scale(1) translateY(0);}50%{transform:scale(1) translateY(-10px);}}
 @keyframes floatB{0%,100%{transform:scale(1) translateY(0) rotate(0deg);}33%{transform:scale(1) translateY(-7px) rotate(-.4deg);}66%{transform:scale(1) translateY(5px) rotate(.4deg);}}
 @keyframes floatC{0%,100%{transform:scale(1) translateY(0);}50%{transform:scale(1) translateY(-14px);}}
@@ -2798,6 +2798,14 @@ if (DATA.length === 0) {
   ].sort(function(a,b){ return b.val-a.val; });
 }
 var maxVal = Math.max.apply(null, DATA.map(function(d){ return d.val || 1; }));
+// Shorten long platform names to fit inside bubble (max 2 meaningful words)
+function shortName(n) {
+  var parts = (n||'').replace(/[\/–\-]+/g,' ').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return n;
+  var out = parts[0];
+  if (parts.length > 1 && (out+' '+parts[1]).length <= 13) out = out+' '+parts[1];
+  return out.length > 15 ? out.slice(0,14)+'\u2026' : out;
+}
 var ALL_POS = [
   {l:'3%',  t:'5%'},
   {l:'52%', t:'2%'},
@@ -2829,19 +2837,20 @@ DATA.forEach(function(item, i) {
   var normVal = maxVal > 0 ? (item.val || 1) / maxVal : 0.01;
   var size = Math.round(28 + Math.sqrt(normVal) * 112);
   var pos = ALL_POS[i] || {l: (5 + (i % 4) * 22) + '%', t: (5 + Math.floor(i / 4) * 30) + '%'};
-  var fs = Math.max(8, Math.round(size / 9));
+  var fs = Math.max(7, Math.min(12, Math.round(size / 11)));
   var logoB64 = logoForName(item.name);
+  var displayName = shortName(item.name);
   var innerHtml;
   if (logoB64) {
-    innerHtml = '<img class="blogo" src="data:image/png;base64,' + logoB64 + '" alt="' + item.name + '">'
-      + '<div class="bname" style="font-size:' + fs + 'px;">' + item.name + '</div>'
-      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 3, 7) + 'px;">' + item.users + '</div>' : '');
+    innerHtml = '<img class="blogo" src="data:image/png;base64,' + logoB64 + '" alt="' + displayName + '">'
+      + '<div class="bname" style="font-size:' + fs + 'px;">' + displayName + '</div>'
+      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;">' + item.users + '</div>' : '');
   } else {
     var badge = (item.name||'?').replace(/[^A-Za-z0-9]+/g,' ').trim().split(' ').slice(0,2)
       .map(function(p){ return p.charAt(0).toUpperCase(); }).join('').slice(0,2) || '?';
     innerHtml = '<div class="bletter">' + badge + '</div>'
-      + '<div class="bname" style="font-size:' + fs + 'px;">' + item.name + '</div>'
-      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 3, 7) + 'px;">' + item.users + '</div>' : '');
+      + '<div class="bname" style="font-size:' + fs + 'px;">' + displayName + '</div>'
+      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;">' + item.users + '</div>' : '');
   }
   var b = document.createElement('div');
   b.className = 'wa-bubble';
@@ -3010,6 +3019,74 @@ if not _human_companies:
         {"name": "Paramount+", "val": 77, "mins": 35, "revenue": 6.8, "users": "77M subs", "color": "#0033a0", "label": "77M subs"},
         {"name": "Roku", "val": 89, "mins": 25, "revenue": 3.9, "users": "89M accounts", "color": "#6f1ab1", "label": "89M accounts"},
     ]
+# Supplement _human_companies with data from Company_subscribers_values for
+# services that may be missing from Company_minute&dollar_earned sheet
+try:
+    _subs_df2 = _read_excel_sheet_cached(excel_path, "Company_subscribers_values", source_stamp) if excel_path else pd.DataFrame()
+    if _subs_df2 is not None and not _subs_df2.empty:
+        _subs_df2.columns = [str(c).strip().lower() for c in _subs_df2.columns]
+        if "service" in _subs_df2.columns and "subscribers" in _subs_df2.columns:
+            _subs_df2["subscribers"] = pd.to_numeric(_subs_df2["subscribers"], errors="coerce")
+            _subs_df2["year"] = pd.to_numeric(_subs_df2.get("year", pd.Series(dtype=float)), errors="coerce")
+            _latest_subs2: dict = {}
+            for _svc2, _grp2 in _subs_df2.groupby("service"):
+                _grp2 = _grp2.dropna(subset=["subscribers"])
+                if _grp2.empty:
+                    continue
+                _sort_cols2 = ["year", "quarter"] if "quarter" in _grp2.columns else ["year"]
+                _grp2 = _grp2.sort_values(_sort_cols2, ascending=False)
+                _v2 = float(_grp2.iloc[0]["subscribers"])
+                if _v2 > 0:
+                    _latest_subs2[str(_svc2).strip()] = _v2
+            # Mapping: service key → display name + styling for bubble chart
+            _subs_meta2 = {
+                "Amazon Prime":  {"color": "#FF9900", "logo": "Amazon",                "display": "Amazon Prime Video"},
+                "Peacock":       {"color": "#9B2335", "logo": "Comcast",               "display": "Comcast Peacock"},
+                "WBD":           {"color": "#4a90d9", "logo": "Warner Bros. Discovery","display": "WBD Max / HBO"},
+                "Disney+":       {"color": "#113CCF", "logo": "Disney",                "display": "Disney+ / Hulu / ESPN+"},
+                "Paramount+":    {"color": "#7B2FBE", "logo": "Paramount",             "display": "Paramount+"},
+            }
+            for _svc2, _subs_m2 in _latest_subs2.items():
+                _meta2 = _subs_meta2.get(_svc2)
+                if not _meta2:
+                    continue
+                _disp2 = _meta2["display"]
+                _already2 = any(
+                    _disp2.lower() in str(_c.get("name", _c.get("platform", ""))).lower()
+                    or str(_c.get("name", _c.get("platform", ""))).lower() in _disp2.lower()
+                    for _c in _human_companies
+                )
+                _slabel2 = f"{_subs_m2/1000:.1f}B" if _subs_m2 >= 1000 else f"{_subs_m2:.0f}M"
+                if not _already2:
+                    _human_companies.append({
+                        "name": _disp2,
+                        "val": _subs_m2,
+                        "mins": None,
+                        "revenue": None,
+                        "users": f"{_slabel2} subs",
+                        "color": _meta2["color"],
+                        "label": f"{_slabel2} subs",
+                    })
+                else:
+                    # Update subscriber count if live data is larger
+                    for _c2 in _human_companies:
+                        _cname2 = str(_c2.get("name", _c2.get("platform", ""))).lower()
+                        if _disp2.lower() in _cname2 or _cname2 in _disp2.lower():
+                            if _subs_m2 > float(_c2.get("val", 0) or 0):
+                                _c2["val"] = _subs_m2
+                                _c2["users"] = f"{_slabel2} subs"
+                                _c2["label"] = f"{_slabel2} subs"
+                            break
+except Exception:
+    pass
+
+# Rebadge Twitch as Amazon – Twitch (Amazon-owned)
+for _c in _human_companies:
+    if "twitch" in str(_c.get("name", _c.get("platform", ""))).lower():
+        _c["name"] = "Amazon \u2013 Twitch"
+        _c["color"] = "#FF9900"
+        _c["logo"] = _resolve_logo("Amazon", logos) if logos else ""
+
 _human_json = json.dumps(_human_companies)
 
 # ── THE HUMAN SIDE — Platform Globe (dynamic from Company_subscribers_values) ─
@@ -3021,13 +3098,12 @@ def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> li
         "Facebook":        {"color": "#0866FF", "logo": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","GTM","HND","SLV","NIC","CRI","PAN","DOM","CUB","HTI","PRY","BOL"],    "centroid": (12.8, 121.7)},
         "Instagram":       {"color": "#C13584", "logo": "Instagram",             "countries": ["GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN","LBY"],    "centroid": (41.9, 12.5)},
         "WhatsApp":        {"color": "#25D366", "logo": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","MOZ","ZMB","NLD","BEL","CHE","AUT","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC"], "centroid": (-26.0, 28.0)},
-        "Spotify":         {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","CHL"],                     "centroid": (59.3, 18.1)},
-        "Spotify Premium": {"color": "#158a3e", "logo": "Spotify",               "countries": ["AUS","NZL","CAN"],                                                                                                           "centroid": (-25.0, 133.0)},
-        "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["BLZ","SLV","NIC","CRI"],                                                                                                     "centroid": (10.0, -84.0)},
-        "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["FRA","BEL","LUX"],                                                                                                           "centroid": (46.2, 2.2)},
-        "WBD":             {"color": "#4a90d9", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL"],                                                                                                                  "centroid": (54.0, -2.0)},
-        "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["DEU","AUT"],                                                                                                                  "centroid": (51.1, 10.4)},
-        "Paramount+":      {"color": "#00C8FF", "logo": "Paramount",             "countries": ["ARG","COL","PER","ECU","VEN"],                                                                                               "centroid": (-34.6, -58.4)},
+        "Spotify":         {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","CHL","AUS","NZL"],   "centroid": (59.3, 18.1)},
+        "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["MEX","BLZ","GTM","HND","SLV","NIC","CRI","PAN","ECU","BOL","PRY"],                                                          "centroid": (23.6, -102.5)},
+        "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["POL","CZE","HUN","SVK","HRV"],                                                                                               "centroid": (52.2, 21.0)},
+        "WBD":             {"color": "#4a90d9", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL","BEL"],                                                                                                           "centroid": (54.0, -2.0)},
+        "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["DEU","AUT","CHE"],                                                                                                           "centroid": (51.1, 10.4)},
+        "Paramount+":      {"color": "#7B2FBE", "logo": "Paramount",             "countries": ["ARG","COL","PER","ECU","VEN"],                                                                                               "centroid": (-34.6, -58.4)},
         "Peacock":         {"color": "#9B2335", "logo": "Comcast",               "countries": ["DOM","JAM"],                                                                                                                  "centroid": (18.7, -70.1)},
     }
     if not excel_path:
@@ -3133,12 +3209,12 @@ if not _platform_data:
         {"platform": "Facebook",     "subscribers_m": 2100, "subscribers_label": "2.1B", "color": "#0866FF", "logo_name": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","COL","ARG","PER","CHL","VEN","ECU","BOL","GTM","HND","SLV","NIC"], "centroid": (12.8,121.7)},
         {"platform": "Instagram",    "subscribers_m": 2000, "subscribers_label": "2.0B", "color": "#C13584", "logo_name": "Instagram",             "countries": ["USA","GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN"], "centroid": (37.1,-95.7)},
         {"platform": "WhatsApp",     "subscribers_m": 2000, "subscribers_label": "2.0B", "color": "#25D366", "logo_name": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","NLD","BEL","CHE","AUT","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC"], "centroid": (-30.5,22.9)},
-        {"platform": "Spotify",      "subscribers_m": 675,  "subscribers_label": "675M", "color": "#1DB954", "logo_name": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","CAN","AUS","NZL","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","PRY"], "centroid": (60.1,18.6)},
-        {"platform": "Netflix",      "subscribers_m": 301,  "subscribers_label": "301M", "color": "#E50914", "logo_name": "Netflix",               "countries": ["BLZ","CRI","PAN"],                                                                                                          "centroid": (9.9,-84.1)},
-        {"platform": "Amazon Prime", "subscribers_m": 200,  "subscribers_label": "200M", "color": "#FF9900", "logo_name": "Amazon",                "countries": ["KAZ","UZB","TKM","TJK","KGZ"],                                                                                              "centroid": (48.0,66.9)},
-        {"platform": "Disney+",      "subscribers_m": 174,  "subscribers_label": "174M", "color": "#113CCF", "logo_name": "Disney",                "countries": ["FRA","ITA","ESP","PRT","BEL"],                                                                                               "centroid": (46.2,2.2)},
-        {"platform": "Paramount+",   "subscribers_m": 77,   "subscribers_label": "77M",  "color": "#0064FF", "logo_name": "Paramount",             "countries": ["ARG","CHL","URY","BOL","ECU"],                                                                                               "centroid": (-34.6,-58.4)},
-        {"platform": "WBD",          "subscribers_m": 116,  "subscribers_label": "116M", "color": "#003087", "logo_name": "Warner Bros. Discovery","countries": ["GBR","IRL","AUS","NZL"],                                                                                                     "centroid": (51.5,-0.1)},
+        {"platform": "Spotify",      "subscribers_m": 675,  "subscribers_label": "675M", "color": "#1DB954", "logo_name": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","CHL","AUS","NZL"], "centroid": (59.3,18.1)},
+        {"platform": "Netflix",      "subscribers_m": 301,  "subscribers_label": "301M", "color": "#E50914", "logo_name": "Netflix",               "countries": ["MEX","BLZ","GTM","HND","SLV","NIC","CRI","PAN","ECU","BOL","PRY"],                                                          "centroid": (23.6,-102.5)},
+        {"platform": "Amazon Prime", "subscribers_m": 200,  "subscribers_label": "200M", "color": "#FF9900", "logo_name": "Amazon",                "countries": ["DEU","AUT","CHE"],                                                                                                           "centroid": (51.1,10.4)},
+        {"platform": "Disney+",      "subscribers_m": 174,  "subscribers_label": "174M", "color": "#113CCF", "logo_name": "Disney",                "countries": ["POL","CZE","HUN","SVK","HRV"],                                                                                               "centroid": (52.2,21.0)},
+        {"platform": "Paramount+",   "subscribers_m": 77,   "subscribers_label": "77M",  "color": "#7B2FBE", "logo_name": "Paramount",             "countries": ["ARG","COL","PER","ECU","VEN"],                                                                                               "centroid": (-34.6,-58.4)},
+        {"platform": "WBD",          "subscribers_m": 116,  "subscribers_label": "116M", "color": "#4a90d9", "logo_name": "Warner Bros. Discovery","countries": ["GBR","IRL","BEL"],                                                                                                           "centroid": (54.0,-2.0)},
     ]
 
 # Load logos for all platforms
