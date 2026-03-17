@@ -496,19 +496,39 @@ def _company_color(company: str) -> str:
     palette = {
         "Alphabet": "#4285F4",
         "Apple": "#A3A3A3",
-        "Meta": "#0668E1",
-        "Meta Platforms": "#0668E1",
+        "Meta": "#0866FF",
+        "Meta Platforms": "#0866FF",
         "Microsoft": "#00A4EF",
         "Amazon": "#FF9900",
         "Netflix": "#E50914",
         "Disney": "#113CCF",
         "Comcast": "#0088D2",
-        "Warner Bros. Discovery": "#1E40AF",
-        "Paramount Global": "#0060FF",
-        "Spotify": "#1ED760",
+        "Warner Bros. Discovery": "#4a90d9",
+        "Paramount Global": "#7B2FBE",
+        "Spotify": "#1DB954",
         "Roku": "#6F1AB1",
+        # Platform-specific names
+        "YouTube": "#FF0000",
+        "Facebook": "#0866FF",
+        "Meta – Facebook": "#0866FF",
+        "Instagram": "#C13584",
+        "Meta – Instagram": "#C13584",
+        "WhatsApp": "#25D366",
+        "Twitch": "#9147FF",
+        "Amazon – Twitch": "#9147FF",
+        "Disney+": "#113CCF",
+        "Disney+ / Hulu / ESPN+": "#113CCF",
+        "WBD": "#4a90d9",
+        "WBD Max": "#4a90d9",
+        "Max (WBD)": "#4a90d9",
+        "WBD Max / HBO": "#4a90d9",
+        "Paramount+": "#7B2FBE",
+        "Peacock": "#9B2335",
+        "Comcast Peacock": "#9B2335",
+        "Amazon Prime": "#FF9900",
+        "Amazon Prime Video": "#FF9900",
     }
-    return palette.get(company, "#0073FF")
+    return palette.get(company, "#4a90d9")
 
 
 def _resolve_logo(company: str, logos: Dict[str, str]) -> str:
@@ -1537,7 +1557,7 @@ def _load_pulse_quotes_sqlite(db_path: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def _load_transcript_pulse_quotes(repo_root_path: str, db_path: str, selected_year: int, selected_quarter: str, limit: int = 5) -> tuple[pd.DataFrame, str]:
+def _load_transcript_pulse_quotes(repo_root_path: str, db_path: str, selected_year: int, selected_quarter: str, limit: int = 5, data_path: str = "") -> tuple[pd.DataFrame, str]:
     csv_df = _load_pulse_quotes_csv(repo_root_path)
     source_label = ""
     working = csv_df.copy()
@@ -1552,7 +1572,7 @@ def _load_transcript_pulse_quotes(repo_root_path: str, db_path: str, selected_ye
         # Fallback 3 — live extraction from Transcripts sheet
         try:
             from utils.transcript_live import extract_pulse_quotes as _live_pulse
-            _ep = page_data.get("data_path", "") if "page_data" in dir() else ""
+            _ep = data_path
             _live_results = _live_pulse(str(_ep), max_quotes=25)
             if _live_results:
                 _live_df = pd.DataFrame(_live_results)
@@ -2253,6 +2273,7 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
         selected_year=int(current_year),
         selected_quarter=current_quarter,
         limit=5,
+        data_path=data_path,
     )
     if pulse_df.empty:
         st.info("No transcript data available yet — run the intelligence pipeline first.")
@@ -2773,16 +2794,18 @@ html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sa
 .attn-body{color:#8899aa;font-size:13px;line-height:1.6;margin-bottom:24px;}
 .attn-stat-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8899aa;margin-bottom:4px;}
 .attn-stat-val{font-family:'Syne',sans-serif;font-size:clamp(32px,4vw,52px);font-weight:900;color:#ff0033;line-height:1;}
-.attn-legend{margin-top:16px;display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;}
-.attn-leg-row{display:flex;align-items:center;gap:8px;font-size:10px;color:#8899aa;}
-.attn-leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.attn-legend{margin-top:16px;display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;}
+.attn-leg-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#8899aa;}
+.attn-leg-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
 #wa-attn-bubbles{position:absolute;right:0;top:0;width:60%;height:100%;z-index:1;}
 .wa-bubble{position:absolute;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transform:scale(0);opacity:0;padding:8px;text-align:center;backdrop-filter:blur(8px);}
 .wa-bubble.pop{animation-fill-mode:forwards;}
 .wa-bubble .bletter{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#ffffff;margin-bottom:3px;}
-.wa-bubble .blogo{width:36%;height:36%;object-fit:contain;border-radius:50%;margin-bottom:3px;box-shadow:0 0 0 3px rgba(255,255,255,0.22);}
+.wa-bubble .blogo-wrap{width:42%;height:42%;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:3px;}
+.wa-bubble .blogo-img{width:72%;height:72%;object-fit:contain;}
 .wa-bubble .bname{font-weight:700;text-align:center;line-height:1.2;color:#fff;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
 .wa-bubble .busers{font-size:.58em;opacity:.7;color:#fff;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90%;}
+.wa-bubble .brevenue{font-size:.54em;opacity:.85;color:#ff9955;margin-top:1px;white-space:nowrap;font-weight:600;}
 @keyframes floatA{0%,100%{transform:scale(1) translateY(0);}50%{transform:scale(1) translateY(-10px);}}
 @keyframes floatB{0%,100%{transform:scale(1) translateY(0) rotate(0deg);}33%{transform:scale(1) translateY(-7px) rotate(-.4deg);}66%{transform:scale(1) translateY(5px) rotate(.4deg);}}
 @keyframes floatC{0%,100%{transform:scale(1) translateY(0);}50%{transform:scale(1) translateY(-14px);}}
@@ -2880,17 +2903,22 @@ DATA.forEach(function(item, i) {
   var fs = Math.max(7, Math.min(12, Math.round(size / 11)));
   var logoB64 = logoForName(item.name);
   var displayName = shortName(item.name);
+  var revStr = item.revenue ? '$' + (item.revenue >= 10 ? Math.round(item.revenue) + 'B' : item.revenue.toFixed(1) + 'B') + ' rev' : '';
   var innerHtml;
   if (logoB64) {
-    innerHtml = '<img class="blogo" src="data:image/png;base64,' + logoB64 + '" alt="' + displayName + '">'
+    innerHtml = '<div class="blogo-wrap" style="background:' + item.color + '44;">'
+      + '<img class="blogo-img" src="data:image/png;base64,' + logoB64 + '" alt="' + displayName + '">'
+      + '</div>'
       + '<div class="bname" style="font-size:' + fs + 'px;">' + displayName + '</div>'
-      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;">' + item.users + '</div>' : '');
+      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;">' + item.users + '</div>' : '')
+      + (revStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;">' + revStr + '</div>' : '');
   } else {
     var badge = (item.name||'?').replace(/[^A-Za-z0-9]+/g,' ').trim().split(' ').slice(0,2)
       .map(function(p){ return p.charAt(0).toUpperCase(); }).join('').slice(0,2) || '?';
     innerHtml = '<div class="bletter">' + badge + '</div>'
       + '<div class="bname" style="font-size:' + fs + 'px;">' + displayName + '</div>'
-      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;">' + item.users + '</div>' : '');
+      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;">' + item.users + '</div>' : '')
+      + (revStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;">' + revStr + '</div>' : '');
   }
   var b = document.createElement('div');
   b.className = 'wa-bubble';
@@ -3134,16 +3162,16 @@ _human_json = json.dumps(_human_companies)
 def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> list:
     """Load latest subscriber counts from Company_subscribers_values sheet."""
     PLATFORM_META = {
-        "YouTube":         {"color": "#FF0000", "logo": "YouTube",               "countries": ["USA","CAN","IND","IDN","BRA","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MOZ","MDG","CMR","CIV","AGO","ZWE","RWA"], "centroid": (38.0, -97.0)},
-        "Facebook":        {"color": "#0866FF", "logo": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","GTM","HND","SLV","NIC","CRI","PAN","DOM","CUB","HTI","PRY","BOL"],    "centroid": (12.8, 121.7)},
-        "Instagram":       {"color": "#C13584", "logo": "Instagram",             "countries": ["GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN","LBY"],    "centroid": (41.9, 12.5)},
-        "WhatsApp":        {"color": "#25D366", "logo": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","MOZ","ZMB","NLD","BEL","CHE","AUT","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC"], "centroid": (-26.0, 28.0)},
-        "Spotify":         {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","CHL","AUS","NZL"],   "centroid": (59.3, 18.1)},
-        "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["MEX","BLZ","GTM","HND","SLV","NIC","CRI","PAN","ECU","BOL","PRY"],                                                          "centroid": (23.6, -102.5)},
-        "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["POL","CZE","HUN","SVK","HRV"],                                                                                               "centroid": (52.2, 21.0)},
-        "WBD":             {"color": "#4a90d9", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL","BEL"],                                                                                                           "centroid": (54.0, -2.0)},
-        "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["DEU","AUT","CHE"],                                                                                                           "centroid": (51.1, 10.4)},
-        "Paramount+":      {"color": "#7B2FBE", "logo": "Paramount",             "countries": ["ARG","COL","PER","ECU","VEN"],                                                                                               "centroid": (-34.6, -58.4)},
+        "YouTube":         {"color": "#FF0000", "logo": "YouTube",               "countries": ["USA","CAN","IND","IDN","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MDG","CMR","CIV","AGO","ZWE","RWA"],          "centroid": (38.0, -97.0)},
+        "Facebook":        {"color": "#0866FF", "logo": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","BRA","CUB","HTI"],                                                          "centroid": (12.8, 108.0)},
+        "Instagram":       {"color": "#C13584", "logo": "Instagram",             "countries": ["GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN","LBY"],  "centroid": (41.9, 12.5)},
+        "WhatsApp":        {"color": "#25D366", "logo": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","MOZ","ZMB","NLD","PRT","SRB","BGR","ROU","GRC"],                                       "centroid": (-26.0, 28.0)},
+        "Spotify":         {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","CHL","AUS","NZL"],        "centroid": (59.3, 18.1)},
+        "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["MEX","BLZ","GTM","HND","SLV","NIC","CRI","PAN","ECU","BOL","PRY"],                                                         "centroid": (17.0, -92.0)},
+        "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["POL","CZE","HUN","SVK","HRV","SVN"],                                                                                        "centroid": (52.2, 19.0)},
+        "WBD":             {"color": "#4a90d9", "logo": "Warner Bros. Discovery","countries": ["BEL","LUX","MLT"],                                                                                                           "centroid": (50.8, 4.4)},
+        "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["CHE","AUT"],                                                                                                                  "centroid": (47.0, 8.2)},
+        "Paramount+":      {"color": "#7B2FBE", "logo": "Paramount",             "countries": ["ARG","COL","PER","VEN"],                                                                                                     "centroid": (-10.0, -65.0)},
         "Peacock":         {"color": "#9B2335", "logo": "Comcast",               "countries": ["DOM","JAM"],                                                                                                                  "centroid": (18.7, -70.1)},
     }
     if not excel_path:
@@ -3813,6 +3841,12 @@ updateYear(currentIdx);
 </script>
 """, height=500)
 _separator()
+_wr_logos = {}
+for _wr_co in ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "Disney", "Comcast", "Spotify", "Roku"]:
+    _wr_b64 = _resolve_logo(_wr_co, logos)
+    if _wr_b64:
+        _wr_logos[_wr_co] = _wr_b64
+_wr_logos_json = json.dumps(_wr_logos)
 st.components.v1.html(
     """
 <div id="wm-rev-root">
@@ -3832,8 +3866,9 @@ html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 .wr-bar-other{background:#1e3a5f;}
 .wr-bar-other{border-radius:4px 4px 0 0;}
 .wr-bar-ad{border-radius:0 0 4px 4px;}
-.wr-name{font-size:9px;font-weight:700;color:#e6edf3;text-align:center;margin-bottom:4px;font-family:'Syne',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
-.wr-total{font-size:8px;color:#8b949e;text-align:center;}
+.wr-logo-img{height:28px;width:auto;max-width:62px;object-fit:contain;margin-bottom:4px;display:block;}
+.wr-name{font-size:11px;font-weight:700;color:#e6edf3;text-align:center;margin-bottom:4px;font-family:'Syne',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
+.wr-total{font-size:11px;color:#8b949e;text-align:center;margin-top:3px;}
 .wr-legend{display:flex;gap:20px;margin-top:20px;}
 .wr-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
 .wr-leg-dot{width:10px;height:10px;border-radius:2px;}
@@ -3848,6 +3883,9 @@ html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
   <div class="wr-leg"><div class="wr-leg-dot" style="background:#1e3a5f;"></div>Other Revenue</div>
 </div>
 <script>
+var WR_LOGOS="""
+    + _wr_logos_json
+    + """;
 const companies=[
   {name:"Alphabet",total:350,ad:237,ticker:"GOOG"},
   {name:"Amazon",total:638,ad:56,ticker:"AMZN"},
@@ -3869,8 +3907,10 @@ companies.forEach(c=>{
   const adPct=Math.round((c.ad/c.total)*100);
   const col=document.createElement('div');
   col.className='wr-col';
-  col.innerHTML=`
-    <div class="wr-name">${c.name}</div>
+  const logoHtml=WR_LOGOS[c.name]
+    ?`<img class="wr-logo-img" src="data:image/png;base64,${WR_LOGOS[c.name]}" alt="${c.name}">`
+    :`<div class="wr-name">${c.name}</div>`;
+  col.innerHTML=`${logoHtml}
     <div class="wr-bars">
       <div class="wr-bar wr-bar-other" style="height:0px" data-h="${otherH}"></div>
       <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}"></div>
@@ -3890,7 +3930,7 @@ io.observe(grid);
 </script>
 </div>
 """,
-    height=620,
+    height=640,
 )
 _separator()
 
