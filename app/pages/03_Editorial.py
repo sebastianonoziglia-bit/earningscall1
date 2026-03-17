@@ -48,6 +48,67 @@ render_floating_clock()
 st.title("Editorial Insights")
 st.write("Quarterly subscriber metrics analysis.")
 
+SERVICE_TO_COMPANY = {
+    # Disney
+    "Disney+": "Disney",
+    "Hulu": "Disney",
+    "ESPN+": "Disney",
+    "ESPN": "Disney",
+    # Amazon
+    "Amazon Prime": "Amazon",
+    "Amazon Prime Video": "Amazon",
+    "Twitch": "Amazon",
+    # Comcast / NBCUniversal
+    "Peacock": "Comcast",
+    "NBC": "Comcast",
+    # Warner Bros. Discovery
+    "WBD": "Warner Bros. Discovery",
+    "Max": "Warner Bros. Discovery",
+    "HBO Max": "Warner Bros. Discovery",
+    "HBO": "Warner Bros. Discovery",
+    "Discovery+": "Warner Bros. Discovery",
+    # Paramount
+    "Paramount+": "Paramount",
+    "Pluto TV": "Paramount",
+    "BET+": "Paramount",
+    # Meta
+    "Facebook": "Meta Platforms",
+    "Instagram": "Meta Platforms",
+    "WhatsApp": "Meta Platforms",
+    "Threads": "Meta Platforms",
+    # Alphabet
+    "YouTube": "Alphabet",
+    "YouTube Premium": "Alphabet",
+    "YouTube TV": "Alphabet",
+    "Google One": "Alphabet",
+    # Apple
+    "Apple TV+": "Apple",
+    "Apple Music": "Apple",
+    "iCloud": "Apple",
+    # Microsoft
+    "LinkedIn": "Microsoft",
+    "Xbox Game Pass": "Microsoft",
+    "Xbox": "Microsoft",
+    # Spotify (standalone)
+    "Spotify": "Spotify",
+    "Spotify Premium": "Spotify",
+    # Netflix (standalone)
+    "Netflix": "Netflix",
+    # Roku (standalone)
+    "Roku": "Roku",
+    "The Roku Channel": "Roku",
+    # Snap
+    "Snapchat": "Snap",
+    # Pinterest
+    "Pinterest": "Pinterest",
+}
+
+
+def _normalize_service_to_company(service_name: str) -> str:
+    """Map a service/platform name to its parent company."""
+    return SERVICE_TO_COMPANY.get(service_name.strip(), service_name.strip())
+
+
 COMPANY_ASSET_MAP = {
     "Alphabet":{"color":"#4285F4","primary_business":"Search & Digital Advertising","key_assets":["Google Search","YouTube","Google Cloud (GCP)","Google Network","Waymo","DeepMind / Gemini AI"],"ad_products":["Search Ads","YouTube Ads","Google Display Network","DV360","Performance Max"],"competitive_note":"Dominant in search (90%+ share) and online video. YouTube is #1 video platform globally by watch time."},
     "Amazon":{"color":"#FF9900","primary_business":"E-Commerce, Cloud & Advertising","key_assets":["AWS","Amazon Ads","Amazon Prime Video","Prime membership","Twitch","Amazon Music","Alexa"],"ad_products":["Amazon Sponsored Products","Amazon DSP","Streaming TV Ads on Prime Video"],"competitive_note":"Fastest-growing major ad platform. AWS funds the consumer business. Prime Video now has ads."},
@@ -672,7 +733,8 @@ if not _ti_insights:
 else:
     _ti_by_company: dict = {}
     for item in _ti_insights:
-        _ti_by_company.setdefault(item["company"], []).append(item)
+        _parent_co = _normalize_service_to_company(item["company"])
+        _ti_by_company.setdefault(_parent_co, []).append(item)
     for _co in sorted(_ti_by_company.keys(), key=lambda c: -len(_ti_by_company[c])):
         _co_insights = _ti_by_company[_co]
         _meta = COMPANY_ASSET_MAP.get(_co, {})

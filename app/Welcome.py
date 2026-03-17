@@ -3055,8 +3055,17 @@ def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> li
         return []
 
 
-_source_stamp_pg = int(getattr(data_processor, "source_stamp", 0) or 0) if data_processor else 0
-_platform_data = _load_platform_subscriber_data(str(excel_path or ""), _source_stamp_pg)
+try:
+    _source_stamp_pg = int(getattr(data_processor, "source_stamp", 0) or 0) if "data_processor" in dir() and data_processor else 0
+except Exception:
+    _source_stamp_pg = 0
+try:
+    _platform_data = _load_platform_subscriber_data(
+        str(excel_path) if "excel_path" in dir() and excel_path else "",
+        _source_stamp_pg,
+    )
+except Exception:
+    _platform_data = []
 
 # Fallback to hardcoded data if sheet unavailable
 if not _platform_data:
