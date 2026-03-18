@@ -1644,6 +1644,17 @@ def _load_page_data():
 
 # Load data
 logos = load_company_logos()
+# Welcome.py uses white-background versions of Amazon/Apple on dark bg
+for _wl_co, _wl_path in {
+    "Amazon": "attached_assets/Amazonwhite.png",
+    "Apple":  "attached_assets/Applewhite.png",
+}.items():
+    try:
+        _wl_full = APP_DIR / _wl_path
+        if _wl_full.exists():
+            logos[_wl_co] = base64.b64encode(_wl_full.read_bytes()).decode()
+    except Exception:
+        pass
 mode = get_theme_mode()
 is_dark = mode == "dark"
 
