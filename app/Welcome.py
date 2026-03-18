@@ -144,13 +144,16 @@ div[data-testid="stDecoration"] {
     background: #020810 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
+    padding-bottom: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
     border: none !important;
     outline: none !important;
 }
-header[data-testid="stHeader"] {
-    background: transparent !important;
+header[data-testid="stHeader"],
+footer {
+    background-color: #020810 !important;
+    background: #020810 !important;
 }
 div[data-testid="stSidebarContent"] {
     background: #020810 !important;
@@ -208,7 +211,21 @@ div[data-testid="stHtml"] > iframe,
 div.block-container {
     background-color: #020810 !important;
     background: #020810 !important;
+    padding-bottom: 0 !important;
 }
+.ae-section {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1),
+                transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+.ae-section.ae-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.ae-section-delay-1 { transition-delay: 0.1s; }
+.ae-section-delay-2 { transition-delay: 0.2s; }
+.ae-section-delay-3 { transition-delay: 0.3s; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -2129,15 +2146,15 @@ html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 )
 
 
-def _section(label: str, headline: str, body: str, section_class: str = ""):
-    class_attr = "sv"
+def _section(label: str, headline: str, body: str = "", section_class: str = ""):
+    class_attr = "sv ae-section"
     if section_class:
         class_attr = f"{class_attr} {section_class}"
     _, col_mid, _ = st.columns([1, 2.5, 1])
     with col_mid:
         st.markdown(
             f"""
-        <div class="{class_attr}" style="padding:56px 0 20px;background:transparent;">
+        <div class="{class_attr}" data-ae-section="1" style="padding:56px 0 20px;background:transparent;">
           <div class="section-label">{escape(str(label))}</div>
           <div class="section-title" style="border-left:3px solid rgba(74,174,255,0.4);padding-left:16px;">{escape(str(headline))}</div>
           <div class="section-desc">{body}</div>
@@ -2149,7 +2166,7 @@ def _section(label: str, headline: str, body: str, section_class: str = ""):
 
 def _separator():
     st.markdown(
-        '<hr style="border:none; border-top: 1px solid #1e1e1e; margin: 8px 0;">',
+        "<div style='height:120px;'></div>",
         unsafe_allow_html=True,
     )
 
@@ -3162,17 +3179,17 @@ _human_json = json.dumps(_human_companies)
 def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> list:
     """Load latest subscriber counts from Company_subscribers_values sheet."""
     PLATFORM_META = {
-        "YouTube":         {"color": "#FF0000", "logo": "YouTube",               "countries": ["USA","CAN","IND","IDN","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MDG","CMR","CIV","AGO","ZWE","RWA"],          "centroid": (38.0, -97.0)},
-        "Facebook":        {"color": "#0866FF", "logo": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","BRA","CUB","HTI"],                                                          "centroid": (12.8, 108.0)},
-        "Instagram":       {"color": "#C13584", "logo": "Instagram",             "countries": ["GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN","LBY"],  "centroid": (41.9, 12.5)},
-        "WhatsApp":        {"color": "#25D366", "logo": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","MOZ","ZMB","NLD","PRT","SRB","BGR","ROU","GRC"],                                       "centroid": (-26.0, 28.0)},
-        "Spotify":         {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","CHL","AUS","NZL"],        "centroid": (59.3, 18.1)},
-        "Netflix":         {"color": "#E50914", "logo": "Netflix",               "countries": ["MEX","BLZ","GTM","HND","SLV","NIC","CRI","PAN","ECU","BOL","PRY"],                                                         "centroid": (17.0, -92.0)},
-        "Disney+":         {"color": "#113CCF", "logo": "Disney",                "countries": ["POL","CZE","HUN","SVK","HRV","SVN"],                                                                                        "centroid": (52.2, 19.0)},
-        "WBD":             {"color": "#4a90d9", "logo": "Warner Bros. Discovery","countries": ["BEL","LUX","MLT"],                                                                                                           "centroid": (50.8, 4.4)},
-        "Amazon Prime":    {"color": "#FF9900", "logo": "Amazon",                "countries": ["CHE","AUT"],                                                                                                                  "centroid": (47.0, 8.2)},
-        "Paramount+":      {"color": "#7B2FBE", "logo": "Paramount",             "countries": ["ARG","COL","PER","VEN"],                                                                                                     "centroid": (-10.0, -65.0)},
-        "Peacock":         {"color": "#9B2335", "logo": "Comcast",               "countries": ["DOM","JAM"],                                                                                                                  "centroid": (18.7, -70.1)},
+        "YouTube":      {"color": "#FF0000", "logo": "YouTube",               "countries": ["USA","CAN","IND","IDN","BRA","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MOZ","MDG","CMR","CIV","AGO","ZWE","RWA","SDN","SOM","MLI","BFA","NER","TCD","GIN"], "centroid": (38.0, -97.0)},
+        "WhatsApp":     {"color": "#25D366", "logo": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","ZMB","NLD","BEL","CHE","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC","UKR","LTU","LVA","EST"], "centroid": (-26.0, 28.0)},
+        "Instagram":    {"color": "#C13584", "logo": "Instagram",             "countries": ["TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN","LBY","SYR","YEM","BHR"], "centroid": (26.0, 44.0)},
+        "Facebook":     {"color": "#0866FF", "logo": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","GTM","HND","CUB","HTI","PRY","BOL","NIC"], "centroid": (12.8, 121.7)},
+        "Spotify":      {"color": "#1DB954", "logo": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","SGP","MYS","HKG","TWN","JPN","KOR","AUS","NZL","URY","CHL","IRL"], "centroid": (59.3, 18.1)},
+        "Netflix":      {"color": "#E50914", "logo": "Netflix",               "countries": ["CRI","PAN","DOM","JAM","BLZ","SLV","PRY","ECU"], "centroid": (9.9, -84.1)},
+        "Amazon Prime": {"color": "#FF9900", "logo": "Amazon",                "countries": ["DEU","AUT","CHE","POL","CZE","SVK","HUN","ROU","BGR","HRV"], "centroid": (51.1, 10.4)},
+        "Disney+":      {"color": "#113CCF", "logo": "Disney",                "countries": ["FRA","BEL","LUX","NLD","ESP","ITA"], "centroid": (46.2, 2.2)},
+        "WBD":          {"color": "#4a90d9", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL"], "centroid": (54.0, -2.0)},
+        "Paramount+":   {"color": "#7B2FBE", "logo": "Paramount",             "countries": ["ARG","COL","PER","VEN"], "centroid": (-38.4, -63.6)},
+        "Peacock":      {"color": "#9B2335", "logo": "Comcast",               "countries": ["GTM","HND"], "centroid": (15.5, -90.0)},
     }
     if not excel_path:
         return []
@@ -3273,16 +3290,17 @@ except Exception:
 # Fallback to hardcoded data if sheet unavailable
 if not _platform_data:
     _platform_data = [
-        {"platform": "YouTube",      "subscribers_m": 2500, "subscribers_label": "2.5B", "color": "#FF0000", "logo_name": "YouTube",               "countries": ["IND","IDN","BRA","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MOZ","MDG","CMR","CIV","AGO","ZMB","ZWE","RWA"], "centroid": (20.5,78.9)},
-        {"platform": "Facebook",     "subscribers_m": 2100, "subscribers_label": "2.1B", "color": "#0866FF", "logo_name": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","COL","ARG","PER","CHL","VEN","ECU","BOL","GTM","HND","SLV","NIC"], "centroid": (12.8,121.7)},
-        {"platform": "Instagram",    "subscribers_m": 2000, "subscribers_label": "2.0B", "color": "#C13584", "logo_name": "Instagram",             "countries": ["USA","GBR","DEU","FRA","ITA","ESP","TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN"], "centroid": (37.1,-95.7)},
-        {"platform": "WhatsApp",     "subscribers_m": 2000, "subscribers_label": "2.0B", "color": "#25D366", "logo_name": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","NLD","BEL","CHE","AUT","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC"], "centroid": (-30.5,22.9)},
-        {"platform": "Spotify",      "subscribers_m": 675,  "subscribers_label": "675M", "color": "#1DB954", "logo_name": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","EST","LVA","LTU","IRL","SGP","MYS","HKG","TWN","JPN","KOR","URY","CHL","AUS","NZL"], "centroid": (59.3,18.1)},
-        {"platform": "Netflix",      "subscribers_m": 301,  "subscribers_label": "301M", "color": "#E50914", "logo_name": "Netflix",               "countries": ["MEX","BLZ","GTM","HND","SLV","NIC","CRI","PAN","ECU","BOL","PRY"],                                                          "centroid": (23.6,-102.5)},
-        {"platform": "Amazon Prime", "subscribers_m": 200,  "subscribers_label": "200M", "color": "#FF9900", "logo_name": "Amazon",                "countries": ["DEU","AUT","CHE"],                                                                                                           "centroid": (51.1,10.4)},
-        {"platform": "Disney+",      "subscribers_m": 174,  "subscribers_label": "174M", "color": "#113CCF", "logo_name": "Disney",                "countries": ["POL","CZE","HUN","SVK","HRV"],                                                                                               "centroid": (52.2,21.0)},
-        {"platform": "Paramount+",   "subscribers_m": 77,   "subscribers_label": "77M",  "color": "#7B2FBE", "logo_name": "Paramount",             "countries": ["ARG","COL","PER","ECU","VEN"],                                                                                               "centroid": (-34.6,-58.4)},
-        {"platform": "WBD",          "subscribers_m": 116,  "subscribers_label": "116M", "color": "#4a90d9", "logo_name": "Warner Bros. Discovery","countries": ["GBR","IRL","BEL"],                                                                                                           "centroid": (54.0,-2.0)},
+        {"platform": "YouTube",      "subscribers_m": 2500, "subscribers_label": "2.5B", "color": "#FF0000", "logo_name": "YouTube",               "countries": ["USA","CAN","IND","IDN","BRA","NGA","BGD","PAK","ETH","COD","TZA","KEN","GHA","UGA","MOZ","MDG","CMR","CIV","AGO","ZWE","RWA","SDN","SOM","MLI","BFA","NER","TCD","GIN"], "centroid": (38.0,-97.0)},
+        {"platform": "WhatsApp",     "subscribers_m": 2000, "subscribers_label": "2.0B", "color": "#25D366", "logo_name": "WhatsApp",              "countries": ["ZAF","NAM","BWA","MWI","LSO","SWZ","ZMB","NLD","BEL","CHE","PRT","POL","CZE","HUN","SVK","HRV","SRB","BGR","ROU","GRC","UKR","LTU","LVA","EST"], "centroid": (-26.0,28.0)},
+        {"platform": "Instagram",    "subscribers_m": 2000, "subscribers_label": "2.0B", "color": "#C13584", "logo_name": "Instagram",             "countries": ["TUR","IRN","SAU","ARE","EGY","MAR","DZA","TUN","IRQ","JOR","LBN","KWT","QAT","OMN","LBY","SYR","YEM","BHR"], "centroid": (26.0,44.0)},
+        {"platform": "Facebook",     "subscribers_m": 2100, "subscribers_label": "2.1B", "color": "#0866FF", "logo_name": "Facebook",              "countries": ["PHL","VNM","THA","MMR","KHM","LAO","NPL","LKA","MEX","GTM","HND","CUB","HTI","PRY","BOL","NIC"], "centroid": (12.8,121.7)},
+        {"platform": "Spotify",      "subscribers_m": 675,  "subscribers_label": "675M", "color": "#1DB954", "logo_name": "Spotify",               "countries": ["SWE","NOR","DNK","FIN","ISL","SGP","MYS","HKG","TWN","JPN","KOR","AUS","NZL","URY","CHL","IRL"], "centroid": (59.3,18.1)},
+        {"platform": "Netflix",      "subscribers_m": 301,  "subscribers_label": "301M", "color": "#E50914", "logo_name": "Netflix",               "countries": ["CRI","PAN","DOM","JAM","BLZ","SLV","PRY","ECU"], "centroid": (9.9,-84.1)},
+        {"platform": "Amazon Prime", "subscribers_m": 200,  "subscribers_label": "200M", "color": "#FF9900", "logo_name": "Amazon",                "countries": ["DEU","AUT","CHE","POL","CZE","SVK","HUN","ROU","BGR","HRV"], "centroid": (51.1,10.4)},
+        {"platform": "Disney+",      "subscribers_m": 174,  "subscribers_label": "174M", "color": "#113CCF", "logo_name": "Disney",                "countries": ["FRA","BEL","LUX","NLD","ESP","ITA"], "centroid": (46.2,2.2)},
+        {"platform": "WBD",          "subscribers_m": 116,  "subscribers_label": "116M", "color": "#4a90d9", "logo_name": "Warner Bros. Discovery","countries": ["GBR","IRL"], "centroid": (54.0,-2.0)},
+        {"platform": "Paramount+",   "subscribers_m": 77,   "subscribers_label": "77M",  "color": "#7B2FBE", "logo_name": "Paramount",             "countries": ["ARG","COL","PER","VEN"], "centroid": (-38.4,-63.6)},
+        {"platform": "Peacock",      "subscribers_m": 36,   "subscribers_label": "36M",  "color": "#9B2335", "logo_name": "Comcast",               "countries": ["GTM","HND"], "centroid": (15.5,-90.0)},
     ]
 
 # Load logos for all platforms
@@ -3398,6 +3416,8 @@ var graticule=d3.geoGraticule()();
 svg.append('path').datum(graticule).attr('d',path).attr('fill','none').attr('stroke','rgba(99,179,237,0.08)').attr('stroke-width',0.5);
 var gCountries=svg.append('g');
 var gLogos=svg.append('g');
+var defs=svg.append('defs');
+defs.append('filter').attr('id','logo-shadow').attr('x','-25%').attr('y','-25%').attr('width','150%').attr('height','150%').append('feDropShadow').attr('dx',0).attr('dy',0).attr('stdDeviation',3).attr('flood-color','rgba(0,0,0,0.25)').attr('flood-opacity',1);
 var logoImgs={};
 platformData.forEach(function(p){
   if(p.logo){
@@ -3417,11 +3437,11 @@ function drawLogos(){
     if(angle>Math.PI/2)return;
     var x=proj[0],y=proj[1],r=18;
     var img=logoImgs[p.platform];
+    gLogos.append('circle').attr('cx',x).attr('cy',y).attr('r',r*1.15).attr('fill','rgba(255,255,255,0.92)').attr('filter','url(#logo-shadow)');
     if(img&&img.complete&&img.naturalWidth>0){
       var clipId='clip-'+p.platform.replace(/[^a-z0-9]/gi,'');
       gLogos.append('clipPath').attr('id',clipId).append('circle').attr('cx',x).attr('cy',y).attr('r',r);
       gLogos.append('image').attr('href','data:image/png;base64,'+p.logo).attr('x',x-r).attr('y',y-r).attr('width',r*2).attr('height',r*2).attr('clip-path','url(#'+clipId+')');
-      gLogos.append('circle').attr('cx',x).attr('cy',y).attr('r',r).attr('fill','none').attr('stroke','white').attr('stroke-width',2).attr('opacity',0.8);
     } else {
       gLogos.append('circle').attr('cx',x).attr('cy',y).attr('r',r).attr('fill',p.color).attr('opacity',0.9);
       gLogos.append('text').attr('x',x).attr('y',y).attr('text-anchor','middle').attr('dominant-baseline','central').attr('font-size','13px').attr('font-weight','700').attr('fill','white').text(p.platform[0]);
@@ -3530,7 +3550,9 @@ root.addEventListener('mouseleave',function(){
 });
 </script></body></html>"""
 )
+st.markdown("<div style='display:flex;justify-content:center;width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_platform_globe_html, height=720, scrolling=False)
+st.markdown("</div>", unsafe_allow_html=True)
 _separator()
 
 _bubble_logo_aliases = {
@@ -4483,3 +4505,32 @@ st.markdown(
 )
 
 st.markdown("</div>", unsafe_allow_html=True)
+
+st.components.v1.html("""
+<script>
+(function() {
+    function initReveal() {
+        var sections = window.parent.document.querySelectorAll('[data-ae-section]');
+        if (!sections.length) {
+            setTimeout(initReveal, 500);
+            return;
+        }
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('ae-visible');
+                }
+            });
+        }, {
+            root: null,
+            rootMargin: '0px 0px -60px 0px',
+            threshold: 0.1,
+        });
+        sections.forEach(function(el) {
+            observer.observe(el);
+        });
+    }
+    setTimeout(initReveal, 1500);
+})();
+</script>
+""", height=0)
