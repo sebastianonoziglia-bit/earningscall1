@@ -4765,6 +4765,92 @@ def main():
     st.subheader("Insights")
     render_transcript_highlights(company, int(year), selected_quarter)
 
+    try:
+        from utils.transcript_live import (
+            extract_outlook_risks_opportunities,
+            SIGNAL_ICONS,
+            SIGNAL_COLORS,
+        )
+        _oro = extract_outlook_risks_opportunities(
+            str(data_processor.data_path),
+            canonical_company,
+            int(year),
+            selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
+        )
+        _has_oro = any(bool(v) for v in _oro.values())
+    except Exception:
+        _oro = {}
+        _has_oro = False
+        SIGNAL_ICONS = {"Outlook": "🔭", "Risks": "⚠️", "Opportunities": "🚀"}
+        SIGNAL_COLORS = {
+            "Outlook":       {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
+            "Risks":         {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
+            "Opportunities": {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
+        }
+
+    if _has_oro:
+        _period = (
+            f"Q{_parse_quarter_int(selected_quarter)} {year}"
+            if _parse_quarter_int(selected_quarter) else str(year)
+        )
+        st.markdown(
+            f"<div style='margin:1.5rem 0 0.75rem 0;'>"
+            f"<span style='font-weight:700;font-size:1rem;color:#111827;'>"
+            f"Signals from the earnings call</span>"
+            f"<span style='color:#6b7280;font-size:0.82rem;margin-left:10px;'>"
+            f"{canonical_company} · {_period}</span></div>",
+            unsafe_allow_html=True,
+        )
+        _oro_cols = st.columns(3, gap="medium")
+        for _col, _cat in zip(_oro_cols, ["Outlook", "Risks", "Opportunities"]):
+            with _col:
+                _sigs = _oro.get(_cat, [])
+                _c = SIGNAL_COLORS.get(_cat, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
+                _icon = SIGNAL_ICONS.get(_cat, "")
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:8px;"
+                    f"margin-bottom:12px;padding-bottom:8px;"
+                    f"border-bottom:2px solid {_c['border']};'>"
+                    f"<span style='font-size:1.1rem;'>{_icon}</span>"
+                    f"<span style='font-weight:700;font-size:0.9rem;color:#111827;'>{_cat}</span>"
+                    f"<span style='margin-left:auto;background:{_c['tag']};color:white;"
+                    f"font-size:0.65rem;padding:2px 7px;border-radius:10px;"
+                    f"font-weight:600;'>{len(_sigs)}</span></div>",
+                    unsafe_allow_html=True,
+                )
+                if not _sigs:
+                    st.markdown(
+                        f"<p style='color:#9ca3af;font-size:0.82rem;font-style:italic;'>"
+                        f"No {_cat.lower()} signals found.</p>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    for _sig in _sigs:
+                        _q = str(_sig.get("quote", "")).strip()
+                        _sp = str(_sig.get("speaker", "")).strip()
+                        _rl = str(_sig.get("role", "")).strip()
+                        if len(_q) > 180:
+                            _q = _q[:180].rsplit(" ", 1)[0] + "…"
+                        _sp_html = ""
+                        if _sp and _sp.lower() not in ("", "unknown", "nan"):
+                            _sp_html = (
+                                f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;'>"
+                                f"{html.escape(_sp)}"
+                                + (f" · <span style='color:{_c['tag']}'>{html.escape(_rl)}</span>" if _rl else "")
+                                + "</div>"
+                            )
+                        st.markdown(
+                            f"<div style='background:{_c['bg']};"
+                            f"border:1px solid {_c['border']};"
+                            f"border-left:3px solid {_c['border']};"
+                            f"border-radius:6px;padding:10px 12px;margin-bottom:8px;'>"
+                            f"<p style='margin:0;font-size:0.83rem;color:#374151;"
+                            f"line-height:1.6;font-style:italic;'>"
+                            f"\"{html.escape(_q)}\"</p>"
+                            f"{_sp_html}</div>",
+                            unsafe_allow_html=True,
+                        )
+
     company_insights_df = load_company_insights_text(data_processor.data_path)
 
     company_insights_filtered = pd.DataFrame()

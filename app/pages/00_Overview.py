@@ -5880,6 +5880,57 @@ def _load_overview_iconic_quotes_csv() -> pd.DataFrame:
     return pd.DataFrame()
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _load_all_company_signals(
+    excel_path: str,
+    source_stamp: int,
+    selected_year: int,
+    selected_quarter: str,
+) -> dict:
+    """
+    Extract Outlook/Risks/Opportunities signals across ALL companies
+    for the selected period. Returns best signals per category
+    across all companies combined, deduplicated (top 6 per category).
+    """
+    if not excel_path:
+        return {}
+    try:
+        from utils.transcript_live import (
+            extract_outlook_risks_opportunities,
+            SIGNAL_CATEGORIES,
+        )
+        df = pd.read_excel(excel_path, sheet_name="Transcripts")
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        if "company" not in df.columns:
+            return {}
+        companies = df["company"].dropna().unique().tolist()
+
+        all_signals: dict = {cat: [] for cat in SIGNAL_CATEGORIES}
+
+        for company in companies:
+            try:
+                result = extract_outlook_risks_opportunities(
+                    excel_path, str(company),
+                    int(selected_year), selected_quarter,
+                    max_per_category=2,
+                )
+                for cat, sigs in result.items():
+                    for sig in sigs:
+                        sig["company"] = company
+                        all_signals[cat].append(sig)
+            except Exception:
+                continue
+
+        for cat in all_signals:
+            all_signals[cat] = sorted(
+                all_signals[cat], key=lambda x: -x.get("score", 0)
+            )[:6]
+
+        return all_signals
+    except Exception:
+        return {}
+
+
 def _render_iconic_quote_section(
     data_processor: FinancialDataProcessor,
     selected_year: int,
@@ -7409,6 +7460,72 @@ if selected_overview_area == "topic_signal":
     iconic_quotes_rendered = _render_iconic_quote_section(data_processor, selected_year, selected_quarter)
     if not iconic_quotes_rendered:
         st.caption("No iconic CEO/CFO quote rows found for this period.")
+
+    # ── Cross-company Outlook / Risks / Opportunities ────────────────────────
+    _ov_excel_path = str(getattr(data_processor, "data_path", "") or "")
+    _ov_source_stamp = int(getattr(data_processor, "source_stamp", 0) or 0)
+    try:
+        from utils.transcript_live import SIGNAL_ICONS, SIGNAL_COLORS
+        _all_sigs = _load_all_company_signals(
+            _ov_excel_path, _ov_source_stamp,
+            int(selected_year), selected_quarter,
+        )
+        _has_sigs = any(bool(v) for v in _all_sigs.values())
+    except Exception:
+        _all_sigs = {}
+        _has_sigs = False
+        SIGNAL_ICONS = {"Outlook": "🔭", "Risks": "⚠️", "Opportunities": "🚀"}
+        SIGNAL_COLORS = {
+            "Outlook":       {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
+            "Risks":         {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
+            "Opportunities": {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
+        }
+
+    if _has_sigs:
+        st.markdown("### Market Signals")
+        st.caption(
+            f"Outlook · Risks · Opportunities extracted from earnings calls "
+            f"· {selected_year} {selected_quarter}"
+        )
+        _sig_cols = st.columns(3, gap="medium")
+        for _col, _cat in zip(_sig_cols, ["Outlook", "Risks", "Opportunities"]):
+            with _col:
+                _sigs = _all_sigs.get(_cat, [])
+                _c = SIGNAL_COLORS[_cat]
+                _icon = SIGNAL_ICONS[_cat]
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:8px;"
+                    f"margin-bottom:12px;padding-bottom:8px;"
+                    f"border-bottom:2px solid {_c['border']};'>"
+                    f"<span>{_icon}</span>"
+                    f"<span style='font-weight:700;font-size:0.9rem;'>{_cat}</span>"
+                    f"<span style='margin-left:auto;background:{_c['tag']};"
+                    f"color:white;font-size:0.65rem;padding:2px 7px;"
+                    f"border-radius:10px;font-weight:600;'>{len(_sigs)}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                for _sig in _sigs:
+                    _q = str(_sig.get("quote", "")).strip()
+                    _co = str(_sig.get("company", "")).strip()
+                    _sp = str(_sig.get("speaker", "")).strip()
+                    if len(_q) > 160:
+                        _q = _q[:160].rsplit(" ", 1)[0] + "…"
+                    st.markdown(
+                        f"<div style='background:{_c['bg']};"
+                        f"border-left:3px solid {_c['border']};"
+                        f"border-radius:0 6px 6px 0;"
+                        f"padding:10px 12px;margin-bottom:8px;'>"
+                        f"<p style='margin:0 0 4px 0;font-size:0.83rem;"
+                        f"color:#374151;line-height:1.6;font-style:italic;'>"
+                        f"\"{html.escape(_q)}\"</p>"
+                        f"<div style='font-size:0.72rem;color:#6b7280;'>"
+                        f"<b>{html.escape(_co)}</b>"
+                        + (f" · {html.escape(_sp)}" if _sp and _sp.lower() not in ("", "unknown", "nan") else "")
+                        + f"</div></div>",
+                        unsafe_allow_html=True,
+                    )
+
     _render_overview_download_section(data_processor, selected_year, selected_quarter)
     end_snap_section()
     st.stop()

@@ -39,6 +39,41 @@ TOPIC_KEYWORDS = {
                               "compliance", "consent"],
 }
 
+SIGNAL_CATEGORIES = ["Outlook", "Risks", "Opportunities"]
+
+SIGNAL_ICONS = {
+    "Outlook":       "🔭",
+    "Risks":         "⚠️",
+    "Opportunities": "🚀",
+}
+
+SIGNAL_COLORS = {
+    "Outlook":       {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
+    "Risks":         {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
+    "Opportunities": {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
+}
+
+OUTLOOK_KEYWORDS = [
+    "we expect", "we anticipate", "going forward", "next quarter", "full year",
+    "guidance", "we believe", "looking ahead", "heading into", "in the coming",
+    "we remain confident", "we're well positioned", "positioned to", "on track",
+    "our outlook", "we plan to", "we will continue", "for fiscal",
+]
+
+RISK_KEYWORDS = [
+    "headwind", "challenge", "risk", "uncertainty", "slower", "softness",
+    "pressure", "concern", "decline", "difficult", "competitive",
+    "macro", "unfavorable", "weaker", "offset", "loss", "impairment",
+    "caution", "volatility", "drag", "cost increase",
+]
+
+OPPORTUNITY_KEYWORDS = [
+    "opportunity", "growth driver", "tailwind", "accelerate", "invest",
+    "expand", "launch", "new market", "incremental", "upside",
+    "untapped", "scale", "differentiate", "advantage", "momentum",
+    "strong demand", "outperform", "gain share", "monetize",
+]
+
 CEO_TITLES = [
     "chief executive officer", "ceo", "president and chief executive",
     "co-founder and ceo", "co-founder and chief executive", "president & ceo",
@@ -373,6 +408,89 @@ def extract_topic_metrics(
 
     result = pd.DataFrame(rows)
     result = result[result["mention_count"] > 0].copy()
+    return result
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def extract_outlook_risks_opportunities(
+    excel_path: str,
+    company: str,
+    year: int,
+    quarter: str = "",
+    max_per_category: int = 3,
+) -> dict:
+    """
+    Extract Outlook / Risks / Opportunities signals from CEO/CFO transcript blocks.
+    Returns {"Outlook": [...], "Risks": [...], "Opportunities": [...]}
+    each item: {speaker, role, quote, score, category}
+    """
+    if not excel_path:
+        return {cat: [] for cat in SIGNAL_CATEGORIES}
+    try:
+        df = pd.read_excel(excel_path, sheet_name="Transcripts")
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        if not {"company", "year", "transcript_text"}.issubset(set(df.columns)):
+            return {cat: [] for cat in SIGNAL_CATEGORIES}
+        df["_c"] = df["company"].astype(str).str.strip().str.lower()
+        df["_y"] = pd.to_numeric(df["year"], errors="coerce")
+        comp = company.strip().lower()
+        mask = (df["_c"] == comp) & (df["_y"] == int(year))
+        rows = df[mask]
+        if rows.empty:
+            rows = df[(df["_c"] == comp) & (df["_y"].between(year - 1, year + 1))]
+        if rows.empty:
+            return {cat: [] for cat in SIGNAL_CATEGORIES}
+        if quarter and "quarter" in df.columns:
+            q_rows = rows[rows["quarter"].astype(str).str.upper().str.strip() == quarter.upper().strip()]
+            if not q_rows.empty:
+                rows = q_rows
+        text = str(rows.iloc[0].get("transcript_text", "") or "")[:30000]
+    except Exception:
+        return {cat: [] for cat in SIGNAL_CATEGORIES}
+
+    _cat_keywords = {
+        "Outlook":       OUTLOOK_KEYWORDS,
+        "Risks":         RISK_KEYWORDS,
+        "Opportunities": OPPORTUNITY_KEYWORDS,
+    }
+
+    def _score_signal(sentence: str, keywords: list) -> float:
+        s = sentence.lower()
+        kw_hits = sum(1.5 for kw in keywords if kw in s)
+        fin_hits = sum(1.0 for t in FINANCIAL_SCORE_TERMS if t in s)
+        return round(kw_hits + fin_hits, 2)
+
+    result: dict = {cat: [] for cat in SIGNAL_CATEGORIES}
+    blocks = _parse_speaker_blocks(text)
+
+    for block in blocks:
+        role = block.get("role", "")
+        role_bonus = 1.5 if role in ("CEO", "CFO") else 0.5
+        for sentence in block.get("sentences", []):
+            for cat, keywords in _cat_keywords.items():
+                if len(result[cat]) >= max_per_category * 2:
+                    continue
+                if any(kw in sentence.lower() for kw in keywords):
+                    score = _score_signal(sentence, keywords) + role_bonus
+                    result[cat].append({
+                        "speaker": block["speaker"],
+                        "role": role,
+                        "quote": sentence,
+                        "score": score,
+                        "category": cat,
+                    })
+
+    # Deduplicate and keep top N per category
+    for cat in result:
+        seen: set = set()
+        deduped = []
+        for sig in sorted(result[cat], key=lambda x: -x["score"]):
+            key = sig["quote"][:60]
+            if key not in seen:
+                seen.add(key)
+                deduped.append(sig)
+        result[cat] = deduped[:max_per_category]
+
     return result
 
 
