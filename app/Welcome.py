@@ -121,46 +121,60 @@ st.markdown(
   --alp: #4285f4;
   --meta: #0082fb;
 }
-html, body, :root {
-    background: #020810 !important;
+html {
     background-color: #020810 !important;
-    color-scheme: dark !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow-x: hidden !important;
 }
-.stApp,
-.stApp > *,
-.main,
-.main > div,
-section[data-testid="stMain"],
-section[data-testid="stMain"] > div,
-div[data-testid="stAppViewContainer"],
-div[data-testid="stMainBlockContainer"],
-div[data-testid="appViewBlockContainer"],
-div[data-testid="block-container"],
-div[data-testid="stDecoration"] {
+body {
+    background-color: #020810 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow-x: hidden !important;
+}
+.stApp {
     background-color: #020810 !important;
     background: #020810 !important;
+}
+section[data-testid="stMain"] {
+    background-color: #020810 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+div[data-testid="block-container"] {
+    background-color: #020810 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
+    padding-top: 0 !important;
     padding-bottom: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
-    border: none !important;
-    outline: none !important;
 }
-header[data-testid="stHeader"],
+div[data-testid="stVerticalBlock"] {
+    background-color: transparent !important;
+    gap: 0 !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    background-color: transparent !important;
+}
+div[data-testid="element-container"] {
+    background-color: transparent !important;
+}
+div[data-testid="stHorizontalBlock"] {
+    background-color: transparent !important;
+}
+[data-testid="stDecoration"] {
+    display: none !important;
+}
+[data-testid="stHeader"] {
+    background-color: #020810 !important;
+}
 footer {
     background-color: #020810 !important;
-    background: #020810 !important;
 }
-div[data-testid="stSidebarContent"] {
-    background: #020810 !important;
-}
-.element-container, .stMarkdown, .stPlotlyChart,
-.stCaption, div[data-testid="stVerticalBlock"] {
-    background: transparent !important;
+iframe {
+    display: block !important;
 }
 .section-label {
     color: #4aaeff;
@@ -196,22 +210,6 @@ div[data-testid="stSidebarContent"] {
 .section-desc b {
     color: #4aaeff !important;
     font-weight: 800;
-}
-[data-testid="stHtml"] > iframe { display: block !important; background: #020810 !important; }
-section[data-testid="stMain"] > div,
-section[data-testid="stMain"] > div > div,
-div[data-testid="stVerticalBlock"],
-div[data-testid="stVerticalBlockBorderWrapper"],
-div[data-testid="element-container"],
-div[data-testid="stHorizontalBlock"],
-div.stMarkdown,
-div[data-testid="stPlotlyChart"],
-div[data-testid="stHtml"],
-div[data-testid="stHtml"] > iframe,
-div.block-container {
-    background-color: #020810 !important;
-    background: #020810 !important;
-    padding-bottom: 0 !important;
 }
 .ae-section {
     opacity: 0;
@@ -2798,7 +2796,9 @@ if(YEARS.length>0){{currentAngles=getAngles(YEARS[0]);drawDonut(currentAngles);d
 </div>
 """
 
+st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_build_ss_html(_ss_data_json), height=540)
+st.markdown("</div>", unsafe_allow_html=True)
 _separator()
 
 def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str = '[]', logos_json: str = '{}') -> str:
@@ -3555,8 +3555,10 @@ root.addEventListener('mouseleave',function(){
 });
 </script></body></html>"""
 )
+st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.markdown("<div style='display:flex;justify-content:center;width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_platform_globe_html, height=720, scrolling=False)
+st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 _separator()
 
@@ -3582,7 +3584,9 @@ for _hc in _human_companies:
         if _b64:
             _bubble_logo_map[_hname] = _b64
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str, _human_json, logos_json=json.dumps(_bubble_logo_map))
+st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_attn_html, height=520)
+st.markdown("</div>", unsafe_allow_html=True)
 
 _separator()
 # --- Concentration: animated stacked bar 2010→latest ---
@@ -3669,6 +3673,7 @@ _conc_all_years_json = json.dumps(_conc_all_years)
 _conc_seg_colors_json = json.dumps(_CONC_SEG_COLORS)
 _conc_seg_order_json = json.dumps(_CONC_SEG_ORDER)
 
+st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap');
@@ -3867,6 +3872,7 @@ slider.addEventListener('input', () => {{ stopPlay(); updateYear(Number(slider.v
 updateYear(currentIdx);
 </script>
 """, height=500)
+st.markdown("</div>", unsafe_allow_html=True)
 _separator()
 _wr_logos = {}
 for _wr_co in ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "Disney", "Comcast", "Spotify", "Roku"]:
