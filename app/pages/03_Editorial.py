@@ -62,6 +62,15 @@ st.session_state["active_nav_page"] = "editorial"
 st.session_state["_active_nav_page"] = "editorial"
 render_header()
 
+# Pre-select company from ?company= query param (e.g. from globe click)
+try:
+    _qp_company = st.query_params.get("company", "")
+    if _qp_company and not st.session_state.get("_company_param_applied"):
+        st.session_state["ti_selected_company"] = str(_qp_company).strip()
+        st.session_state["_company_param_applied"] = True
+except Exception:
+    pass
+
 # Add SQL Assistant in the sidebar
 from utils.sql_assistant_sidebar import render_sql_assistant_sidebar
 if not st.session_state.get("hide_sidebar_nav", False):

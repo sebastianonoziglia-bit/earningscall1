@@ -2165,6 +2165,21 @@ def _separator():
     )
 
 
+def _deep_dive(nav: str, label: str):
+    """Render a subtle 'deep dive' CTA that navigates via query param."""
+    st.markdown(
+        f"<div style='text-align:right;margin-top:-60px;margin-bottom:20px;'>"
+        f"<a href='?nav={nav}' target='_self' rel='noopener' "
+        f"style='color:#6b7280;font-size:0.82rem;text-decoration:none;"
+        f"border:1px solid rgba(255,255,255,0.1);border-radius:20px;"
+        f"padding:5px 14px;transition:color 0.15s,border-color 0.15s;'"
+        f"onmouseover=\"this.style.color='#e2e8f0';this.style.borderColor='rgba(255,255,255,0.3)'\" "
+        f"onmouseout=\"this.style.color='#6b7280';this.style.borderColor='rgba(255,255,255,0.1)'\">"
+        f"{label} →</a></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def _find_col(df: pd.DataFrame, includes: list[str], excludes: Optional[list[str]] = None) -> str:
     if df is None or df.empty:
         return ""
@@ -2648,8 +2663,10 @@ try:
                     lonaxis_showgrid=False,
                 )
                 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False})
+                _map_event = st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False}, on_select="rerun", key="world_map_chart")
                 st.markdown("</div>", unsafe_allow_html=True)
+                if _map_event and getattr(_map_event, "selection", None):
+                    st.switch_page("pages/00_Overview.py")
                 st.components.v1.html("""
 <script>
 (function() {
@@ -2693,6 +2710,7 @@ try:
 except Exception:
     st.info("Global map unavailable.")
 st.caption("Map shows advertising spend by country as a % of GDP. Darker = higher ad market intensity.")
+_deep_dive("overview", "Explore ad data by country")
 _separator()
 
 # Beat 1.5 — Structural Shift donut animation
@@ -2785,6 +2803,7 @@ _section("THE STRUCTURAL SHIFT", "Television had the world's total attention. Th
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_build_ss_html(_ss_data_json), height=540)
 st.markdown("</div>", unsafe_allow_html=True)
+_deep_dive("overview", "Explore the full ad landscape")
 _separator()
 
 def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str = '[]', logos_json: str = '{}') -> str:
@@ -2946,8 +2965,10 @@ DATA.forEach(function(item, i) {
   b.className = 'wa-bubble';
   b.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + pos.l + ';top:' + pos.t
     + ';background:radial-gradient(circle at 35% 35%,' + item.color + 'cc,' + item.color + '66)'
-    + ';border:1.5px solid ' + item.color + '55;box-shadow:0 0 ' + Math.round(size / 3) + 'px ' + item.color + '44;';
+    + ';border:1.5px solid ' + item.color + '55;box-shadow:0 0 ' + Math.round(size / 3) + 'px ' + item.color + '44;cursor:pointer;';
   b.innerHTML = innerHtml;
+  b.title = 'Explore ' + item.name + ' on Editorial';
+  (function(platformName){ b.addEventListener('click', function(){ window.parent.location.href = '?nav=editorial&company=' + encodeURIComponent(platformName); }); })(item.name);
   bfield.appendChild(b);
   var delay = i * 80;
   var floatAnim = FLOATS[i % 3];
@@ -3502,21 +3523,30 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(fun
     .attr('fill',function(d){var a=num2alpha[String(d.id)]||'';var c=countryColors[a];return c||'#1a2744';})
     .attr('opacity',function(d){var a=num2alpha[String(d.id)]||'';return countryColors[a]?0.75:1;})
     .attr('stroke','rgba(255,255,255,0.08)').attr('stroke-width',0.4)
+    .style('cursor',function(d){var a=num2alpha[String(d.id)]||'';return countryPlatform[a]?'pointer':'default';})
     .on('mousemove',function(event,d){
       var a=num2alpha[String(d.id)]||'';
       if(countryPlatform[a]){
         tooltip.style.display='block';
         tooltip.style.left=(event.offsetX+12)+'px';
         tooltip.style.top=(event.offsetY-10)+'px';
-        tooltip.innerHTML='<strong style="color:'+countryColors[a]+'">'+countryPlatform[a]+'</strong><br>'+countrySubs[a]+' subscribers globally';
+        tooltip.innerHTML='<strong style="color:'+countryColors[a]+'">'+countryPlatform[a]+'</strong><br>'+countrySubs[a]+' subscribers<br><span style="font-size:11px;color:#93c5fd;opacity:0.8;">Click to explore on Editorial</span>';
       }
     })
-    .on('mouseleave',function(){tooltip.style.display='none';});
+    .on('mouseleave',function(){tooltip.style.display='none';})
+    .on('click',function(event,d){
+      if(globeDragged)return;
+      var a=num2alpha[String(d.id)]||'';
+      var platform=countryPlatform[a];
+      if(platform){
+        window.parent.location.href='?nav=editorial&company='+encodeURIComponent(platform);
+      }
+    });
   drawLogos();
   startRotation();
 });
 var lon=0;var spinning=true;var animId=null;var lastTime=0;
-var isDragging=false;var dragStart=null;var rotateStart=[0,-20];
+var isDragging=false;var dragStart=null;var rotateStart=[0,-20];var globeDragged=false;
 function rotate(ts){
   if(!spinning)return;
   if(ts-lastTime>16){lon=(lon+0.25)%360;projection.rotate([lon,-20]);gCountries.selectAll('path').attr('d',path);svg.select('path').attr('d',path);drawLogos();lastTime=ts;}
@@ -3524,7 +3554,7 @@ function rotate(ts){
 }
 function startRotation(){spinning=true;animId=requestAnimationFrame(rotate);}
 root.addEventListener('mousedown',function(e){
-  isDragging=true;spinning=false;
+  isDragging=true;spinning=false;globeDragged=false;
   if(animId)cancelAnimationFrame(animId);
   dragStart=[e.clientX,e.clientY];
   rotateStart=projection.rotate().slice();
@@ -3534,6 +3564,7 @@ root.addEventListener('mousemove',function(e){
   if(!isDragging||!dragStart)return;
   var dx=e.clientX-dragStart[0];
   var dy=e.clientY-dragStart[1];
+  if(Math.sqrt(dx*dx+dy*dy)>5)globeDragged=true;
   var newLon=rotateStart[0]+dx*0.4;
   var newLat=Math.max(-60,Math.min(60,rotateStart[1]-dy*0.4));
   lon=newLon%360;
@@ -3558,6 +3589,7 @@ st.markdown("<div style='display:flex;justify-content:center;width:100%;'>", uns
 st.components.v1.html(_platform_globe_html, height=760, scrolling=False)
 st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
+_deep_dive("editorial", "Explore platform deep dives")
 _separator()
 
 _bubble_logo_aliases = {
@@ -3586,7 +3618,7 @@ _section("SECTION 01 — ATTENTION ECONOMY", "Who Owns Your Time", "Each bubble 
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_attn_html, height=520)
 st.markdown("</div>", unsafe_allow_html=True)
-
+_deep_dive("editorial", "Deep dive into platforms")
 _separator()
 # --- Concentration: animated stacked bar 2010→latest ---
 _CONC_SEG_ORDER = ["Alphabet", "Meta", "Amazon", "Apple + MSFT", "Other Digital",
@@ -3868,6 +3900,7 @@ updateYear(currentIdx);
 </script>
 """, height=560)
 st.markdown("</div>", unsafe_allow_html=True)
+_deep_dive("earnings", "Explore company financials")
 _separator()
 _wr_logos = {}
 for _wr_co in ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "Disney", "Comcast", "Spotify", "Roku"]:
@@ -3960,6 +3993,7 @@ io.observe(grid);
     height=640,
 )
 st.markdown("</div>", unsafe_allow_html=True)
+_deep_dive("earnings", "See full earnings breakdown")
 _separator()
 
 # Beat 6 — M2 vs ad spend
@@ -4011,6 +4045,7 @@ try:
                 st.caption("Both M2 money supply and global ad spend are indexed to 2010 = 100.")
 except Exception:
     st.info("M2 vs Ad Spend chart unavailable.")
+_deep_dive("overview", "Explore macro economics data")
 _separator()
 
 # Beat 7 — Structural shift
@@ -4169,49 +4204,109 @@ try:
                     )
 except Exception:
     st.info("Performance chart unavailable.")
+_deep_dive("stocks", "Explore stock performance")
 _separator()
 
-# Beat 11 — Market cap then vs now
+# Beat 11 — Wealth Machine treemap (animated by year)
 _section(
     "The Wealth Machine",
-    "The market cap story, then vs now.",
-    "A direct side-by-side view of scale migration across companies between the earliest available baseline and today."
+    "Market cap, year by year.",
+    "Each square = one company. Size = market cap. Watch how dominance shifted over time."
 )
 try:
     import plotly.graph_objects as go
+    _CO_COLORS = {
+        "Alphabet": "#4285f4", "Meta Platforms": "#0082fb", "Amazon": "#ff9900",
+        "Apple": "#555555", "Microsoft": "#00a4ef", "Netflix": "#e50914",
+        "Disney": "#113ccf", "Comcast": "#e11900", "Spotify": "#1db954",
+        "Roku": "#6c1f7d", "Warner Bros. Discovery": "#4a90d9",
+        "Paramount Global": "#7b2fbe",
+    }
     if metrics.empty or mcap_col not in metrics.columns:
         st.info("Market cap history unavailable.")
     else:
-        year_pool = sorted(metrics["year"].dropna().astype(int).unique().tolist())
-        earlier = [y for y in year_pool if y < effective_year]
-        y_then = year_pool[0] if year_pool and year_pool[0] < effective_year else (earlier[-1] if earlier else effective_year - 1)
-        y_now = effective_year
-        then_df = metrics[metrics["year"] == y_then][["company", mcap_col]].copy().rename(columns={mcap_col: "mcap_then"})
-        now_df = metrics[metrics["year"] == y_now][["company", mcap_col]].copy().rename(columns={mcap_col: "mcap_now"})
-        if then_df.empty or now_df.empty:
-            st.info("Market cap history unavailable.")
-        else:
-            comp = then_df.merge(now_df, on="company", how="inner")
-            if comp.empty:
-                st.info("Market cap history unavailable.")
-            else:
-                comp = comp.sort_values("mcap_now", ascending=True)
-                mc_fig = go.Figure()
-                mc_fig.add_trace(go.Bar(y=comp["company"], x=comp["mcap_then"] / 1e3, name=str(y_then), orientation="h", marker=dict(color="rgba(255,255,255,0.24)"), hovertemplate=f"%{{y}} {y_then}: $%{{x:.0f}}B<extra></extra>"))
-                mc_fig.add_trace(go.Bar(y=comp["company"], x=comp["mcap_now"] / 1e3, name=str(y_now), orientation="h", marker=dict(color="#ff5b1f"), hovertemplate=f"%{{y}} {y_now}: $%{{x:.0f}}B<extra></extra>"))
-                _apply_dark_chart_layout(mc_fig, height=410, margin=dict(l=120, r=0, t=32, b=40), extra_layout=dict(barmode="group"))
-                st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                st.plotly_chart(mc_fig, use_container_width=True, config={"displayModeBar": False})
-                st.markdown("</div>", unsafe_allow_html=True)
-                total_then = comp["mcap_then"].sum() / 1e6
-                total_now = comp["mcap_now"].sum() / 1e6
-                growth = _yoy(total_now, total_then)
-                cap = f"Combined market cap grew from ${total_then:.1f}T to ${total_now:.1f}T between {y_then} and {y_now}."
-                if growth is not None:
-                    cap += f" That\'s a +{growth:.0f}% increase over the period."
-                st.caption(cap)
+        _tm_years = sorted(metrics["year"].dropna().astype(int).unique().tolist())
+        _tm_companies = sorted(metrics["company"].dropna().unique().tolist())
+        # Build frames for each year
+        _tm_frames = []
+        for _yr in _tm_years:
+            _yr_df = metrics[metrics["year"] == _yr][["company", mcap_col]].copy()
+            _yr_df[mcap_col] = pd.to_numeric(_yr_df[mcap_col], errors="coerce").fillna(0)
+            _yr_df = _yr_df[_yr_df[mcap_col] > 0].copy()
+            if _yr_df.empty:
+                continue
+            _yr_df["color"] = _yr_df["company"].map(lambda c: _CO_COLORS.get(c, "#666666"))
+            _yr_df["label"] = _yr_df.apply(
+                lambda r: f"<b>{r['company']}</b><br>${r[mcap_col]/1e3:.0f}B", axis=1
+            )
+            _tm_frames.append(go.Frame(
+                data=[go.Treemap(
+                    ids=_yr_df["company"],
+                    labels=_yr_df["label"],
+                    parents=[""] * len(_yr_df),
+                    values=_yr_df[mcap_col],
+                    marker=dict(colors=_yr_df["color"].tolist(), line=dict(width=2, color="#020810")),
+                    textinfo="label",
+                    hovertemplate="<b>%{label}</b><br>Market Cap: $%{value:.0f}M<extra></extra>",
+                    textfont=dict(family="DM Sans, Inter, sans-serif", size=13, color="white"),
+                )],
+                name=str(_yr),
+                layout=go.Layout(title_text=f"Market Cap Distribution — {_yr}"),
+            ))
+
+        if _tm_frames:
+            # Initial frame = latest year
+            _init_data = _tm_frames[-1].data
+            _tm_fig = go.Figure(
+                data=list(_init_data),
+                frames=_tm_frames,
+                layout=go.Layout(
+                    height=480,
+                    margin=dict(l=0, r=0, t=60, b=0),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(family="DM Sans, Inter, sans-serif", color="#e6edf3"),
+                    title=dict(
+                        text=f"Market Cap Distribution — {_tm_years[-1]}",
+                        font=dict(size=14, color="#8b949e"),
+                        x=0.0, xanchor="left",
+                    ),
+                    updatemenus=[dict(
+                        type="buttons", showactive=False,
+                        x=0.0, y=-0.05, xanchor="left", yanchor="top",
+                        buttons=[
+                            dict(label="▶ Play", method="animate",
+                                 args=[None, dict(frame=dict(duration=800, redraw=True),
+                                                  fromcurrent=True, transition=dict(duration=400, easing="cubic-in-out"))]),
+                            dict(label="⏸ Pause", method="animate",
+                                 args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")]),
+                        ],
+                        font=dict(color="#e6edf3", size=11),
+                        bgcolor="rgba(30,41,59,0.9)", bordercolor="rgba(255,255,255,0.15)",
+                    )],
+                    sliders=[dict(
+                        active=len(_tm_years) - 1,
+                        steps=[dict(method="animate", args=[[str(y)],
+                               dict(frame=dict(duration=400, redraw=True), mode="immediate",
+                                    transition=dict(duration=200))],
+                               label=str(y)) for y in _tm_years],
+                        x=0.0, y=-0.02, len=1.0, xanchor="left", yanchor="top",
+                        currentvalue=dict(prefix="Year: ", font=dict(color="#e6edf3", size=13)),
+                        font=dict(color="#8b949e", size=10),
+                        bgcolor="rgba(30,41,59,0.5)", bordercolor="rgba(255,255,255,0.1)",
+                        activebgcolor="#ff5b1f",
+                        tickcolor="rgba(255,255,255,0.2)",
+                    )],
+                )
+            )
+            st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
+            st.plotly_chart(_tm_fig, use_container_width=True, config={"displayModeBar": False})
+            st.markdown("</div>", unsafe_allow_html=True)
+            _total_latest = metrics[metrics["year"] == _tm_years[-1]][mcap_col].apply(pd.to_numeric, errors="coerce").sum()
+            st.caption(f"Combined tracked market cap: ${_total_latest/1e6:.1f}T as of {_tm_years[-1]}. Press Play to animate from {_tm_years[0]}.")
 except Exception:
-    st.info("Market cap history unavailable.")
+    st.info("Market cap treemap unavailable.")
+_deep_dive("earnings", "Explore company financials in depth")
 _separator()
 
 # Beat 13 — Live ticker

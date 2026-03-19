@@ -5810,5 +5810,230 @@ function cgMetric(tab,mid,btn){
     if _hm_insight_html:
         st.markdown(_hm_insight_html, unsafe_allow_html=True)
 
+    # ── TRANSCRIPT INTELLIGENCE ──────────────────────────────────────────────
+    st.markdown("<hr style='margin:3rem 0 1.5rem 0;border-color:rgba(255,255,255,0.07);'>", unsafe_allow_html=True)
+    st.markdown("### 📑 Transcript Intelligence")
+    st.markdown(
+        "<p style='color:#6b7280;font-size:0.9rem;margin-bottom:1.5rem;'>"
+        "Key statements extracted from earnings call transcripts for <b>" + str(company) + "</b>. "
+        "Organised by theme — click any signal to ask Genie.</p>",
+        unsafe_allow_html=True,
+    )
+
+    _TI_CATEGORIES = {
+        "AI & Technology": [
+            "ai","artificial intelligence","machine learning","cloud","compute","model",
+            "llm","gemini","copilot","gpt","neural","language model","automation","robotics",
+            "data center","infrastructure","generative","algorithm","inference","training",
+        ],
+        "Advertising": [
+            "advertising","ad revenue","ad market","monetization","arpu","cpm","impressions",
+            "sponsored","programmatic","brand","campaign","targeting","pixel","measurement",
+            "agency","upfront","performance marketing","demand","supply side",
+        ],
+        "Subscribers & Users": [
+            "subscribers","users","dau","mau","engagement","retention","churn","paid members",
+            "streaming","audience","reach","active users","monthly active","daily active",
+            "signups","paid subscribers","free tier","premium","conversion",
+        ],
+        "Revenue & Growth": [
+            "revenue","growth","top line","year over year","yoy","quarter","guidance",
+            "outperform","beat","exceeded","record","strong","accelerating","trajectory",
+            "we expect","we anticipate","we are targeting","outlook","heading into",
+        ],
+        "Business Strategy": [
+            "strategy","strategic","partnership","acquisition","merger","expand","launch",
+            "invest","priority","focus","initiative","roadmap","transformation","pivot",
+            "restructur","reorgani","new market","new product","new service",
+        ],
+        "International Expansion": [
+            "international","global","emea","apac","latin america","europe","asia","japan",
+            "india","china","emerging market","locali","region","cross-border","fx","currency",
+            "foreign exchange","overseas","abroad","local market",
+        ],
+        "Debt & Capital": [
+            "debt","leverage","balance sheet","cash flow","free cash flow","fcf","buyback",
+            "repurchase","dividend","capital allocation","credit","bond","financing","liquidity",
+            "capex","capital expenditure","net debt","gross debt","interest expense",
+        ],
+        "Competition": [
+            "competition","competitive","market share","rival","competitor","differentiat",
+            "moat","advantage","pricing","price war","ecosystem","platform","switching",
+            "incumbent","disrupt","defend","offense","win rate","unique",
+        ],
+        "Product & Innovation": [
+            "product","feature","release","update","version","launch","build","develop",
+            "roadmap","innovation","r&d","research","design","user experience","ux",
+            "interface","quality","performance","speed","scale","platform capability",
+        ],
+        "Cost & Margin": [
+            "cost","margin","efficiency","headcount","opex","capex","restructur","expense",
+            "savings","profitability","operating leverage","gross margin","ebitda","adjusted",
+            "cash generation","cost control","optimize","lean","scalable",
+        ],
+        "Macro & Market": [
+            "macro","economy","recession","consumer","market condition","interest rate",
+            "inflation","gdp","fiscal","monetary","fed","federal reserve","supply chain",
+            "geopolit","uncertainty","slowdown","softening","recovery","cycle",
+        ],
+        "Management Guidance": [
+            "we expect","we anticipate","guidance","full year","next quarter","q1","q2","q3","q4",
+            "outlook","we project","we forecast","we plan","we intend","looking ahead",
+            "we remain","we believe","going forward","positioned","full year guidance",
+            "we continue to expect","for the year","target","we guide",
+        ],
+    }
+
+    _ti_excel = str(excel_path) if "excel_path" in dir() and excel_path else ""
+
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def _extract_ti_signals(excel_path_str: str, company_str: str) -> list:
+        if not excel_path_str:
+            return []
+        try:
+            df = pd.read_excel(excel_path_str, sheet_name="Transcripts")
+        except Exception:
+            try:
+                from pathlib import Path as _Path
+                _db = _Path(excel_path_str).resolve().parents[0] / "earningscall_intelligence.db"
+                import sqlite3 as _sql
+                with _sql.connect(str(_db)) as _conn:
+                    df = pd.read_sql_query(
+                        "SELECT company, year, quarter, text AS transcript_text FROM transcripts WHERE company=?",
+                        _conn, params=[company_str]
+                    )
+            except Exception:
+                return []
+        if df is None or df.empty:
+            return []
+        text_col = "transcript_text" if "transcript_text" in df.columns else ("text" if "text" in df.columns else None)
+        if not text_col:
+            return []
+        if company_str:
+            df = df[df["company"].astype(str).str.lower().str.strip() == company_str.lower().strip()]
+        signals = []
+        for _, row in df.iterrows():
+            comp = str(row.get("company", "")).strip()
+            year_val = pd.to_numeric(row.get("year"), errors="coerce")
+            quarter_val = str(row.get("quarter", "")).strip()
+            text = str(row.get(text_col, "") or "")
+            if not text or pd.isna(year_val):
+                continue
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if len(sentence) < 40 or len(sentence) > 500:
+                    continue
+                s_lower = sentence.lower()
+                category = None
+                for cat, keywords in _TI_CATEGORIES.items():
+                    if any(kw in s_lower for kw in keywords):
+                        category = cat
+                        break
+                if category is None:
+                    continue
+                signals.append({
+                    "company": comp, "year": int(year_val),
+                    "quarter": quarter_val, "signal": sentence,
+                    "category": category,
+                })
+        seen = set()
+        deduped = []
+        for s in signals:
+            key = s["signal"][:80]
+            if key not in seen:
+                seen.add(key)
+                deduped.append(s)
+        return deduped
+
+    _ti_signals = _extract_ti_signals(_ti_excel, str(company))
+
+    if not _ti_signals:
+        st.info(f"No transcript data found for {company}. Ensure the Transcripts sheet is available in the data source.")
+    else:
+        # Period selector first
+        _ti_periods = sorted(
+            set(f"{s['year']} {s['quarter']}".strip() for s in _ti_signals if s.get("year")),
+            key=lambda p: (
+                int(p.split()[0]) if p.split()[0].isdigit() else 0,
+                int(p.split()[1].replace("Q", "")) if len(p.split()) > 1 and "Q" in p.split()[1].upper() else 0,
+            ),
+            reverse=True,
+        )
+
+        if _ti_periods:
+            _ti_sel_period = st.radio(
+                "Period", options=_ti_periods, index=0,
+                key=f"ti_period_earnings_{company}",
+                label_visibility="collapsed", horizontal=True,
+            )
+        else:
+            _ti_sel_period = None
+
+        if _ti_sel_period:
+            _ti_yr, *_ti_q_parts = _ti_sel_period.split()
+            _ti_q = _ti_q_parts[0] if _ti_q_parts else ""
+            _period_sigs = [
+                s for s in _ti_signals
+                if str(s.get("year", "")) == _ti_yr
+                and str(s.get("quarter", "")).upper() == _ti_q.upper()
+            ]
+
+            _ti_by_cat: dict = {}
+            for _ts in _period_sigs:
+                _ti_by_cat.setdefault(_ts["category"], []).append(_ts)
+
+            _ti_cat_order = list(_TI_CATEGORIES.keys())
+            _ti_cats_present = [c for c in _ti_cat_order if c in _ti_by_cat]
+
+            st.markdown("""<style>
+.ti-earnings-wrap div[data-testid="stButton"] > button {
+    background: #f8fafc !important; color: #1e293b !important;
+    border: 1px solid #e2e8f0 !important; border-radius: 6px !important;
+    font-size: 0.82rem !important; text-align: left !important;
+    white-space: normal !important; height: auto !important;
+    min-height: 2rem !important; padding: 0.4rem 0.7rem !important;
+    font-weight: 400 !important; line-height: 1.4 !important;
+}
+.ti-earnings-wrap div[data-testid="stButton"] > button:hover {
+    background: #fff7f4 !important; border-color: #ff5b1f !important;
+    color: #0f172a !important;
+}
+</style>""", unsafe_allow_html=True)
+
+            st.markdown('<div class="ti-earnings-wrap">', unsafe_allow_html=True)
+            for _cat in _ti_cats_present:
+                _cat_sigs = _ti_by_cat[_cat]
+                with st.expander(
+                    f"**{_cat}** — {len(_cat_sigs)} signal{'s' if len(_cat_sigs) > 1 else ''}",
+                    expanded=(_cat == _ti_cats_present[0]),
+                ):
+                    for _sig in _cat_sigs[:10]:
+                        _c1, _c2 = st.columns([0.2, 0.8])
+                        with _c1:
+                            st.markdown(
+                                f"<span style='background:#fff7f4;color:#c2410c;padding:3px 10px;"
+                                f"border-radius:12px;font-size:0.75rem;font-weight:600;"
+                                f"white-space:nowrap;border:1px solid #fed7aa;display:inline-block;'>"
+                                f"{_sig['company']} · {_sig['year']} {_sig['quarter']}</span>",
+                                unsafe_allow_html=True,
+                            )
+                        with _c2:
+                            _genie_prompt = (
+                                f'In the {_sig["year"]} {_sig["quarter"]} earnings call, '
+                                f'{_sig["company"]} said: "{_sig["signal"][:250]}" — '
+                                f'what does this reveal about their {_cat.lower()} strategy?'
+                            )
+                            if st.button(
+                                _sig["signal"][:170] + ("…" if len(_sig["signal"]) > 170 else ""),
+                                key=f"ti_e_{hash(_sig['signal'][:60])}_{_ti_sel_period}",
+                                use_container_width=True,
+                            ):
+                                st.session_state.setdefault("genie_history", []).append(
+                                    {"role": "user", "content": _genie_prompt}
+                                )
+                                st.switch_page("pages/04_Genie.py")
+            st.markdown('</div>', unsafe_allow_html=True)
+
 if __name__ == '__main__' or True:
     main()
