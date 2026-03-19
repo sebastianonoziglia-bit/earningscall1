@@ -2829,8 +2829,6 @@ html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sa
 <div id='wa-attn-root'>
   <div class='glow-yt'></div><div class='glow-sp'></div>
   <div id='wa-attn-left'>
-    <div class='attn-label'>Section 01 — Attention Economy</div>
-    <div class='attn-headline'>Who Owns<br>Your Time</div>
     <div class='attn-body'>Each bubble = a platform. Size = subscribers or monthly active users.</div>
     <div class='attn-stat-label'>YouTube daily</div>
     <div id='wa-attn-counter' class='attn-stat-val'>0B hours</div>
@@ -2913,27 +2911,43 @@ if (ytData && ytData.mins) {
 }
 DATA.forEach(function(item, i) {
   var normVal = maxVal > 0 ? (item.val || 1) / maxVal : 0.01;
-  var size = Math.round(28 + Math.sqrt(normVal) * 112);
+  /* Reduce inter-bubble gap by 20%: multiplier 112 → 90 */
+  var size = Math.max(70, Math.round(28 + Math.sqrt(normVal) * 90));
+  var radius = size / 2;
   var pos = ALL_POS[i] || {l: (5 + (i % 4) * 22) + '%', t: (5 + Math.floor(i / 4) * 30) + '%'};
   var fs = Math.max(7, Math.min(12, Math.round(size / 11)));
   var logoB64 = logoForName(item.name);
-  var displayName = shortName(item.name);
+  /* Abbreviate name for small bubbles */
+  var displayName;
+  if (radius < 40) {
+    displayName = item.users || shortName(item.name);
+  } else if (radius < 55) {
+    var parts = (item.name||'').replace(/[\/\u2013\-]+/g,' ').trim().split(/\s+/).filter(Boolean);
+    displayName = parts[0] || item.name;
+  } else {
+    displayName = shortName(item.name);
+  }
   var revStr = item.revenue ? '$' + (item.revenue >= 10 ? Math.round(item.revenue) + 'B' : item.revenue.toFixed(1) + 'B') + ' rev' : '';
+  var rpmStr = (item.rpm && radius >= 45) ? '$' + Number(item.rpm).toFixed(4) + ' / min' : '';
+  /* Semi-transparent backdrop style for text readability */
+  var backdropStyle = 'text-shadow:0 0 6px rgba(0,0,0,0.8),0 1px 3px rgba(0,0,0,0.9);';
   var innerHtml;
   if (logoB64) {
     innerHtml = '<div class="blogo-wrap" style="background:' + item.color + '44;">'
       + '<img class="blogo-img" src="data:image/png;base64,' + logoB64 + '" alt="' + displayName + '">'
       + '</div>'
-      + '<div class="bname" style="font-size:' + fs + 'px;">' + displayName + '</div>'
-      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;">' + item.users + '</div>' : '')
-      + (revStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;">' + revStr + '</div>' : '');
+      + '<div class="bname" style="font-size:' + fs + 'px;' + backdropStyle + '">' + displayName + '</div>'
+      + (item.users && radius >= 40 ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;' + backdropStyle + '">' + item.users + '</div>' : '')
+      + (rpmStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;opacity:0.85;' + backdropStyle + '">' + rpmStr + '</div>' : '')
+      + (revStr && !rpmStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;' + backdropStyle + '">' + revStr + '</div>' : '');
   } else {
     var badge = (item.name||'?').replace(/[^A-Za-z0-9]+/g,' ').trim().split(' ').slice(0,2)
       .map(function(p){ return p.charAt(0).toUpperCase(); }).join('').slice(0,2) || '?';
     innerHtml = '<div class="bletter">' + badge + '</div>'
-      + '<div class="bname" style="font-size:' + fs + 'px;">' + displayName + '</div>'
-      + (item.users ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;">' + item.users + '</div>' : '')
-      + (revStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;">' + revStr + '</div>' : '');
+      + '<div class="bname" style="font-size:' + fs + 'px;' + backdropStyle + '">' + displayName + '</div>'
+      + (item.users && radius >= 40 ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;' + backdropStyle + '">' + item.users + '</div>' : '')
+      + (rpmStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;opacity:0.85;' + backdropStyle + '">' + rpmStr + '</div>' : '')
+      + (revStr && !rpmStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;' + backdropStyle + '">' + revStr + '</div>' : '');
   }
   var b = document.createElement('div');
   b.className = 'wa-bubble';
@@ -3064,6 +3078,8 @@ if not _human_df.empty:
     _h_mins = (_find_col(_human_df, ["total", "minutes"]) or _find_col(_human_df, ["minutes", "watched"])
                or _find_col(_human_df, ["minute"]) or _find_col(_human_df, ["avg", "time"]))
     _h_rev = _find_col(_human_df, ["revenue"])
+    _h_rpm = (_find_col(_human_df, ["per", "minute"]) or _find_col(_human_df, ["dollar", "minute"])
+              or _find_col(_human_df, ["rpm"]) or _find_col(_human_df, ["min", "earn"]))
     _h_lbl = _find_col(_human_df, ["label"]) or _find_col(_human_df, ["note"])
     if _h_plat and _h_usr:
         _human_df[_h_usr] = _human_df[_h_usr].apply(_parse_human_count_millions)
@@ -3078,6 +3094,7 @@ if not _human_df.empty:
             _hval = float(_hr[_h_usr])
             _hmins = float(_hr.get(_h_mins, np.nan)) if _h_mins and not pd.isna(_hr.get(_h_mins, np.nan)) else np.nan
             _hrev = float(_hr.get(_h_rev, np.nan)) if _h_rev and not pd.isna(_hr.get(_h_rev, np.nan)) else np.nan
+            _hrpm = float(_hr.get(_h_rpm, np.nan)) if _h_rpm and not pd.isna(_hr.get(_h_rpm, np.nan)) else np.nan
             _hlbl = (str(_hr[_h_lbl]).strip() if _h_lbl and not pd.isna(_hr.get(_h_lbl, np.nan)) else
                      (f"{_hval/1000:.1f}B" if _hval >= 1000 else f"{_hval:.0f}M"))
             _human_companies.append(
@@ -3086,6 +3103,7 @@ if not _human_df.empty:
                     "val": _hval,
                     "mins": _hmins if not np.isnan(_hmins) else None,
                     "revenue": _hrev if not np.isnan(_hrev) else None,
+                    "rpm": _hrpm if not np.isnan(_hrpm) else None,
                     "users": _hlbl,
                     "color": _company_color(_hname),
                     "label": _hlbl,
@@ -3167,7 +3185,7 @@ except Exception:
 for _c in _human_companies:
     if "twitch" in str(_c.get("name", _c.get("platform", ""))).lower():
         _c["name"] = "Amazon \u2013 Twitch"
-        _c["color"] = "#FF9900"
+        _c["color"] = "#9146FF"
         _c["logo"] = _resolve_logo("Amazon", logos) if logos else ""
 
 _human_json = json.dumps(_human_companies)
@@ -3784,28 +3802,25 @@ function updateYear(idx) {{
     /* Clear previous label */
     seg.innerHTML = '';
     if (pct <= 0) return;
-    if (pct >= 5.5) {{
+    if (pct >= 8.0) {{
       const lbl = document.createElement('div'); lbl.className = 'seg-label';
       const c = document.createElement('div'); c.className = 'seg-label-cat'; c.textContent = cat;
       const a = document.createElement('div'); a.className = 'seg-label-amt'; a.textContent = fmtAmt(v);
       const p = document.createElement('div'); p.className = 'seg-label-pct'; p.textContent = fmtPct(pct);
       lbl.appendChild(c); lbl.appendChild(a); lbl.appendChild(p);
       seg.appendChild(lbl);
-    }} else if (pct >= 1.8) {{
-      const ml = document.createElement('div'); ml.className = 'seg-label-mini';
-      const ma = document.createElement('div'); ma.className = 'seg-label-mini-amt'; ma.textContent = fmtAmt(v);
-      ml.appendChild(ma); seg.appendChild(ml);
     }}
+    /* Segments < 8% get above-bar callouts below */
   }});
 
-  /* Above-bar callouts for segments < 1.8% — only Cinema in late years */
+  /* Above-bar callouts for narrow segments (< 8% of total) to avoid clipping */
   aboveEl.innerHTML = '';
   let aboveH = 0;
   const smallSegs = SEG_ORDER.map(cat => {{
     const v = vals[cat] || 0;
     const pct = total > 0 ? v / total * 100 : 0;
     return {{cat, v, pct}};
-  }}).filter(x => x.pct > 0 && x.pct < 1.8);
+  }}).filter(x => x.pct > 0 && x.pct < 8.0);
 
   if (smallSegs.length > 0) {{
     aboveH = 90;
@@ -3860,7 +3875,7 @@ slider.addEventListener('input', () => {{ stopPlay(); updateYear(Number(slider.v
 
 updateYear(currentIdx);
 </script>
-""", height=500)
+""", height=560)
 st.markdown("</div>", unsafe_allow_html=True)
 _separator()
 _wr_logos = {}

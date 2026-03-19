@@ -28,52 +28,17 @@ def _get_api_key() -> str:
 
 def is_api_available() -> bool:
     try:
-        return bool(_get_api_key())
+        from utils.ai_service import is_ai_available
+        return is_ai_available()
     except Exception:
         return False
 
 
-def call_claude(
-    system_prompt: str,
-    user_message: str,
-    conversation_history=None,
-    max_tokens: int = 1024,
-    temperature: float = 0.3,
-) -> str:
-    """Call Claude API and return text response. Returns empty string on failure."""
-    import requests
-    api_key = _get_api_key()
-    if not api_key:
-        return ""
-    messages = []
-    if conversation_history:
-        for msg in conversation_history[-10:]:
-            role = str(msg.get("role", "")).lower()
-            content = str(msg.get("content", ""))
-            if role in {"user", "assistant"} and content:
-                messages.append({"role": role, "content": content})
-    messages.append({"role": "user", "content": user_message})
+def call_claude(system: str, user: str, max_tokens: int = 500) -> str:
     try:
-        resp = requests.post(
-            API_URL,
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": MODEL,
-                "max_tokens": max_tokens,
-                "system": system_prompt,
-                "messages": messages,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        blocks = resp.json().get("content", [])
-        return "\n".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
-    except Exception as e:
-        logger.warning("Anthropic API error: %s", e)
+        from utils.ai_service import call_ai
+        return call_ai(system, user, max_tokens=max_tokens)
+    except Exception:
         return ""
 
 
