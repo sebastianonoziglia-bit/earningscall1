@@ -543,25 +543,12 @@ with tab1:
                 _r, _g, _b = _hex_to_rgb(_color)
                 _fill_color = f"rgba({_r},{_g},{_b},0.08)"
 
-                _frames = []
                 _y_vals = pd.to_numeric(df_service[column_name], errors="coerce")
-                for _fi in range(2, len(df_service) + 1):
-                    _frames.append(go.Frame(
-                        data=[go.Scatter(
-                            x=df_service["Quarter"].iloc[:_fi],
-                            y=_y_vals.iloc[:_fi],
-                            mode="lines",
-                            line=dict(width=2.5, color=_color, shape="spline"),
-                            fill="tozeroy",
-                            fillcolor=_fill_color,
-                        )],
-                        name=str(_fi),
-                    ))
 
                 fig = go.Figure(
                     data=[go.Scatter(
-                        x=df_service["Quarter"].iloc[:1],
-                        y=_y_vals.iloc[:1],
+                        x=df_service["Quarter"],
+                        y=_y_vals,
                         mode="lines",
                         line=dict(width=2.5, color=_color, shape="spline"),
                         fill="tozeroy",
@@ -571,7 +558,6 @@ with tab1:
                             f"Value: %{{y:.1f}} {service_data.get('unit','millions')}<extra></extra>"
                         ),
                     )],
-                    frames=_frames,
                 )
                 fig.update_layout(
                     margin=dict(l=20, r=20, t=25, b=50),
@@ -596,59 +582,12 @@ with tab1:
                         gridcolor="rgba(0,0,0,0.05)",
                         tickfont=dict(size=10, color="#6b7280"),
                     ),
-                    updatemenus=[dict(
-                        type="buttons",
-                        showactive=False,
-                        visible=False,
-                        buttons=[dict(
-                            label="Play",
-                            method="animate",
-                            args=[None, dict(
-                                frame=dict(duration=60, redraw=True),
-                                fromcurrent=True,
-                                mode="immediate",
-                                transition=dict(duration=0),
-                            )],
-                        )],
-                    )],
                 )
 
                 _chart_key = f"chart_{service.replace(' ','_').replace('+','plus').replace('/','_').replace(' ','_')}"
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
                 st.plotly_chart(fig, use_container_width=True, key=_chart_key)
                 st.markdown('</div>', unsafe_allow_html=True)
-
-                _js_key = f"anim_{service.replace(' ','_').replace('+','plus').replace('/','_')}"
-                st.components.v1.html(f"""
-<script>
-(function() {{
-    var attempts = 0;
-    function tryPlay() {{
-        attempts++;
-        if (attempts > 20) return;
-        var plots = window.parent.document.querySelectorAll('.js-plotly-plot');
-        for (var i = 0; i < plots.length; i++) {{
-            var el = plots[i];
-            if (el._played_{_js_key}) continue;
-            if (el._fullData && el._fullData.length > 0) {{
-                el._played_{_js_key} = true;
-                try {{
-                    Plotly.animate(el, null, {{
-                        frame: {{duration: 60, redraw: true}},
-                        fromcurrent: true,
-                        mode: 'immediate',
-                        transition: {{duration: 0}},
-                    }});
-                }} catch(e) {{ el._played_{_js_key} = false; }}
-                break;
-            }}
-        }}
-        if (attempts < 20) setTimeout(tryPlay, 300);
-    }}
-    setTimeout(tryPlay, 400);
-}})();
-</script>
-""", height=0)
 
             st.markdown("---")
 

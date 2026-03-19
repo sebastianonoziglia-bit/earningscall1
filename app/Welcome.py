@@ -2926,7 +2926,7 @@ DATA.forEach(function(item, i) {
   var backdropStyle = 'text-shadow:0 0 6px rgba(0,0,0,0.8),0 1px 3px rgba(0,0,0,0.9);';
   var innerHtml;
   if (logoB64) {
-    innerHtml = '<div class="blogo-wrap" style="background:' + item.color + '44;">'
+    innerHtml = '<div class="blogo-wrap" style="background:rgba(255,255,255,0.88);">'
       + '<img class="blogo-img" src="data:image/png;base64,' + logoB64 + '" alt="' + displayName + '">'
       + '</div>'
       + '<div class="bname" style="font-size:' + fs + 'px;' + backdropStyle + '">' + displayName + '</div>'
