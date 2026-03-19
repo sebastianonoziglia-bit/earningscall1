@@ -3,31 +3,6 @@ from utils.language import init_language
 from utils.theme import apply_theme
 
 
-def _get_current_page_key() -> str:
-    """Detect current page from the running script filename (reliable across navigations)."""
-    try:
-        import streamlit.runtime.scriptrunner as _sr
-        ctx = _sr.get_script_run_ctx()
-        if ctx:
-            script = str(ctx.main_script_path)
-            if "Welcome" in script or script.endswith("app.py"):
-                return "home"
-            if "00_Overview" in script:
-                return "overview"
-            if "01_Earnings" in script:
-                return "earnings"
-            if "02_Stocks" in script:
-                return "stocks"
-            if "03_Editorial" in script:
-                return "editorial"
-            if "04_Genie" in script:
-                return "genie"
-    except Exception:
-        pass
-    # Fallback: session state set by each page
-    return str(st.session_state.get("active_nav_page", "home"))
-
-
 _NAV_ITEMS = [
     {"key": "home", "target": "Welcome.py", "label": "Home", "icon": "🏠", "query": "home"},
     {"key": "overview", "target": "pages/00_Overview.py", "label": "Overview", "icon": "📊", "query": "overview"},
@@ -103,45 +78,74 @@ def _apply_query_language():
 
 
 def _render_bottom_nav(active_key: str):
-    _nav_items = [
-        ("home",      "🏠", "Home",      "Welcome.py"),
-        ("overview",  "📊", "Overview",  "pages/00_Overview.py"),
-        ("earnings",  "💰", "Earnings",  "pages/01_Earnings.py"),
-        ("stocks",    "📈", "Stocks",    "pages/02_Stocks.py"),
-        ("editorial", "📝", "Editorial", "pages/03_Editorial.py"),
-        ("genie",     "🧞", "Genie",     "pages/04_Genie.py"),
-    ]
+    chips = []
+    for item in _NAV_ITEMS:
+        active_class = " app-bottom-nav-item-active" if item["key"] == active_key else ""
+        chips.append(
+            f"<a class='app-bottom-nav-item{active_class}' href='?nav={item['query']}' target='_self' rel='noopener'>"
+            f"{item['icon']} {item['label']}"
+            "</a>"
+        )
     st.markdown(
         """
         <style>
-        div[data-testid="stPageLink"] a {
-            background: rgba(255,255,255,0.08) !important;
-            color: #94a3b8 !important;
-            border-radius: 20px !important;
-            padding: 8px 16px !important;
+        .app-bottom-nav-wrap {
+            position: fixed;
+            left: 12px;
+            right: 12px;
+            bottom: 10px;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .app-bottom-nav {
+            pointer-events: auto;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 8px;
+            border-radius: 14px;
+            background: rgba(15,23,42,0.84);
+            border: 1px solid rgba(148,163,184,0.34);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 28px rgba(2,6,23,0.26);
+        }
+        .app-bottom-nav-item {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 120px;
+            padding: 8px 10px;
+            border-radius: 10px;
             text-decoration: none !important;
-            font-size: 0.82rem !important;
-            font-weight: 500 !important;
-            display: flex !important;
-            justify-content: center !important;
-            align-items: center !important;
+            color: #E2E8F0 !important;
+            font-size: 0.9rem;
+            font-weight: 700;
+            border: 1px solid rgba(148,163,184,0.25);
+            background: rgba(30,41,59,0.65);
+            white-space: nowrap;
         }
-        div[data-testid="stPageLink"] a[aria-current="page"] {
-            background: #2563eb !important;
-            color: white !important;
-            font-weight: 700 !important;
+        .app-bottom-nav-item:hover {
+            border-color: rgba(59,130,246,0.6);
+            background: rgba(30,64,175,0.36);
+            color: #FFFFFF !important;
         }
-        div[data-testid="stPageLink"] a:hover {
-            filter: brightness(1.15);
+        .app-bottom-nav-item-active {
+            border-color: rgba(59,130,246,0.95) !important;
+            background: linear-gradient(135deg,#1D4ED8 0%, #2563EB 100%) !important;
+            color: #FFFFFF !important;
         }
+        .app-bottom-nav-spacer { height: 0; }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    nav_cols = st.columns(len(_nav_items))
-    for col, (key, icon, label, page_file) in zip(nav_cols, _nav_items):
-        with col:
-            st.page_link(page_file, label=f"{icon} {label}", use_container_width=True)
+    st.markdown(
+        f"<div class='app-bottom-nav-wrap'><div class='app-bottom-nav'>{''.join(chips)}</div></div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div class='app-bottom-nav-spacer'></div>", unsafe_allow_html=True)
 
 
 def _render_sticky_top_bar(active_key: str):
@@ -280,7 +284,12 @@ def display_header(enable_dom_patch: bool = True):
 
     # Replace sidebar app navigation with top navigation.
     st.session_state["hide_sidebar_nav"] = True
-    active_key = _get_current_page_key()
+    active_key = str(
+        st.session_state.get("active_nav_page")
+        or st.session_state.get("_active_nav_page")
+        or st.session_state.get("_last_nav_switch")
+        or ""
+    ).strip().lower()
     _render_sticky_top_bar(active_key)
     _render_bottom_nav(active_key)
 

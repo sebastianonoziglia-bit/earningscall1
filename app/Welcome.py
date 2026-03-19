@@ -4522,7 +4522,8 @@ st.markdown(
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-st.components.v1.html("""
+if False:
+ st.components.v1.html("""
 <script>
 (function() {
     function initScrollAnimations() {
@@ -4592,4 +4593,4 @@ st.components.v1.html("""
     setTimeout(initScrollAnimations, 2000);
 })();
 </script>
-""", height=0)
+ """, height=0)
