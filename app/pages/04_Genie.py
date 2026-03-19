@@ -2689,7 +2689,6 @@ for _i, _sugg in enumerate(_suggestions):
             _chip_label,
             key=f"suggestion_chip_{_i}",
             use_container_width=True,
-            help=_sugg,
             disabled=_is_used,
         ):
             st.session_state["used_chip_indices"].add(_i)
@@ -2739,42 +2738,71 @@ for _fs_co in _fs_companies[:3]:
     _co_signals = _extract_forward_signals(_fs_excel, company=_fs_co, max_signals=15)
     _all_signals.extend(_co_signals)
 if _all_signals:
-    _cats: dict = {}
-    for sig in _all_signals:
-        _cats.setdefault(sig["category"], []).append(sig)
-    for _cat in ["AI & Technology","Advertising","Subscribers & Users","Revenue & Growth","Cost & Margin","Macro & Market"]:
-        if _cat not in _cats:
-            continue
-        with st.expander(
-            f"**{_cat}** \u2014 {len(_cats[_cat])} signal{'s' if len(_cats[_cat])>1 else ''}",
-            expanded=(_cat == "AI & Technology")
-        ):
-            for sig in _cats[_cat][:6]:
-                col_chip, col_text = st.columns([0.22, 0.78])
-                with col_chip:
-                    st.markdown(
-                        f"<span style='background:#fff7f4;color:#c2410c;padding:3px 10px;"
-                        f"border-radius:12px;font-size:0.75rem;font-weight:600;white-space:nowrap;"
-                        f"border:1px solid #fed7aa;'>"
-                        f"{sig['company']} · {sig['year']} {sig['quarter']}</span>",
-                        unsafe_allow_html=True
-                    )
-                with col_text:
-                    _prompt = (
-                        f'Regarding this statement from {sig["company"]} '
-                        f'({sig["year"]} {sig["quarter"]}): "{sig["signal"][:200]}" '
-                        f'\u2014 what does this signal about their strategy and how should Mediaset think about it?'
-                    )
-                    if st.button(
-                        sig["signal"][:160] + ("\u2026" if len(sig["signal"]) > 160 else ""),
-                        key=f"sig_{hash(sig['signal'][:60])}",
-                        help="Click to ask Genie",
-                        use_container_width=True
-                    ):
-                        st.session_state.setdefault("genie_history", []).append(
-                            {"role": "user", "content": _prompt}
+    # Build sorted period list (year + quarter, chronological)
+    _all_periods = sorted(
+        set(f"{s['year']} {s['quarter']}".strip() for s in _all_signals if s.get("year")),
+        key=lambda p: (
+            int(p.split()[0]) if p.split()[0].isdigit() else 0,
+            int(p.split()[1].replace("Q", "")) if len(p.split()) > 1 and "Q" in p.split()[1].upper() else 0,
+        ),
+        reverse=True,
+    )
+    if _all_periods:
+        _sel_period_fs = st.radio(
+            "Period",
+            options=_all_periods,
+            index=0,
+            key="guidance_period_radio",
+            label_visibility="collapsed",
+            horizontal=True,
+        )
+    else:
+        _sel_period_fs = None
+
+    if _sel_period_fs:
+        _yr_str_fs, *_q_parts_fs = _sel_period_fs.split()
+        _q_str_fs = _q_parts_fs[0] if _q_parts_fs else ""
+        _period_signals = [
+            s for s in _all_signals
+            if str(s.get("year", "")) == _yr_str_fs
+            and str(s.get("quarter", "")).upper() == _q_str_fs.upper()
+        ]
+        _cats: dict = {}
+        for sig in _period_signals:
+            _cats.setdefault(sig["category"], []).append(sig)
+
+        _cat_order = ["AI & Technology", "Advertising", "Subscribers & Users", "Revenue & Growth", "Cost & Margin", "Macro & Market"]
+        _cats_present = [c for c in _cat_order if c in _cats] + [c for c in _cats if c not in _cat_order]
+        for _cat in _cats_present:
+            with st.expander(
+                f"**{_cat}** \u2014 {len(_cats[_cat])} signal{'s' if len(_cats[_cat])>1 else ''}",
+                expanded=(_cat == _cats_present[0])
+            ):
+                for sig in _cats[_cat][:8]:
+                    col_chip, col_text = st.columns([0.22, 0.78])
+                    with col_chip:
+                        st.markdown(
+                            f"<span style='background:#fff7f4;color:#c2410c;padding:3px 10px;"
+                            f"border-radius:12px;font-size:0.75rem;font-weight:600;white-space:nowrap;"
+                            f"border:1px solid #fed7aa;'>"
+                            f"{sig['company']} · {sig['year']} {sig['quarter']}</span>",
+                            unsafe_allow_html=True
                         )
-                        st.rerun()
+                    with col_text:
+                        _prompt = (
+                            f'Regarding this statement from {sig["company"]} '
+                            f'({sig["year"]} {sig["quarter"]}): "{sig["signal"][:200]}" '
+                            f'\u2014 what does this signal about their strategy and how should Mediaset think about it?'
+                        )
+                        if st.button(
+                            sig["signal"][:160] + ("\u2026" if len(sig["signal"]) > 160 else ""),
+                            key=f"sig_{hash(sig['signal'][:60])}_{_sel_period_fs}",
+                            use_container_width=True
+                        ):
+                            st.session_state.setdefault("genie_history", []).append(
+                                {"role": "user", "content": _prompt}
+                            )
+                            st.rerun()
 else:
     st.info(
         "Select companies in the sidebar to see guidance signals."
@@ -3457,7 +3485,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 try:
-    _hm_df = pd.read_excel(excel_path, sheet_name="Stocks & Crypto")
+    _hm_df = None
+    for _sn in ["Stocks & Crypto", "Stocks_Crypto", "Stocks", "Stock Data", "StocksCrypto"]:
+        try:
+            _hm_df = pd.read_excel(excel_path, sheet_name=_sn)
+            break
+        except Exception:
+            continue
+    if _hm_df is None:
+        raise ValueError("No stock sheet found")
     # Normalise columns
     _hm_df.columns = [str(c).strip().lower() for c in _hm_df.columns]
     # Identify date + close columns

@@ -888,31 +888,49 @@ else:
     if _selected_ti_co not in _ti_companies:
         _selected_ti_co = _ti_companies[0]
 
-    pills_html = "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.5rem;'>"
-    for _co in _ti_companies:
-        _count = len(_ti_by_company.get(_co, {}).get("signals", []))
-        _active = _co == _selected_ti_co
-        _bg = "#111827" if _active else "#f3f4f6"
-        _col = "white" if _active else "#374151"
-        _border = "#111827" if _active else "#e5e7eb"
-        pills_html += (
-            f"<span style='background:{_bg};color:{_col};border:1px solid {_border};"
-            f"border-radius:20px;padding:6px 14px;font-size:0.82rem;"
-            f"font-family:DM Sans,sans-serif;font-weight:500;display:inline-block;'>"
-            f"{_co} <span style='opacity:0.6;font-size:0.75rem;'>·&nbsp;{_count}</span>"
-            f"</span>"
-        )
-    pills_html += "</div>"
-    st.markdown(pills_html, unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    div[data-testid="stHorizontalBlock"] .stButton button {
+        border-radius: 20px !important;
+        padding: 4px 14px !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        border: 1px solid #e5e7eb !important;
+        background: transparent !important;
+        color: #374151 !important;
+        white-space: nowrap !important;
+        transition: border-color 0.15s, color 0.15s !important;
+    }
+    div[data-testid="stHorizontalBlock"] .stButton button:hover {
+        border-color: #6b7280 !important;
+        color: #111827 !important;
+    }
+    .ti-pill-active button {
+        background: #111827 !important;
+        color: white !important;
+        border-color: #111827 !important;
+        font-weight: 700 !important;
+    }
+    </style>""", unsafe_allow_html=True)
 
-    _selected_ti_co = st.selectbox(
-        "Company",
-        _ti_companies,
-        index=_ti_companies.index(_selected_ti_co) if _selected_ti_co in _ti_companies else 0,
-        key="ti_company_selector",
-        label_visibility="collapsed",
-    )
-    st.session_state["ti_selected_company"] = _selected_ti_co
+    _pill_cols = st.columns(len(_ti_companies))
+    for _idx, (_col_obj, _co) in enumerate(zip(_pill_cols, _ti_companies)):
+        _count = len(_ti_by_company.get(_co, {}).get("signals", []))
+        _is_active = _co == _selected_ti_co
+        with _col_obj:
+            if _is_active:
+                st.markdown("<div class='ti-pill-active'>", unsafe_allow_html=True)
+            if st.button(
+                f"{_co} · {_count}",
+                key=f"ti_pill_{_co}",
+                use_container_width=True,
+            ):
+                st.session_state["ti_selected_company"] = _co
+                st.rerun()
+            if _is_active:
+                st.markdown("</div>", unsafe_allow_html=True)
+
+    _selected_ti_co = st.session_state.get("ti_selected_company", _ti_companies[0])
 
     _co_data = _ti_by_company.get(_selected_ti_co, {})
     _signals = _co_data.get("signals", [])

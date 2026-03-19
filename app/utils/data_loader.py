@@ -130,10 +130,6 @@ def get_available_filters():
         'ad_type_mappings': AD_MACRO_CATEGORIES
     }
     
-    # Check if filters are already in session state
-    if 'ad_filters' in st.session_state:
-        return st.session_state.ad_filters
-    
     try:
         # Try to read the data and extract filters
         df = read_excel_data()
