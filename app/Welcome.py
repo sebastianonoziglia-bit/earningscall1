@@ -211,11 +211,6 @@ iframe {
     color: #4aaeff !important;
     font-weight: 800;
 }
-.ae-section {
-    opacity: 0;
-    transform: translateY(40px) scale(0.98);
-    will-change: transform, opacity;
-}
 .ae-section.ae-visible {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -4581,6 +4576,17 @@ st.components.v1.html("""
             ].join(', ');
             observer.observe(el);
         });
+
+        // Safety fallback — reveal all if observer hasn't fired after 3s
+        setTimeout(function() {
+            sections.forEach(function(el) {
+                if (el.style.opacity === '0' || el.style.opacity === '') {
+                    el.style.opacity = '1';
+                    el.style.transform = 'none';
+                    el.style.filter = 'none';
+                }
+            });
+        }, 3000);
     }
 
     setTimeout(initScrollAnimations, 2000);
