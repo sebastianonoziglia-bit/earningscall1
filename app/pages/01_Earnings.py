@@ -952,6 +952,9 @@ def main():
         .js-plotly-plot .plotly .bg {
             fill: rgba(0,0,0,0) !important;
         }
+        .modebar, .modebar-container {
+            display: none !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -4441,20 +4444,20 @@ def main():
         # KPI strip
         _hkpi = st.columns(3)
         _kpi_style = (
-            "background:#0d1117;border:1px solid rgba(255,255,255,0.10);"
-            "border-radius:12px;padding:1rem 1.1rem;"
+            "background:#f8fafc;border:1px solid #e2e8f0;"
+            "border-radius:12px;padding:1rem 1.1rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);"
         )
         with _hkpi[0]:
             st.markdown(
                 f"<div style='{_kpi_style}'>"
-                f"<div style='font-size:0.7rem;color:#8b949e;text-transform:uppercase;"
+                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
                 f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Top Holder</div>"
-                f"<div style='font-size:0.95rem;font-weight:700;color:#e6edf3;"
+                f"<div style='font-size:0.95rem;font-weight:700;color:#111827;"
                 f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
                 f"{html.escape(_top_h['name_short'][:30])}</div>"
-                f"<div style='font-size:1.6rem;font-weight:800;color:#58a6ff;line-height:1.1;'>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#2563eb;line-height:1.1;'>"
                 f"{_top_h['pct_display']:.2f}%</div>"
-                f"<div style='font-size:0.78rem;color:#8b949e;margin-top:0.15rem;'>"
+                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
                 f"${_top_h['value_b']:.1f}B position</div>"
                 f"</div>",
                 unsafe_allow_html=True,
@@ -4462,12 +4465,12 @@ def main():
         with _hkpi[1]:
             st.markdown(
                 f"<div style='{_kpi_style}'>"
-                f"<div style='font-size:0.7rem;color:#8b949e;text-transform:uppercase;"
+                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
                 f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Big Three</div>"
-                f"<div style='font-size:0.8rem;color:#8b949e;'>Vanguard · BlackRock · State Street</div>"
-                f"<div style='font-size:1.6rem;font-weight:800;color:#58a6ff;line-height:1.1;'>"
+                f"<div style='font-size:0.8rem;color:#6b7280;'>Vanguard · BlackRock · State Street</div>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#2563eb;line-height:1.1;'>"
                 f"{_big3_pct:.1f}%</div>"
-                f"<div style='font-size:0.78rem;color:#8b949e;margin-top:0.15rem;'>"
+                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
                 f"Passive mega-managers combined</div>"
                 f"</div>",
                 unsafe_allow_html=True,
@@ -4475,11 +4478,11 @@ def main():
         with _hkpi[2]:
             st.markdown(
                 f"<div style='{_kpi_style}'>"
-                f"<div style='font-size:0.7rem;color:#8b949e;text-transform:uppercase;"
+                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
                 f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Holders tracked</div>"
-                f"<div style='font-size:1.6rem;font-weight:800;color:#e6edf3;line-height:1.1;'>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#111827;line-height:1.1;'>"
                 f"{len(_holders_df)}</div>"
-                f"<div style='font-size:0.78rem;color:#8b949e;margin-top:0.15rem;'>"
+                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
                 f"{_n_inst} institutional · {_n_fund} funds"
                 f"{(' · snapshot ' + _h_date) if _h_date else ''}</div>"
                 f"</div>",
@@ -4519,36 +4522,37 @@ def main():
                 margin=dict(l=0, r=0, t=10, b=10),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#111827"),
                 showlegend=True,
                 legend=dict(
                     orientation="v", x=1.01, y=0.5, yanchor="middle",
                     bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#cccccc", size=10),
+                    font=dict(color="#111827", size=10),
                 ),
                 hoverlabel=HOVERLABEL_STYLE,
             )
             # Compact styled HTML table
             _tbl_rows = ""
             for _ri, (_idx, _row) in enumerate(df_tab.iterrows()):
-                _bg = "#0d1117" if _ri % 2 == 0 else "#13191f"
+                _bg = "#f8fafc" if _ri % 2 == 0 else "#f1f5f9"
                 _tbl_rows += (
                     f"<tr style='background:{_bg};'>"
-                    f"<td style='padding:6px 8px;color:#8b949e;font-size:11px;width:30px;'>{_ri+1}</td>"
-                    f"<td style='padding:6px 8px;color:#e6edf3;font-size:12px;font-weight:600;'>{html.escape(_row['name_short'][:36])}</td>"
-                    f"<td style='padding:6px 8px;color:#cccccc;font-size:11px;text-align:right;'>{_row['shares_m']:.1f}</td>"
-                    f"<td style='padding:6px 8px;color:#cccccc;font-size:11px;text-align:right;'>${_row['value_b']:.1f}B</td>"
-                    f"<td style='padding:6px 8px;color:#58a6ff;font-size:11px;text-align:right;font-weight:700;'>{_row['pct_display']:.2f}%</td>"
+                    f"<td style='padding:6px 8px;color:#6b7280;font-size:11px;width:30px;'>{_ri+1}</td>"
+                    f"<td style='padding:6px 8px;color:#111827;font-size:12px;font-weight:600;'>{html.escape(_row['name_short'][:36])}</td>"
+                    f"<td style='padding:6px 8px;color:#374151;font-size:11px;text-align:right;'>{_row['shares_m']:.1f}</td>"
+                    f"<td style='padding:6px 8px;color:#374151;font-size:11px;text-align:right;'>${_row['value_b']:.1f}B</td>"
+                    f"<td style='padding:6px 8px;color:#2563eb;font-size:11px;text-align:right;font-weight:700;'>{_row['pct_display']:.2f}%</td>"
                     f"</tr>"
                 )
             _tbl_html = (
                 "<div style='overflow-x:auto;'>"
                 "<table style='width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;'>"
-                "<thead><tr style='background:#161b22;'>"
-                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;width:30px;'>#</th>"
-                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;'>Holder</th>"
-                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Shares (M)</th>"
-                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Value</th>"
-                "<th style='padding:6px 8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>% Stake</th>"
+                "<thead><tr style='background:#e2e8f0;'>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;width:30px;'>#</th>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;'>Holder</th>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Shares (M)</th>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Value</th>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>% Stake</th>"
                 "</tr></thead>"
                 f"<tbody>{_tbl_rows}</tbody>"
                 "</table></div>"
@@ -5295,8 +5299,8 @@ def main():
         else f"FY {year}"
     )
     st.markdown(
-        f"<p style='color:#8b949e;font-size:13px;margin-top:-6px;'>"
-        f"<b style='color:#8b949e;'>{_hm_period_label}</b> &nbsp;·&nbsp; "
+        f"<p style='color:#6b7280;font-size:13px;margin-top:-6px;'>"
+        f"<b style='color:#374151;'>{_hm_period_label}</b> &nbsp;·&nbsp; "
         f"Value shown · Color = YoY change · 9 metrics · Stock tabs show price return %</p>",
         unsafe_allow_html=True,
     )
@@ -5444,27 +5448,27 @@ def main():
         pass
 
     # ── HTML cell builder helpers ──
-    _TD = "padding:7px 6px;font-size:11px;border:none;border-bottom:1px solid rgba(255,255,255,0.04);"
+    _TD = "padding:7px 6px;font-size:11px;border:none;border-bottom:1px solid #e5e7eb;"
 
     def _cg_hdr(text):
         return (
-            f"<th style='background:rgba(255,255,255,0.03);color:#8b949e;text-align:center;"
+            f"<th style='background:#f3f4f6;color:#6b7280;text-align:center;"
             f"padding:9px 6px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;"
-            f"border:none;border-bottom:1px solid rgba(255,255,255,0.08);white-space:nowrap;'>{text}</th>"
+            f"border:none;border-bottom:1px solid #e5e7eb;white-space:nowrap;'>{text}</th>"
         )
 
     def _cg_time(text):
         return (
-            f"<td style='background:transparent;color:#8b949e;text-align:center;"
+            f"<td style='background:transparent;color:#374151;text-align:center;"
             f"padding:7px 10px;font-size:12px;font-weight:600;border:none;"
-            f"border-bottom:1px solid rgba(255,255,255,0.05);white-space:nowrap;'>{text}</td>"
+            f"border-bottom:1px solid #e5e7eb;white-space:nowrap;'>{text}</td>"
         )
 
     def _cg_foot(text):
         return (
-            f"<td style='background:rgba(255,255,255,0.03);color:#8b949e;text-align:center;"
+            f"<td style='background:#f3f4f6;color:#6b7280;text-align:center;"
             f"padding:7px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;"
-            f"border:none;border-top:1px solid rgba(255,255,255,0.1);'>{text}</td>"
+            f"border:none;border-top:1px solid #e2e8f0;'>{text}</td>"
         )
 
     def _heatmap_text_color(normalized_val):
@@ -5479,7 +5483,7 @@ def main():
         """Cell showing absolute $B value, background colored by YoY change."""
         if val is None or (isinstance(val, float) and pd.isna(val)):
             return (
-                f"<td style='background:transparent;color:#444;text-align:center;{_TD}'>—</td>"
+                f"<td style='background:transparent;color:#9ca3af;text-align:center;{_TD}'>—</td>"
             )
         v_b = val / scale
         if abs(v_b) >= 100:
@@ -5491,8 +5495,8 @@ def main():
         else:
             fmt = f"${v_b * 1000:.0f}M"
         if yoy is None:
-            bg = "rgba(255,255,255,0.04)"
-            col = "#c9d1d9"
+            bg = "#f3f4f6"
+            col = "#374151"
         elif yoy >= 0:
             alpha = min(0.85, yoy / 25)
             bg = f"rgba(22,199,132,{alpha:.2f})"
@@ -5509,7 +5513,7 @@ def main():
     def _cg_pct_cell(pct):
         """Cell for stock % return."""
         if pct is None:
-            return f"<td style='background:transparent;color:#444;text-align:center;{_TD}'>—</td>"
+            return f"<td style='background:transparent;color:#9ca3af;text-align:center;{_TD}'>—</td>"
         alpha = min(0.92, abs(pct) / 30)
         if pct >= 0:
             bg = f"rgba(22,199,132,{alpha:.2f})"
@@ -5523,7 +5527,7 @@ def main():
     def _cg_stat_val(val_list, stat="avg", scale=1000.0):
         valid = [v for v in val_list if v is not None]
         if not valid:
-            return f"<td style='background:rgba(255,255,255,0.03);color:#555;text-align:center;{_TD}'>—</td>"
+            return f"<td style='background:#f3f4f6;color:#9ca3af;text-align:center;{_TD}'>—</td>"
         if stat == "avg":
             v = sum(valid) / len(valid)
         else:
@@ -5536,19 +5540,19 @@ def main():
             fmt = f"${v_b:.1f}B"
         else:
             fmt = f"${v_b:.2f}B"
-        return f"<td style='background:rgba(255,255,255,0.04);color:#8b949e;text-align:center;{_TD}'>{fmt}</td>"
+        return f"<td style='background:#f3f4f6;color:#6b7280;text-align:center;{_TD}'>{fmt}</td>"
 
     def _cg_stat_pct(pct_list, stat="avg"):
         valid = [v for v in pct_list if v is not None]
         if not valid:
-            return f"<td style='background:rgba(255,255,255,0.03);color:#555;text-align:center;{_TD}'>—</td>"
+            return f"<td style='background:#f3f4f6;color:#9ca3af;text-align:center;{_TD}'>—</td>"
         if stat == "avg":
             v = sum(valid) / len(valid)
         else:
             sv = sorted(valid); n = len(sv)
             v = sv[n // 2] if n % 2 else (sv[n // 2 - 1] + sv[n // 2]) / 2
         sign = "+" if v > 0 else ""
-        return f"<td style='background:rgba(255,255,255,0.04);color:#8b949e;text-align:center;{_TD}'>{sign}{v:.2f}%</td>"
+        return f"<td style='background:#f3f4f6;color:#6b7280;text-align:center;{_TD}'>{sign}{v:.2f}%</td>"
 
     def _detect_scale(vals_dict):
         """Return divisor to convert raw value → $B. Handles raw $, $M, and $B sources."""
@@ -5572,7 +5576,7 @@ def main():
         vals = _cg_q_vals.get(metric_label, {})
         yoys = _cg_q_yoy.get(metric_label, {})
         if not vals:
-            return "<p style='color:#555;padding:20px;text-align:center;'>No quarterly data available for this metric.</p>"
+            return "<p style='color:#6b7280;padding:20px;text-align:center;'>No quarterly data available for this metric.</p>"
         scale = _detect_scale(vals)
         years = sorted(vals.keys(), reverse=True)
         rows = [
@@ -5598,7 +5602,7 @@ def main():
     def _build_a_table(metric_label):
         data = _cg_a.get(metric_label, {})
         if not data:
-            return "<p style='color:#555;padding:20px;text-align:center;'>No annual data available.</p>"
+            return "<p style='color:#6b7280;padding:20px;text-align:center;'>No annual data available.</p>"
         years = sorted(data.keys(), reverse=True)
         rows = [
             "<table style='width:260px;border-collapse:collapse;'>",
@@ -5619,7 +5623,7 @@ def main():
         vals = _cg_seg_vals.get(seg_name, {})
         yoys = _cg_seg_yoy.get(seg_name, {})
         if not vals:
-            return "<p style='color:#555;padding:20px;text-align:center;'>No segment data available.</p>"
+            return "<p style='color:#6b7280;padding:20px;text-align:center;'>No segment data available.</p>"
         scale = _detect_scale(vals)
         years = sorted(vals.keys(), reverse=True)
         rows = [
@@ -5644,7 +5648,7 @@ def main():
 
     def _build_stock_table(data_dict, col_keys, empty_msg):
         if not data_dict:
-            return f"<p style='color:#555;padding:20px;text-align:center;'>{empty_msg}</p>"
+            return f"<p style='color:#6b7280;padding:20px;text-align:center;'>{empty_msg}</p>"
         rows_keys = sorted(data_dict.keys(), reverse=True)
         col_vals = {k: [] for k in col_keys}
         rows = [
@@ -5692,7 +5696,7 @@ def main():
             ac = " active" if i == 0 else ""
             _seg_pills += f"<button class='cg-pill{ac}' onclick=\"cgMetric('s','{sid}',this)\">{seg}</button>"
     else:
-        _seg_panes = "<p style='color:#555;padding:24px;text-align:center;'>No segment data available for this company.</p>"
+        _seg_panes = "<p style='color:#6b7280;padding:24px;text-align:center;'>No segment data available for this company.</p>"
 
     _all_wk_keys = sorted({wk for yd in _cg_wk.values() for wk in yd})
     _all_day_keys = list(range(1, 32))
@@ -5707,15 +5711,15 @@ def main():
         """<!DOCTYPE html><html><head><meta charset='utf-8'>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:#0d1117;color:#e6edf3;font-family:'DM Sans','Montserrat',sans-serif;}
-.cg-wrap{background:#0d1117;border:none;overflow:hidden;}
-.cg-tabs{display:flex;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,0.1);background:transparent;}
-.cg-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:.04em;transition:all .2s;}
-.cg-tab.active,.cg-tab:hover{color:#8b949e;border-bottom-color:#ff5b1f;}
+html,body{background:rgba(0,0,0,0);color:#374151;font-family:'DM Sans','Montserrat',sans-serif;}
+.cg-wrap{background:rgba(0,0,0,0);border:none;overflow:hidden;}
+.cg-tabs{display:flex;overflow-x:auto;border-bottom:1px solid #e2e8f0;background:transparent;}
+.cg-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:#6b7280;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:.04em;transition:all .2s;}
+.cg-tab.active,.cg-tab:hover{color:#374151;border-bottom-color:#ff5b1f;}
 .cg-pills{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 8px;}
-.cg-pill{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b949e;padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
+.cg-pill{background:#f3f4f6;border:1px solid #e5e7eb;color:#6b7280;padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
 .cg-pill.active,.cg-pill:hover{background:#ff5b1f;border-color:#ff5b1f;color:#fff;}
-.cg-note{padding:6px 0 2px;font-size:10px;color:#8b949e;letter-spacing:.05em;}
+.cg-note{padding:6px 0 2px;font-size:10px;color:#6b7280;letter-spacing:.05em;}
 .cg-panel{display:none;}.cg-panel.active{display:block;}
 .cg-body{padding:10px 0;}
 </style></head><body><div class="cg-wrap">

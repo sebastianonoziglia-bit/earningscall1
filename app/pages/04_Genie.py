@@ -615,9 +615,9 @@ div[data-testid="stButton"] button {
     font-weight: 500 !important;
 }
 div[data-testid="stButton"] button:hover {
-    background-color: #111827 !important;
-    color: #ffffff !important;
-    border-color: #111827 !important;
+    background-color: #e5e7eb !important;
+    color: #111827 !important;
+    border-color: #d1d5db !important;
 }
     /* Company Analysis section chips */
     [data-testid="stMultiSelect"]:has([aria-label*="Select Companies"]) .st-emotion-cache-12w0qpk,

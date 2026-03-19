@@ -2725,9 +2725,6 @@ def _build_ss_html(ss_data_json: str) -> str:
 .wm-ss-leg-item{{display:flex;align-items:center;gap:7px;font-size:13px;color:#8b949e;}}
 .wm-ss-leg-dot{{width:10px;height:10px;border-radius:3px;flex-shrink:0;}}
 </style>
-<div class="wm-ss-label">THE STRUCTURAL SHIFT</div>
-<div class="wm-ss-headline">Television had the world's total attention. Then new players came to compete. Now it&#39;s holding its ground.</div>
-<div class="wm-ss-body">Global advertising by channel. Watch where the money moved.</div>
 <div class="wm-ss-main">
   <div class="wm-ss-left"><canvas id="wm-ss-canvas" width="280" height="280"></canvas></div>
   <div class="wm-ss-right">
@@ -3367,11 +3364,6 @@ html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM 
 #globe-play-btn:hover{background:rgba(99,179,237,0.3);}
 </style></head><body>
 <div id="globe-wrap">
-<div id="globe-header">
-  <div class="globe-eyebrow">IF PLATFORMS WERE COUNTRIES</div>
-  <div class="globe-title">If the world were divided by platform,<br>this is how it would look.</div>
-  <p class="globe-subtitle">A billion people. One platform. One color. &nbsp;·&nbsp; Countries colored by dominant platform &nbsp;·&nbsp; Hover to explore &nbsp;·&nbsp; Drag to rotate</p>
-</div>
 <div id="globe-root">
 <div id="globe-tooltip"></div>
 <div id="globe-legend">"""
@@ -3720,8 +3712,6 @@ html,body{{margin:0;padding:0;background:#020810;}}
   writing-mode:vertical-rl;transform:rotate(180deg);}}
 </style>
 <div id="conc-root">
-  <div class="wc-label">THE CONCENTRATION</div>
-  <div class="wc-headline">Most of it went to very few hands.</div>
   <div class="wc-sub">Of <span id="conc-sub-total">${_conc_total:.0f}B</span> spent globally on advertising in <span id="conc-sub-yr">{_conc_yr}</span>, 4 companies captured <span id="conc-sub-pct">{_conc_top_share:.0f}%</span> of the market.</div>
   <div class="conc-controls">
     <button id="conc-play">&#9654; Play</button>
@@ -3907,8 +3897,6 @@ html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 .wr-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
 .wr-leg-dot{width:10px;height:10px;border-radius:2px;}
 </style>
-<div class="wr-label">REVENUE ANATOMY</div>
-<div class="wr-headline">Not all revenue is advertising.</div>
 <div class="wr-sub">Total 2024 revenue per company. Orange = ad revenue. Blue = everything else.</div>
 <div class="wr-grid" id="wr-grid">
 </div>

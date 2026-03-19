@@ -667,16 +667,16 @@ st.markdown("""
         border-color: #d7e3ff;
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
     }
-    /* Clean transparent pill buttons for white-background Stocks page */
+    /* Clean pill buttons for white-background Stocks page */
     .stButton > button,
     .stButton > button:focus,
-    .stButton > button:active {
-        background: transparent !important;
-        background-color: transparent !important;
+    .stButton > button:active,
+    div[data-testid="stButton"] > button {
+        background-color: #f3f4f6 !important;
         background-image: none !important;
-        border: 1.5px solid #2563eb !important;
-        color: #2563eb !important;
-        border-radius: 20px !important;
+        border: 1px solid #e5e7eb !important;
+        color: #111827 !important;
+        border-radius: 8px !important;
         font-weight: 600 !important;
         font-size: 0.8rem !important;
         padding: 5px 16px !important;
@@ -685,10 +685,11 @@ st.markdown("""
         width: 100% !important;
         transition: background 0.15s ease !important;
     }
-    .stButton > button:hover {
-        background: rgba(37,99,235,0.08) !important;
-        border-color: #1d4ed8 !important;
-        color: #1d4ed8 !important;
+    .stButton > button:hover,
+    div[data-testid="stButton"] > button:hover {
+        background-color: #e5e7eb !important;
+        color: #111827 !important;
+        border-color: #d1d5db !important;
     }
     .price-up {
         color: green;
