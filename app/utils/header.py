@@ -204,7 +204,7 @@ def _render_nav(active_key: str):
     }
     slug_map_js = "{" + ",".join(f"'{k}':'{v}'" for k, v in slug_map.items()) + "}"
     nav_items_js = "[" + ",".join(
-        f"{{key:'{item[\"key\"]}',label:'{item[\"label\"]}'}}"
+        "{key:'" + item["key"] + "',label:'" + item["label"] + "'}"
         for item in _NAV_ITEMS
     ) + "]"
 
