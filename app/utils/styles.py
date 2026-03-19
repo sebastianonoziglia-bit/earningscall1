@@ -1229,6 +1229,18 @@ def get_page_style():
         font-size: 0.9rem;
         margin-bottom: 1rem;
     }
+
+    div[data-testid="stButton"] > button {
+        background-color: #f3f4f6 !important;
+        color: #111827 !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stButton"] > button:hover {
+        background-color: #111827 !important;
+        color: #ffffff !important;
+        border-color: #111827 !important;
+    }
     </style>
     """)
 

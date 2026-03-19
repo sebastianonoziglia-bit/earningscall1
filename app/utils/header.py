@@ -104,15 +104,15 @@ def _apply_query_language():
 
 def _render_bottom_nav(active_key: str):
     _nav_items = [
-        ("home",      "🏠", "Home",      "Welcome"),
-        ("overview",  "📊", "Overview",  "00_Overview"),
-        ("earnings",  "💰", "Earnings",  "01_Earnings"),
-        ("stocks",    "📈", "Stocks",    "02_Stocks"),
-        ("editorial", "📝", "Editorial", "03_Editorial"),
-        ("genie",     "🧞", "Genie",     "04_Genie"),
+        ("home",      "🏠", "Home",      "/"),
+        ("overview",  "📊", "Overview",  "/00_Overview"),
+        ("earnings",  "💰", "Earnings",  "/01_Earnings"),
+        ("stocks",    "📈", "Stocks",    "/02_Stocks"),
+        ("editorial", "📝", "Editorial", "/03_Editorial"),
+        ("genie",     "🧞", "Genie",     "/04_Genie"),
     ]
     nav_pills_html = ""
-    for key, icon, label, page in _nav_items:
+    for key, icon, label, url in _nav_items:
         is_active = (active_key == key)
         active_style = (
             "background:#2563eb;color:white;"
@@ -120,7 +120,7 @@ def _render_bottom_nav(active_key: str):
             else "background:rgba(255,255,255,0.08);color:#94a3b8;"
         )
         nav_pills_html += (
-            f"<a href='/{page}' style='"
+            f"<a href='{url}' style='"
             f"display:inline-flex;align-items:center;gap:6px;"
             f"padding:8px 16px;border-radius:20px;text-decoration:none;"
             f"font-size:0.82rem;font-weight:{'700' if is_active else '500'};"
