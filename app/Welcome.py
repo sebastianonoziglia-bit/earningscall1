@@ -3366,7 +3366,7 @@ html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM 
 .globe-eyebrow{color:#4aaeff;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
 .globe-title{font-family:'Syne',sans-serif;font-size:clamp(20px,2.4vw,30px);font-weight:800;color:#e6edf3;line-height:1.18;margin:0 0 8px;}
 .globe-subtitle{color:#8b949e;font-size:14px;line-height:1.55;margin:0;}
-#globe-root{width:100%;height:520px;position:relative;background:#020810;flex-shrink:0;}
+#globe-root{width:100%;height:600px;position:relative;background:#020810;flex-shrink:0;}
 #globe-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.95);border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;border-radius:8px;font-size:13px;pointer-events:none;z-index:100;max-width:220px;}
 #globe-legend{position:absolute;bottom:16px;left:16px;display:flex;flex-direction:column;gap:5px;max-height:220px;overflow:hidden;}
 #globe-controls{position:absolute;bottom:16px;right:16px;display:flex;align-items:center;gap:10px;z-index:10;}
@@ -3411,13 +3411,11 @@ var root=document.getElementById('globe-root');
 var tooltip=document.getElementById('globe-tooltip');
 var yearLabel=document.getElementById('globe-year-label');
 var playBtn=document.getElementById('globe-play-btn');
-var W=root.clientWidth||900;var H=580;
+var W=root.clientWidth||900;var H=600;
 var svg=d3.select('#globe-root').append('svg').attr('width',W).attr('height',H).style('position','absolute').style('top','0').style('left','0');
 var projection=d3.geoOrthographic().scale(Math.min(W,H)*0.42).translate([W/2,H/2]).clipAngle(90).rotate([0,-20]);
 var path=d3.geoPath().projection(projection);
 svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','#0d1f35').attr('stroke','rgba(99,179,237,0.15)').attr('stroke-width',1);
-var graticule=d3.geoGraticule()();
-svg.append('path').datum(graticule).attr('d',path).attr('fill','none').attr('stroke','rgba(99,179,237,0.08)').attr('stroke-width',0.5);
 var gCountries=svg.append('g');
 var gLogos=svg.append('g');
 var defs=svg.append('defs');
@@ -3557,7 +3555,7 @@ root.addEventListener('mouseleave',function(){
 _section("IF PLATFORMS WERE COUNTRIES", "If the world were divided by platform, this is how it would look.", "A billion people. One platform. One color.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.markdown("<div style='display:flex;justify-content:center;width:100%;'>", unsafe_allow_html=True)
-st.components.v1.html(_platform_globe_html, height=720, scrolling=False)
+st.components.v1.html(_platform_globe_html, height=760, scrolling=False)
 st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 _separator()
