@@ -613,12 +613,12 @@ with tab1:
                     )],
                 )
 
-                _chart_key = f"chart_{service.replace(' ','_').replace('+','plus')}_{abs(hash(service))}"
+                _chart_key = f"chart_{service.replace(' ','_').replace('+','plus').replace('/','_').replace(' ','_')}"
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
                 st.plotly_chart(fig, use_container_width=True, key=_chart_key)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                _js_key = f"anim_{abs(hash(service)) % 99999}"
+                _js_key = f"anim_{service.replace(' ','_').replace('+','plus').replace('/','_')}"
                 st.components.v1.html(f"""
 <script>
 (function() {{
@@ -935,15 +935,19 @@ else:
                         f"{s.get('year','')} {s.get('quarter','')}".strip()
                         for s in _cat_signals
                         if s.get("year")
-                    ), reverse=True)
+                    ), key=lambda p: (
+                        int(p.split()[0]) if p.split()[0].isdigit() else 0,
+                        int(p.split()[1].replace('Q','')) if len(p.split()) > 1 and 'Q' in p.split()[1].upper() else 0
+                    ))
 
                     if len(_periods) > 1:
-                        _sel_period = st.select_slider(
+                        _sel_period = st.radio(
                             "Period",
                             options=_periods,
-                            value=_periods[0],
+                            index=len(_periods) - 1,
                             key=f"ti_period_{_selected_ti_co}_{_cat}",
                             label_visibility="collapsed",
+                            horizontal=True,
                         )
                     else:
                         _sel_period = _periods[0] if _periods else None
