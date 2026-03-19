@@ -103,18 +103,34 @@ def _apply_query_language():
 
 
 def _render_bottom_nav(active_key: str):
-    chips = []
-    for item in _NAV_ITEMS:
-        active_class = " app-bottom-nav-item-active" if item["key"] == active_key else ""
-        chips.append(
-            f"<a class='app-bottom-nav-item{active_class}' href='?nav={item['query']}' target='_self' rel='noopener'>"
-            f"{item['icon']} {item['label']}"
-            "</a>"
+    _nav_items = [
+        ("home",      "🏠", "Home",      "Welcome"),
+        ("overview",  "📊", "Overview",  "00_Overview"),
+        ("earnings",  "💰", "Earnings",  "01_Earnings"),
+        ("stocks",    "📈", "Stocks",    "02_Stocks"),
+        ("editorial", "📝", "Editorial", "03_Editorial"),
+        ("genie",     "🧞", "Genie",     "04_Genie"),
+    ]
+    nav_pills_html = ""
+    for key, icon, label, page in _nav_items:
+        is_active = (active_key == key)
+        active_style = (
+            "background:#2563eb;color:white;"
+            if is_active
+            else "background:rgba(255,255,255,0.08);color:#94a3b8;"
+        )
+        nav_pills_html += (
+            f"<a href='/{page}' style='"
+            f"display:inline-flex;align-items:center;gap:6px;"
+            f"padding:8px 16px;border-radius:20px;text-decoration:none;"
+            f"font-size:0.82rem;font-weight:{'700' if is_active else '500'};"
+            f"transition:all 0.2s;{active_style}'>"
+            f"{icon} {label}</a>"
         )
     st.markdown(
-        """
+        f"""
         <style>
-        .app-bottom-nav-wrap {
+        .app-bottom-nav-wrap {{
             position: fixed;
             left: 12px;
             right: 12px;
@@ -123,54 +139,29 @@ def _render_bottom_nav(active_key: str):
             display: flex;
             justify-content: center;
             pointer-events: none;
-        }
-        .app-bottom-nav {
+        }}
+        .app-bottom-nav {{
             pointer-events: auto;
             display: flex;
-            gap: 8px;
+            gap: 6px;
             overflow-x: auto;
             padding: 8px;
-            border-radius: 14px;
+            border-radius: 28px;
             background: rgba(15,23,42,0.84);
             border: 1px solid rgba(148,163,184,0.34);
             backdrop-filter: blur(10px);
             box-shadow: 0 10px 28px rgba(2,6,23,0.26);
-        }
-        .app-bottom-nav-item {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 120px;
-            padding: 8px 10px;
-            border-radius: 10px;
-            text-decoration: none !important;
-            color: #E2E8F0 !important;
-            font-size: 0.9rem;
-            font-weight: 700;
-            border: 1px solid rgba(148,163,184,0.25);
-            background: rgba(30,41,59,0.65);
-            white-space: nowrap;
-        }
-        .app-bottom-nav-item:hover {
-            border-color: rgba(59,130,246,0.6);
-            background: rgba(30,64,175,0.36);
-            color: #FFFFFF !important;
-        }
-        .app-bottom-nav-item-active {
-            border-color: rgba(59,130,246,0.95) !important;
-            background: linear-gradient(135deg,#1D4ED8 0%, #2563EB 100%) !important;
-            color: #FFFFFF !important;
-        }
-        .app-bottom-nav-spacer { height: 0; }
+        }}
+        .app-bottom-nav a:hover {{
+            filter: brightness(1.15);
+        }}
         </style>
+        <div class="app-bottom-nav-wrap">
+          <div class="app-bottom-nav">{nav_pills_html}</div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(
-        f"<div class='app-bottom-nav-wrap'><div class='app-bottom-nav'>{''.join(chips)}</div></div>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("<div class='app-bottom-nav-spacer'></div>", unsafe_allow_html=True)
 
 
 def _render_sticky_top_bar(active_key: str):

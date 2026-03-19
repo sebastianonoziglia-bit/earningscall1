@@ -39,18 +39,40 @@ TOPIC_KEYWORDS = {
                               "compliance", "consent"],
 }
 
-SIGNAL_CATEGORIES = ["Outlook", "Risks", "Opportunities"]
+SIGNAL_CATEGORIES = [
+    "Outlook",
+    "Risks",
+    "Opportunities",
+    "Investment",
+    "Product Shifts",
+    "User Behavior",
+    "Monetization",
+    "Strategic Direction",
+    "Broadcaster Threats",
+]
 
 SIGNAL_ICONS = {
-    "Outlook":       "🔭",
-    "Risks":         "⚠️",
-    "Opportunities": "🚀",
+    "Outlook":             "🔭",
+    "Risks":               "⚠️",
+    "Opportunities":       "🚀",
+    "Investment":          "💰",
+    "Product Shifts":      "🔧",
+    "User Behavior":       "👥",
+    "Monetization":        "💵",
+    "Strategic Direction": "♟️",
+    "Broadcaster Threats": "📺",
 }
 
 SIGNAL_COLORS = {
-    "Outlook":       {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
-    "Risks":         {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
-    "Opportunities": {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
+    "Outlook":             {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
+    "Risks":               {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
+    "Opportunities":       {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
+    "Investment":          {"bg": "#faf5ff", "border": "#a855f7", "tag": "#7e22ce"},
+    "Product Shifts":      {"bg": "#f0f9ff", "border": "#0ea5e9", "tag": "#0369a1"},
+    "User Behavior":       {"bg": "#fdf4ff", "border": "#d946ef", "tag": "#a21caf"},
+    "Monetization":        {"bg": "#fffbeb", "border": "#f59e0b", "tag": "#b45309"},
+    "Strategic Direction": {"bg": "#f8fafc", "border": "#64748b", "tag": "#334155"},
+    "Broadcaster Threats": {"bg": "#fff1f2", "border": "#f43f5e", "tag": "#be123c"},
 }
 
 OUTLOOK_KEYWORDS = [
@@ -72,6 +94,60 @@ OPPORTUNITY_KEYWORDS = [
     "expand", "launch", "new market", "incremental", "upside",
     "untapped", "scale", "differentiate", "advantage", "momentum",
     "strong demand", "outperform", "gain share", "monetize",
+]
+
+INVESTMENT_KEYWORDS = [
+    "capital expenditure", "capex", "we are investing",
+    "infrastructure", "data center", "we hired", "headcount",
+    "we acquired", "partnership", "we committed",
+    "billion in", "we are spending", "investment in",
+    "we are building out", "we are expanding capacity",
+    "long term investment", "strategic investment",
+]
+
+PRODUCT_SHIFT_KEYWORDS = [
+    "we launched", "we introduced", "we are building",
+    "new capability", "we are developing", "we released",
+    "artificial intelligence", "machine learning", "agent",
+    "multimodal", "automation", "we integrated",
+    "new feature", "new product", "new platform",
+    "we are rolling out", "we shipped", "now available",
+]
+
+USER_BEHAVIOR_KEYWORDS = [
+    "users are", "engagement", "time spent",
+    "adoption", "daily active", "frequency",
+    "behavior", "younger users", "mobile",
+    "shift to", "increasing demand", "queries",
+    "users come back", "retention", "habit",
+    "watch time", "session", "more frequently",
+]
+
+MONETIZATION_KEYWORDS = [
+    "new commercial", "monetize", "unlock",
+    "new surface", "ad format", "performance",
+    "retail media", "shoppable", "new pathway",
+    "incremental revenue", "expand monetization",
+    "new revenue stream", "commercial opportunity",
+    "monetizable", "new inventory", "yield",
+]
+
+STRATEGIC_DIRECTION_KEYWORDS = [
+    "we are the only", "full stack", "end to end",
+    "vertical", "ecosystem", "we control",
+    "expand into", "new market", "we are positioned",
+    "competitive advantage", "moat", "differentiated",
+    "we are uniquely", "only company", "at scale",
+    "category leader", "market position",
+]
+
+BROADCASTER_THREAT_KEYWORDS = [
+    "live", "sports", "broadcast", "linear tv",
+    "connected tv", "ctv", "streaming rights",
+    "upfront", "scatter", "brand advertising",
+    "video advertising", "youtube tv", "live events",
+    "nfl", "nba", "premier league", "content rights",
+    "original content", "studio", "distribution",
 ]
 
 CEO_TITLES = [
@@ -133,6 +209,80 @@ def _detect_role(title_lower: str) -> str:
 def _score_sentence(sentence: str) -> float:
     s = sentence.lower()
     return sum(1.0 for t in FINANCIAL_SCORE_TERMS if t in s)
+
+
+def _score_sentence_advanced(
+    sentence: str,
+    keywords: list,
+    role: str,
+    sentence_idx: int,
+    total_sentences: int,
+) -> float:
+    """Advanced scorer with negation, specificity, tense, position, and length factors."""
+    s = sentence.strip()
+    s_lower = s.lower()
+
+    # 1. Negation check — skip negated sentences
+    negation_patterns = [
+        "we are not ", "we don't ", "we do not ",
+        "we have not ", "we haven't ", "not investing",
+        "no longer ", "we stopped ", "we ended ",
+    ]
+    if any(neg in s_lower for neg in negation_patterns):
+        return 0.0
+
+    # 2. Keyword hits — base score
+    kw_hits = sum(1 for kw in keywords if kw.lower() in s_lower)
+    if kw_hits == 0:
+        return 0.0
+
+    # 3. Specificity bonus — sentences with real numbers score higher
+    has_number = bool(re.search(
+        r'\$[\d,]+|\d+[\.,]\d+[BMK%]|\d{1,3}[BMK]\b|\d+\s*(?:billion|million|percent|%)',
+        s, re.IGNORECASE
+    ))
+    specificity_bonus = 1.4 if has_number else 1.0
+
+    # 4. Forward-looking tense bonus
+    forward_phrases = [
+        "we will", "we expect", "we are going to",
+        "we plan to", "we intend to", "we are targeting",
+        "going forward", "next quarter", "next year",
+        "in 2025", "in 2026", "we anticipate",
+        "we are positioned", "we believe",
+    ]
+    forward_bonus = 1.3 if any(p in s_lower for p in forward_phrases) else 1.0
+
+    # 5. Role bonus
+    role_bonus = 1.5 if role in ("CEO", "CFO") else 1.0
+
+    # 6. Position bonus — early in transcript = strategic opening remarks
+    position_ratio = 1 - (sentence_idx / max(total_sentences, 1))
+    position_bonus = 1.0 + (position_ratio * 0.3)
+
+    # 7. Length factor — prefer medium sentences
+    length = len(s)
+    if length < 50:
+        len_factor = 0.6
+    elif length < 80:
+        len_factor = 0.85
+    elif length <= 250:
+        len_factor = 1.0
+    else:
+        len_factor = 0.8
+
+    # 8. Financial term bonus
+    fin_score = sum(0.4 for t in FINANCIAL_SCORE_TERMS if t in s_lower)
+
+    return round(
+        (kw_hits + fin_score)
+        * specificity_bonus
+        * forward_bonus
+        * role_bonus
+        * position_bonus
+        * len_factor,
+        3,
+    )
 
 
 def _parse_speaker_blocks(text: str) -> list[dict]:
@@ -420,9 +570,9 @@ def extract_outlook_risks_opportunities(
     max_per_category: int = 3,
 ) -> dict:
     """
-    Extract Outlook / Risks / Opportunities signals from CEO/CFO transcript blocks.
-    Returns {"Outlook": [...], "Risks": [...], "Opportunities": [...]}
-    each item: {speaker, role, quote, score, category}
+    Extract signals across all 9 categories from CEO/CFO transcript blocks.
+    Returns {category: [{speaker, role, quote, score, category}]}
+    Uses advanced scoring: negation detection, specificity, forward tense, position.
     """
     if not excel_path:
         return {cat: [] for cat in SIGNAL_CATEGORIES}
@@ -448,48 +598,75 @@ def extract_outlook_risks_opportunities(
     except Exception:
         return {cat: [] for cat in SIGNAL_CATEGORIES}
 
-    _cat_keywords = {
-        "Outlook":       OUTLOOK_KEYWORDS,
-        "Risks":         RISK_KEYWORDS,
-        "Opportunities": OPPORTUNITY_KEYWORDS,
+    _kw_map = {
+        "Outlook":             OUTLOOK_KEYWORDS,
+        "Risks":               RISK_KEYWORDS,
+        "Opportunities":       OPPORTUNITY_KEYWORDS,
+        "Investment":          INVESTMENT_KEYWORDS,
+        "Product Shifts":      PRODUCT_SHIFT_KEYWORDS,
+        "User Behavior":       USER_BEHAVIOR_KEYWORDS,
+        "Monetization":        MONETIZATION_KEYWORDS,
+        "Strategic Direction": STRATEGIC_DIRECTION_KEYWORDS,
+        "Broadcaster Threats": BROADCASTER_THREAT_KEYWORDS,
     }
 
-    def _score_signal(sentence: str, keywords: list) -> float:
-        s = sentence.lower()
-        kw_hits = sum(1.5 for kw in keywords if kw in s)
-        fin_hits = sum(1.0 for t in FINANCIAL_SCORE_TERMS if t in s)
-        return round(kw_hits + fin_hits, 2)
-
-    result: dict = {cat: [] for cat in SIGNAL_CATEGORIES}
+    result: dict = {cat: [] for cat in _kw_map}
+    seen: dict = {cat: set() for cat in _kw_map}
     blocks = _parse_speaker_blocks(text)
 
-    for block in blocks:
-        role = block.get("role", "")
-        role_bonus = 1.5 if role in ("CEO", "CFO") else 0.5
-        for sentence in block.get("sentences", []):
-            for cat, keywords in _cat_keywords.items():
-                if len(result[cat]) >= max_per_category * 2:
-                    continue
-                if any(kw in sentence.lower() for kw in keywords):
-                    score = _score_signal(sentence, keywords) + role_bonus
-                    result[cat].append({
-                        "speaker": block["speaker"],
-                        "role": role,
-                        "quote": sentence,
-                        "score": score,
-                        "category": cat,
-                    })
+    # Pre-compute total sentence count for position bonus
+    _all_sentences = [s for b in blocks for s in b.get("sentences", [])]
+    _total_sents = len(_all_sentences)
+    _sent_idx = 0
 
-    # Deduplicate and keep top N per category
+    for block in blocks:
+        for sentence in block.get("sentences", []):
+            s = sentence.strip()
+            _sent_idx += 1
+            if len(s) < 40 or len(s) > 400:
+                continue
+            for category, keywords in _kw_map.items():
+                score = _score_sentence_advanced(
+                    s, keywords, block.get("role", ""), _sent_idx, _total_sents
+                )
+                if score == 0.0:
+                    continue
+                key = s[:60].lower()
+                if key in seen[category]:
+                    continue
+                seen[category].add(key)
+                result[category].append({
+                    "speaker": block["speaker"],
+                    "role": block.get("role", ""),
+                    "quote": s,
+                    "score": score,
+                    "category": category,
+                })
+
+    # Category exclusivity — keep sentence in top 2 categories only
+    _all_quote_keys: dict = {}
     for cat in result:
-        seen: set = set()
-        deduped = []
-        for sig in sorted(result[cat], key=lambda x: -x["score"]):
-            key = sig["quote"][:60]
-            if key not in seen:
-                seen.add(key)
-                deduped.append(sig)
-        result[cat] = deduped[:max_per_category]
+        for sig in result[cat]:
+            key = sig["quote"][:60].lower()
+            if key not in _all_quote_keys:
+                _all_quote_keys[key] = []
+            _all_quote_keys[key].append((cat, sig["score"]))
+
+    for key, cat_scores in _all_quote_keys.items():
+        if len(cat_scores) <= 2:
+            continue
+        cat_scores.sort(key=lambda x: -x[1])
+        keep_cats = {cs[0] for cs in cat_scores[:2]}
+        for cat in result:
+            if cat not in keep_cats:
+                result[cat] = [
+                    s for s in result[cat]
+                    if s["quote"][:60].lower() != key
+                ]
+
+    # Sort and keep top N per category
+    for cat in result:
+        result[cat] = sorted(result[cat], key=lambda x: -x["score"])[:max_per_category]
 
     return result
 
