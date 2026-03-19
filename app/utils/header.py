@@ -105,11 +105,11 @@ def _apply_query_language():
 def _render_bottom_nav(active_key: str):
     _nav_items = [
         ("home",      "🏠", "Home",      "/"),
-        ("overview",  "📊", "Overview",  "/00_Overview"),
-        ("earnings",  "💰", "Earnings",  "/01_Earnings"),
-        ("stocks",    "📈", "Stocks",    "/02_Stocks"),
-        ("editorial", "📝", "Editorial", "/03_Editorial"),
-        ("genie",     "🧞", "Genie",     "/04_Genie"),
+        ("overview",  "📊", "Overview",  "/Overview"),
+        ("earnings",  "💰", "Earnings",  "/Earnings"),
+        ("stocks",    "📈", "Stocks",    "/Stocks"),
+        ("editorial", "📝", "Editorial", "/Editorial"),
+        ("genie",     "🧞", "Genie",     "/Genie"),
     ]
     nav_pills_html = ""
     for key, icon, label, url in _nav_items:
