@@ -1644,7 +1644,8 @@ def _load_page_data():
 
 # Load data
 logos = load_company_logos()
-# Welcome.py uses white-background versions of Amazon/Apple on dark bg
+logos_original = dict(logos)  # preserve originals for globe + bubble chart (no white override)
+# Override Amazon/Apple with white-on-dark variants — used ONLY for stock strip + revenue anatomy
 for _wl_co, _wl_path in {
     "Amazon": "attached_assets/Amazonwhite.png",
     "Apple":  "attached_assets/Applewhite.png",
@@ -2594,8 +2595,8 @@ st.components.v1.html(
 
 # Beat 1 — Map
 map_body = (
-    f"In {effective_year_groupm}, global advertising reached <b>${groupm_b:.0f}B</b>. "
-    f"The map below shows how that spend is distributed — colored by advertising intensity as a share of each country's GDP."
+    "The map below shows how global advertising spend is distributed across countries — "
+    "colored by advertising intensity as a share of each country's GDP."
     if groupm_b
     else "Global advertising data for this year is unavailable."
 )
@@ -2668,45 +2669,40 @@ try:
                 st.components.v1.html("""
 <script>
 (function() {
-    var maxTries = 25;
-    var tryCount = 0;
-    function tryRotate() {
-        tryCount++;
+    var lon = 0, spinning = true, animId = null, bound = false;
+    function findGlobe() {
         var plots = window.parent.document.querySelectorAll('.js-plotly-plot');
-        var globePlot = null;
         for (var i = 0; i < plots.length; i++) {
             try {
-                var layout = plots[i]._fullLayout;
-                if (layout && layout.geo && layout.geo.projection &&
-                    layout.geo.projection.type === 'orthographic') {
-                    globePlot = plots[i];
-                    break;
+                var fl = plots[i]._fullLayout;
+                if (fl && fl.geo && fl.geo.projection && fl.geo.projection.type === 'orthographic') {
+                    return plots[i];
                 }
             } catch(e) {}
         }
-        if (!globePlot) {
-            if (tryCount < maxTries) setTimeout(tryRotate, 800);
-            return;
-        }
-        var lon = 0;
-        var spinning = true;
-        var animId = null;
-        var Plotly = window.parent.Plotly || window.Plotly;
-        if (!Plotly) { if (tryCount < maxTries) setTimeout(tryRotate, 800); return; }
-        function step() {
-            if (!spinning) return;
-            lon = (lon + 0.25) % 360;
-            try { Plotly.relayout(globePlot, {'geo.projection.rotation.lon': lon}); } catch(e) {}
-            animId = requestAnimationFrame(step);
-        }
-        globePlot.addEventListener('mouseenter', function() {
-            spinning = false;
-            if (animId) cancelAnimationFrame(animId);
-        });
-        globePlot.addEventListener('mouseleave', function() { spinning = true; step(); });
-        step();
+        return null;
     }
-    setTimeout(tryRotate, 3000);
+    function rotate() {
+        if (spinning) {
+            var el = findGlobe();
+            var Plotly = window.parent.Plotly || window.Plotly;
+            if (el && Plotly) {
+                if (!bound) {
+                    el.addEventListener('mouseenter', function() { spinning = false; });
+                    el.addEventListener('mouseleave', function() { spinning = true; });
+                    bound = true;
+                }
+                lon = (lon + 0.3) % 360;
+                try { Plotly.relayout(el, {'geo.projection.rotation.lon': lon}); } catch(e) {}
+            }
+        }
+        animId = requestAnimationFrame(rotate);
+    }
+    function startRotation() {
+        if (!findGlobe()) { setTimeout(startRotation, 600); return; }
+        animId = requestAnimationFrame(rotate);
+    }
+    setTimeout(startRotation, 2500);
 })();
 </script>
 """, height=0)
@@ -3314,11 +3310,11 @@ if not _platform_data:
         {"platform": "Peacock",      "subscribers_m": 36,   "subscribers_label": "36M",  "color": "#9B2335", "logo_name": "Comcast",               "countries": ["GTM","HND"], "centroid": (15.5,-90.0)},
     ]
 
-# Load logos for all platforms
+# Load logos for all platforms — use original (non-white-overridden) logos for the globe
 _platform_logos = {}
 for _pd_item in _platform_data:
     try:
-        _logo = _resolve_logo(_pd_item["logo_name"], logos)
+        _logo = _resolve_logo(_pd_item["logo_name"], logos_original)
         if _logo:
             _platform_logos[_pd_item["platform"]] = _logo
     except Exception:
@@ -3584,7 +3580,7 @@ for _hc in _human_companies:
     _hname = _hc.get("name", "")
     _logo_key = _bubble_logo_aliases.get(_hname, _hname)
     if _logo_key:
-        _b64 = _resolve_logo(_logo_key, logos)
+        _b64 = _resolve_logo(_logo_key, logos_original)
         if _b64:
             _bubble_logo_map[_hname] = _b64
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str, _human_json, logos_json=json.dumps(_bubble_logo_map))
