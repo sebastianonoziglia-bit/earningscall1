@@ -1237,9 +1237,33 @@ def get_page_style():
         border-radius: 8px !important;
     }
     div[data-testid="stButton"] > button:hover {
-        background-color: #111827 !important;
-        color: #ffffff !important;
-        border-color: #111827 !important;
+        background-color: #e5e7eb !important;
+        color: #111827 !important;
+        border-color: #d1d5db !important;
+    }
+    div[data-testid="stButton"] > button *,
+    div[data-testid="stButton"] > button p,
+    div[data-testid="stButton"] > button span {
+        color: #111827 !important;
+    }
+    /* Search/filter inputs — ensure dark text on white bg */
+    div[data-baseweb="input"] input,
+    div[data-testid="stTextInput"] input,
+    div[data-baseweb="select"] input,
+    div[data-testid="stMultiSelect"] input {
+        color: #111827 !important;
+        background-color: #ffffff !important;
+    }
+    div[data-baseweb="input"] input::placeholder,
+    div[data-testid="stTextInput"] input::placeholder,
+    div[data-testid="stMultiSelect"] input::placeholder {
+        color: #9ca3af !important;
+    }
+    /* Caption / Last updated text — readable on white bg */
+    div[data-testid="stCaptionContainer"] p,
+    div[data-testid="stCaptionContainer"],
+    .stCaption p {
+        color: #374151 !important;
     }
     </style>
     """)
