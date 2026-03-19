@@ -4,12 +4,12 @@ from utils.theme import apply_theme
 
 
 _NAV_ITEMS = [
-    {"key": "home", "target": "Welcome.py", "label": "Home", "icon": "", "query": "home"},
-    {"key": "overview", "target": "pages/00_Overview.py", "label": "Overview", "icon": "", "query": "overview"},
-    {"key": "earnings", "target": "pages/01_Earnings.py", "label": "Earnings", "icon": "", "query": "earnings"},
-    {"key": "stocks", "target": "pages/02_Stocks.py", "label": "Stocks", "icon": "", "query": "stocks"},
-    {"key": "editorial", "target": "pages/03_Editorial.py", "label": "Editorial", "icon": "", "query": "editorial"},
-    {"key": "genie", "target": "pages/04_Genie.py", "label": "Genie", "icon": "", "query": "genie"},
+    {"key": "home",      "target": "Welcome.py",          "label": "Home",      "query": "home"},
+    {"key": "overview",  "target": "pages/00_Overview.py", "label": "Overview",  "query": "overview"},
+    {"key": "earnings",  "target": "pages/01_Earnings.py", "label": "Earnings",  "query": "earnings"},
+    {"key": "stocks",    "target": "pages/02_Stocks.py",   "label": "Stocks",    "query": "stocks"},
+    {"key": "editorial", "target": "pages/03_Editorial.py","label": "Editorial", "query": "editorial"},
+    {"key": "genie",     "target": "pages/04_Genie.py",    "label": "Genie",     "query": "genie"},
 ]
 
 _QUERY_PAGE_MAP = {
@@ -55,7 +55,6 @@ def _route_query_navigation():
     ).strip().lower()
     current_page = _QUERY_PAGE_MAP.get(current_key, "")
     if target_key == current_key or (current_page and target_page == current_page):
-        # Already on target page: no switch and no query mutation to avoid rerun loops.
         return
     last_switch = st.session_state.get("_last_nav_switch", "")
     if last_switch == target_key:
@@ -77,33 +76,75 @@ def _apply_query_language():
             st.session_state.language = lang_code
 
 
-def _render_bottom_nav(active_key: str):
-    _pages = [
-        ("home",      "Home",      "home"),
-        ("overview",  "Overview",  "overview"),
-        ("earnings",  "Earnings",  "earnings"),
-        ("stocks",    "Stocks",    "stocks"),
-        ("editorial", "Editorial", "editorial"),
-        ("genie",     "Genie",     "genie"),
-    ]
-    links_html = ""
-    for key, label, query in _pages:
-        active_cls = " bnav-active" if key == active_key else ""
-        links_html += f"<a href='?nav={query}' target='_self' rel='noopener' class='bnav-link{active_cls}'>{label}</a>"
+def _render_nav(active_key: str):
+    current_lang = str(st.session_state.get("language", "en")).strip().lower()
+
+    nav_links_html = ""
+    for item in _NAV_ITEMS:
+        active_cls = " bnav-active" if item["key"] == active_key else ""
+        nav_links_html += (
+            f"<a href='?nav={item['query']}' target='_self' rel='noopener' "
+            f"class='bnav-link{active_cls}'>{item['label']}</a>"
+        )
+
+    lang_en_cls = " bnav-lang-active" if current_lang == "en" else ""
+    lang_it_cls = " bnav-lang-active" if current_lang == "it" else ""
+    lang_es_cls = " bnav-lang-active" if current_lang == "es" else ""
 
     st.markdown(
         f"""
         <style>
+          /* Hide Streamlit's default header and toolbar */
+          header[data-testid="stHeader"] {{
+            display: none !important; height: 0 !important;
+          }}
+          [data-testid="stToolbar"] {{
+            display: none !important; height: 0 !important;
+          }}
+          .stApp > header {{ display: none !important; }}
+          [data-testid="stAppViewContainer"] {{
+            padding-top: 0 !important; margin-top: 0 !important;
+          }}
+          [data-testid="stAppViewContainer"] > .main,
+          [data-testid="stAppViewContainer"] > section.main {{
+            padding-top: 0 !important; margin-top: 0 !important;
+          }}
+          #root > div:first-child {{ padding-top: 0 !important; }}
+          .block-container,
+          [data-testid="stAppViewContainer"] > .main .block-container,
+          [data-testid="stAppViewContainer"] > section > div.block-container,
+          section.main > div.block-container {{
+            padding-top: 0 !important; margin-top: 0 !important;
+          }}
+          .main .block-container > div:first-child {{ margin-top: 0 !important; }}
+
+          /* Collapse style-only markdown nodes */
+          [data-testid="stMarkdownContainer"]:has(> style:only-child),
+          [data-testid="element-container"]:has([data-testid="stMarkdownContainer"] > style:only-child),
+          [data-testid="stMarkdownContainer"]:has(> script:only-child),
+          [data-testid="element-container"]:has([data-testid="stMarkdownContainer"] > script:only-child) {{
+            margin: 0 !important; padding: 0 !important;
+            height: 0 !important; min-height: 0 !important;
+            line-height: 0 !important; overflow: hidden !important;
+          }}
+          [data-testid="element-container"]:has(.app-bottom-nav),
+          [data-testid="stMarkdownContainer"]:has(.app-bottom-nav) {{
+            margin: 0 !important; padding: 0 !important;
+            height: 0 !important; min-height: 0 !important;
+            overflow: visible !important; line-height: 0 !important;
+          }}
+
+          /* Bottom floating pill nav */
           .app-bottom-nav {{
             position: fixed; bottom: 16px; left: 50%;
             transform: translateX(-50%); z-index: 9999;
             background: rgba(15,23,42,0.95); backdrop-filter: blur(12px);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 50px;
-            padding: 6px 16px; display: flex; gap: 4px;
+            padding: 6px 12px; display: flex; align-items: center; gap: 2px;
           }}
           .bnav-link {{
             display: inline-flex; align-items: center;
-            padding: 6px 14px; border-radius: 20px;
+            padding: 5px 13px; border-radius: 20px;
             text-decoration: none !important;
             font-size: 0.82rem; font-weight: 500;
             color: #94a3b8 !important;
@@ -112,162 +153,50 @@ def _render_bottom_nav(active_key: str):
             white-space: nowrap;
           }}
           .bnav-link:hover {{
-            border-color: rgba(148,163,184,0.6) !important;
+            border-color: rgba(148,163,184,0.55) !important;
             color: #e2e8f0 !important;
           }}
           .bnav-active {{
             color: #fff !important;
-            border-color: rgba(99,130,255,0.8) !important;
+            border-color: rgba(99,130,255,0.75) !important;
             font-weight: 700 !important;
           }}
+          .bnav-sep {{
+            width: 1px; height: 20px;
+            background: rgba(148,163,184,0.2);
+            margin: 0 6px; flex-shrink: 0;
+          }}
+          .bnav-lang {{
+            display: inline-flex; align-items: center;
+            padding: 5px 8px; border-radius: 20px;
+            text-decoration: none !important;
+            font-size: 0.85rem;
+            border: 1px solid transparent;
+            transition: border-color 0.15s;
+            opacity: 0.5;
+          }}
+          .bnav-lang:hover {{ opacity: 1; border-color: rgba(148,163,184,0.4) !important; }}
+          .bnav-lang-active {{ opacity: 1 !important; border-color: rgba(148,163,184,0.3) !important; }}
           .app-bottom-nav-spacer {{ height: 80px; }}
         </style>
-        <div class="app-bottom-nav">{links_html}</div>
+        <div class="app-bottom-nav">
+          {nav_links_html}
+          <span class="bnav-sep"></span>
+          <a href="?lang=en" target="_self" rel="noopener" class="bnav-lang{lang_en_cls}">🇺🇸</a>
+          <a href="?lang=it" target="_self" rel="noopener" class="bnav-lang{lang_it_cls}">🇮🇹</a>
+          <a href="?lang=es" target="_self" rel="noopener" class="bnav-lang{lang_es_cls}">🇪🇸</a>
+        </div>
         <div class="app-bottom-nav-spacer"></div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def _render_sticky_top_bar(active_key: str):
-    nav_links = []
-    for item in _NAV_ITEMS:
-        active_class = " active" if item["key"] == active_key else ""
-        nav_links.append(
-            f"<a href='?nav={item['query']}' target='_self' rel='noopener' class='{active_class}'>{item['label']}</a>"
-        )
-
-    current_lang = str(st.session_state.get("language", "en")).strip().lower()
-    lang_en_cls = "active" if current_lang == "en" else ""
-    lang_it_cls = "active" if current_lang == "it" else ""
-    lang_es_cls = "active" if current_lang == "es" else ""
-
-    st.markdown(
-        f"""
-        <style>
-          header[data-testid="stHeader"] {{
-            display: none !important;
-            height: 0 !important;
-          }}
-          [data-testid="stToolbar"] {{
-            display: none !important;
-            height: 0 !important;
-          }}
-          [data-testid="stAppViewContainer"] {{
-            padding-top: 0 !important;
-            margin-top: 0 !important;
-          }}
-          [data-testid="stAppViewContainer"] > .main,
-          [data-testid="stAppViewContainer"] > section.main {{
-            padding-top: 0 !important;
-            margin-top: 0 !important;
-          }}
-          #root > div:first-child {{
-            padding-top: 0 !important;
-          }}
-          .stApp > header {{
-            display: none !important;
-          }}
-          .block-container,
-          [data-testid="stAppViewContainer"] > .main .block-container,
-          [data-testid="stAppViewContainer"] > section > div.block-container,
-          section.main > div.block-container {{
-            padding-top: 0 !important;
-            margin-top: 0 !important;
-          }}
-          .main .block-container > div:first-child {{
-            margin-top: 0 !important;
-          }}
-          .app-top-bar {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 9998;
-            background: rgba(15,23,42,0.72);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(148,163,184,0.24);
-            padding: 7px 26px;
-            display: flex; align-items: center; gap: 5px;
-            margin: 0;
-          }}
-          .app-top-offset {{
-            height: 0 !important;
-            display: none !important;
-          }}
-          .app-top-bar a {{
-            display: inline-flex; align-items: center; gap: 5px;
-            padding: 6px 14px; border-radius: 8px;
-            text-decoration: none !important;
-            font-size: 0.88rem; font-weight: 500;
-            color: #94a3b8 !important;
-            border: 1px solid rgba(148,163,184,0.2);
-            transition: border-color 0.15s, color 0.15s;
-            white-space: nowrap;
-          }}
-          .app-top-bar a:hover {{
-            border-color: rgba(148,163,184,0.7) !important;
-            color: #e2e8f0 !important;
-          }}
-          .app-top-bar a.active {{
-            color: #fff !important;
-            border-color: rgba(99,130,255,0.8) !important;
-            font-weight: 700;
-          }}
-          .app-top-bar .app-top-bar-spacer {{
-            flex: 1;
-          }}
-          .app-top-bar .lang-link {{
-            padding: 6px 10px;
-            min-width: 38px;
-            justify-content: center;
-          }}
-          /* style-only markdown nodes still create flex gaps; collapse them globally */
-          [data-testid="stMarkdownContainer"]:has(> style:only-child),
-          [data-testid="element-container"]:has([data-testid="stMarkdownContainer"] > style:only-child),
-          [data-testid="stMarkdownContainer"]:has(> script:only-child),
-          [data-testid="element-container"]:has([data-testid="stMarkdownContainer"] > script:only-child) {{
-            margin: 0 !important;
-            padding: 0 !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            line-height: 0 !important;
-            overflow: hidden !important;
-          }}
-          [data-testid="element-container"]:has(.app-top-bar),
-          [data-testid="stMarkdownContainer"]:has(.app-top-bar) {{
-            margin: 0 !important;
-            padding: 0 !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            overflow: visible !important;
-            line-height: 0 !important;
-          }}
-        </style>
-        <div class="app-top-bar">
-          {''.join(nav_links)}
-          <span class="app-top-bar-spacer"></span>
-          <a href="?lang=en" target="_self" rel="noopener" class="lang-link {lang_en_cls}">🇺🇸</a>
-          <a href="?lang=it" target="_self" rel="noopener" class="lang-link {lang_it_cls}">🇮🇹</a>
-          <a href="?lang=es" target="_self" rel="noopener" class="lang-link {lang_es_cls}">🇪🇸</a>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def display_header(enable_dom_patch: bool = True):
-    """
-    Display the common header across all app pages.
-    This includes language selection buttons.
-    """
+    """Display the common header across all app pages."""
     _route_query_navigation()
     _apply_query_language()
-
-    # Initialize language from URL query params or session state
     init_language()
-
-    # Replace sidebar app navigation with top navigation.
     st.session_state["hide_sidebar_nav"] = True
     active_key = str(
         st.session_state.get("active_nav_page")
@@ -275,15 +204,10 @@ def display_header(enable_dom_patch: bool = True):
         or st.session_state.get("_last_nav_switch")
         or ""
     ).strip().lower()
-    _render_sticky_top_bar(active_key)
-    _render_bottom_nav(active_key)
-
-    # Apply global styles/theme utilities (theme toggle removed).
+    _render_nav(active_key)
     apply_theme(enable_dom_patch=enable_dom_patch)
-    
+
 
 def render_header(enable_dom_patch: bool = True):
-    """
-    Alias for display_header for backward compatibility
-    """
+    """Alias for display_header for backward compatibility."""
     return display_header(enable_dom_patch=enable_dom_patch)
