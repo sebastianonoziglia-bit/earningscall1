@@ -3,6 +3,31 @@ from utils.language import init_language
 from utils.theme import apply_theme
 
 
+def _get_current_page_key() -> str:
+    """Detect current page from the running script filename (reliable across navigations)."""
+    try:
+        import streamlit.runtime.scriptrunner as _sr
+        ctx = _sr.get_script_run_ctx()
+        if ctx:
+            script = str(ctx.main_script_path)
+            if "Welcome" in script or script.endswith("app.py"):
+                return "home"
+            if "00_Overview" in script:
+                return "overview"
+            if "01_Earnings" in script:
+                return "earnings"
+            if "02_Stocks" in script:
+                return "stocks"
+            if "03_Editorial" in script:
+                return "editorial"
+            if "04_Genie" in script:
+                return "genie"
+    except Exception:
+        pass
+    # Fallback: session state set by each page
+    return str(st.session_state.get("active_nav_page", "home"))
+
+
 _NAV_ITEMS = [
     {"key": "home", "target": "Welcome.py", "label": "Home", "icon": "🏠", "query": "home"},
     {"key": "overview", "target": "pages/00_Overview.py", "label": "Overview", "icon": "📊", "query": "overview"},
@@ -284,12 +309,7 @@ def display_header(enable_dom_patch: bool = True):
 
     # Replace sidebar app navigation with top navigation.
     st.session_state["hide_sidebar_nav"] = True
-    active_key = str(
-        st.session_state.get("active_nav_page")
-        or st.session_state.get("_active_nav_page")
-        or st.session_state.get("_last_nav_switch")
-        or ""
-    ).strip().lower()
+    active_key = _get_current_page_key()
     _render_sticky_top_bar(active_key)
     _render_bottom_nav(active_key)
 

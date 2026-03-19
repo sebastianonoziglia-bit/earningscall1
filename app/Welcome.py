@@ -215,17 +215,13 @@ div.block-container {
 }
 .ae-section {
     opacity: 0;
-    transform: translateY(40px);
-    transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1),
-                transform 0.7s cubic-bezier(0.16,1,0.3,1);
+    transform: translateY(40px) scale(0.98);
+    will-change: transform, opacity;
 }
 .ae-section.ae-visible {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
 }
-.ae-section-delay-1 { transition-delay: 0.1s; }
-.ae-section-delay-2 { transition-delay: 0.2s; }
-.ae-section-delay-3 { transition-delay: 0.3s; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -2665,7 +2661,9 @@ try:
                     lataxis_showgrid=False,
                     lonaxis_showgrid=False,
                 )
+                st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
                 st.plotly_chart(map_fig, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
                 st.components.v1.html("""
 <script>
 (function() {
@@ -4006,7 +4004,9 @@ try:
                         yaxis2=dict(title="Ad Spend (indexed)", overlaying="y", side="right", color="rgba(255,255,255,0.35)"),
                     ),
                 )
+                st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
                 st.plotly_chart(m2_fig, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
                 st.caption("Both M2 money supply and global ad spend are indexed to 2010 = 100.")
 except Exception:
     st.info("M2 vs Ad Spend chart unavailable.")
@@ -4074,7 +4074,9 @@ try:
                     hovertemplate=f"{ch}: $%{{y:.0f}}B<extra></extra>",
                 ))
             _apply_dark_chart_layout(s_fig, height=390)
+            st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
             st.plotly_chart(s_fig, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
             st.caption("Global ad spend by channel category, sourced from country-level aggregates. Values in $B.")
 except Exception:
     st.info("Structural shift chart unavailable.")
@@ -4164,7 +4166,9 @@ try:
                     )],
                 ),
             )
+            st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
             st.plotly_chart(b_fig, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
             latest = bubble_df[bubble_df["year"] == str(effective_year)]
             if not latest.empty:
                 top_mcap = latest.nlargest(1, "market_cap_b").iloc[0]
@@ -4254,7 +4258,9 @@ try:
                     st.info("Performance chart unavailable.")
                 else:
                     _apply_dark_chart_layout(p_fig, height=370)
+                    st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
                     st.plotly_chart(p_fig, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
                     best = perf.nlargest(1, "tsr").iloc[0]
                     st.caption(
                         f"All lines start at 100. A line at 200 means the asset doubled. {best['company']} was the top compounder at +{best['tsr']:.0f}% market cap growth {y_start}→{effective_year}. S&P 500 and Nasdaq shown as benchmarks."
@@ -4292,7 +4298,9 @@ try:
                 mc_fig.add_trace(go.Bar(y=comp["company"], x=comp["mcap_then"] / 1e3, name=str(y_then), orientation="h", marker=dict(color="rgba(255,255,255,0.24)"), hovertemplate=f"%{{y}} {y_then}: $%{{x:.0f}}B<extra></extra>"))
                 mc_fig.add_trace(go.Bar(y=comp["company"], x=comp["mcap_now"] / 1e3, name=str(y_now), orientation="h", marker=dict(color="#ff5b1f"), hovertemplate=f"%{{y}} {y_now}: $%{{x:.0f}}B<extra></extra>"))
                 _apply_dark_chart_layout(mc_fig, height=410, margin=dict(l=120, r=0, t=32, b=40), extra_layout=dict(barmode="group"))
+                st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
                 st.plotly_chart(mc_fig, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
                 total_then = comp["mcap_then"].sum() / 1e6
                 total_now = comp["mcap_now"].sum() / 1e6
                 growth = _yoy(total_now, total_then)
@@ -4516,28 +4524,60 @@ st.markdown("</div>", unsafe_allow_html=True)
 st.components.v1.html("""
 <script>
 (function() {
-    function initReveal() {
-        var sections = window.parent.document.querySelectorAll('[data-ae-section]');
+    function initScrollAnimations() {
+        var doc = window.parent.document;
+        var sections = doc.querySelectorAll('[data-ae-section]');
         if (!sections.length) {
-            setTimeout(initReveal, 500);
+            setTimeout(initScrollAnimations, 800);
             return;
         }
-        var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('ae-visible');
-                }
-            });
-        }, {
-            root: null,
-            rootMargin: '0px 0px -60px 0px',
-            threshold: 0.1,
-        });
+
+        var observer = new window.parent.IntersectionObserver(
+            function(entries) {
+                entries.forEach(function(entry) {
+                    var el = entry.target;
+                    if (entry.isIntersecting) {
+                        el.style.opacity = '1';
+                        el.style.transform = 'translateY(0) scale(1)';
+                        el.style.filter = 'blur(0px)';
+                        el._ae_seen = true;
+                    } else if (el._ae_seen) {
+                        var rect = entry.boundingClientRect;
+                        if (rect.top < 0) {
+                            // Scrolled past — shrink/fade upward
+                            el.style.opacity = '0';
+                            el.style.transform = 'translateY(-30px) scale(0.97)';
+                            el.style.filter = 'blur(2px)';
+                        } else {
+                            // Below viewport — reset to ready state
+                            el.style.opacity = '0';
+                            el.style.transform = 'translateY(40px) scale(0.98)';
+                            el.style.filter = 'blur(0px)';
+                        }
+                    }
+                });
+            },
+            {
+                root: null,
+                rootMargin: '-5% 0px -10% 0px',
+                threshold: [0, 0.1, 0.2],
+            }
+        );
+
         sections.forEach(function(el) {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(40px) scale(0.98)';
+            el.style.filter = 'blur(0px)';
+            el.style.transition = [
+                'opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1)',
+                'transform 0.65s cubic-bezier(0.16, 1, 0.3, 1)',
+                'filter 0.4s ease',
+            ].join(', ');
             observer.observe(el);
         });
     }
-    setTimeout(initReveal, 1500);
+
+    setTimeout(initScrollAnimations, 2000);
 })();
 </script>
 """, height=0)
