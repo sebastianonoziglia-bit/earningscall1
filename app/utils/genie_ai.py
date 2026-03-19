@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
@@ -14,17 +15,41 @@ except Exception:  # pragma: no cover
 
 
 def get_openai_client() -> Optional["OpenAI"]:
-    """Return an OpenAI client using Streamlit secrets or session key."""
+    """Return an AI client (DeepSeek preferred, else OpenAI) using secrets or session key."""
     if OpenAI is None:
         return None
 
-    api_key = (
-        st.secrets.get("OPENAI_API_KEY", "")
+    try:
+        secrets = st.secrets
+        deepseek_key = secrets.get("DEEPSEEK_API_KEY", "")
+        openai_key = secrets.get("OPENAI_API_KEY", "")
+    except Exception:
+        deepseek_key = ""
+        openai_key = ""
+
+    deepseek_key = deepseek_key or os.environ.get("DEEPSEEK_API_KEY", "")
+    openai_key = (
+        openai_key
+        or os.environ.get("OPENAI_API_KEY", "")
         or st.session_state.get("openai_api_key", "")
     )
-    if not api_key:
-        return None
-    return OpenAI(api_key=api_key)
+
+    if deepseek_key:
+        return OpenAI(api_key=deepseek_key, base_url="https://api.deepseek.com")
+    if openai_key:
+        return OpenAI(api_key=openai_key)
+    return None
+
+
+def _default_model() -> str:
+    """Return the right default model based on which key is configured."""
+    try:
+        has_deepseek = bool(
+            st.secrets.get("DEEPSEEK_API_KEY", "") or os.environ.get("DEEPSEEK_API_KEY", "")
+        )
+    except Exception:
+        has_deepseek = bool(os.environ.get("DEEPSEEK_API_KEY", ""))
+    return "deepseek-chat" if has_deepseek else "gpt-4o"
 
 
 GENIE_SYSTEM_PROMPT = """
@@ -161,14 +186,14 @@ def stream_genie_response(messages: list[dict]) -> str:
     client = get_openai_client()
     if not client:
         msg = (
-            "⚠️ **No OpenAI API key configured.**\n\n"
-            "Add your key in the sidebar under **🔑 AI Settings**, "
-            "or set `OPENAI_API_KEY` in Streamlit secrets."
+            "⚠️ **No AI API key configured.**\n\n"
+            "Set `DEEPSEEK_API_KEY` (or `OPENAI_API_KEY`) in HuggingFace Space secrets, "
+            "or add your key in the sidebar under **🔑 AI Settings**."
         )
         st.warning(msg)
         return msg
 
-    model = st.session_state.get("genie_model", "gpt-4o")
+    model = st.session_state.get("genie_model", _default_model())
 
     with st.chat_message("assistant", avatar="🧞"):
         placeholder = st.empty()
@@ -191,7 +216,7 @@ def stream_genie_response(messages: list[dict]) -> str:
             placeholder.markdown(full_response)
 
         except Exception as exc:  # pragma: no cover
-            error_msg = f"❌ OpenAI API error: {str(exc)}"
+            error_msg = f"❌ AI API error: {str(exc)}"
             placeholder.error(error_msg)
             return error_msg
 

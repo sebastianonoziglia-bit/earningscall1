@@ -78,73 +78,53 @@ def _apply_query_language():
 
 
 def _render_bottom_nav(active_key: str):
-    chips = []
-    for item in _NAV_ITEMS:
-        active_class = " app-bottom-nav-item-active" if item["key"] == active_key else ""
-        chips.append(
-            f"<a class='app-bottom-nav-item{active_class}' href='?nav={item['query']}' target='_self' rel='noopener'>"
-            f"{item['icon']} {item['label']}"
-            "</a>"
-        )
+    _pages = [
+        ("home",      "Home",      "Welcome.py"),
+        ("overview",  "Overview",  "pages/00_Overview.py"),
+        ("earnings",  "Earnings",  "pages/01_Earnings.py"),
+        ("stocks",    "Stocks",    "pages/02_Stocks.py"),
+        ("editorial", "Editorial", "pages/03_Editorial.py"),
+        ("genie",     "Genie",     "pages/04_Genie.py"),
+    ]
     st.markdown(
         """
         <style>
-        .app-bottom-nav-wrap {
-            position: fixed;
-            left: 12px;
-            right: 12px;
-            bottom: 10px;
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            pointer-events: none;
-        }
-        .app-bottom-nav {
-            pointer-events: auto;
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding: 8px;
-            border-radius: 14px;
-            background: rgba(15,23,42,0.84);
-            border: 1px solid rgba(148,163,184,0.34);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 10px 28px rgba(2,6,23,0.26);
-        }
-        .app-bottom-nav-item {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 120px;
-            padding: 8px 10px;
-            border-radius: 10px;
+        [data-testid="stPageLink"] a {
+            background: rgba(255,255,255,0.07) !important;
+            color: #94a3b8 !important;
+            border-radius: 20px !important;
+            padding: 7px 14px !important;
+            font-size: 0.82rem !important;
+            font-weight: 500 !important;
             text-decoration: none !important;
-            color: #E2E8F0 !important;
-            font-size: 0.9rem;
-            font-weight: 700;
-            border: 1px solid rgba(148,163,184,0.25);
-            background: rgba(30,41,59,0.65);
-            white-space: nowrap;
+            white-space: nowrap !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
         }
-        .app-bottom-nav-item:hover {
-            border-color: rgba(59,130,246,0.6);
-            background: rgba(30,64,175,0.36);
-            color: #FFFFFF !important;
+        [data-testid="stPageLink"] a[aria-current="page"],
+        [data-testid="stPageLink"] a:hover {
+            background: #2563eb !important;
+            color: white !important;
+            border-color: #2563eb !important;
+            font-weight: 700 !important;
         }
-        .app-bottom-nav-item-active {
-            border-color: rgba(59,130,246,0.95) !important;
-            background: linear-gradient(135deg,#1D4ED8 0%, #2563EB 100%) !important;
-            color: #FFFFFF !important;
-        }
-        .app-bottom-nav-spacer { height: 0; }
+        .app-bottom-nav-spacer { height: 80px; }
         </style>
         """,
         unsafe_allow_html=True,
     )
     st.markdown(
-        f"<div class='app-bottom-nav-wrap'><div class='app-bottom-nav'>{''.join(chips)}</div></div>",
+        "<div style='position:fixed;bottom:16px;left:50%;"
+        "transform:translateX(-50%);z-index:9999;"
+        "background:rgba(15,23,42,0.95);backdrop-filter:blur(12px);"
+        "border:1px solid rgba(255,255,255,0.1);border-radius:50px;"
+        "padding:6px 16px;display:flex;gap:4px;'>",
         unsafe_allow_html=True,
     )
+    cols = st.columns(len(_pages))
+    for col, (key, label, page_file) in zip(cols, _pages):
+        with col:
+            st.page_link(page_file, label=label, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<div class='app-bottom-nav-spacer'></div>", unsafe_allow_html=True)
 
 

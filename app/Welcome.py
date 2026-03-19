@@ -1975,14 +1975,7 @@ valid_years = sorted([int(y) for y in available_years]) if available_years else 
 if int(selected_year) not in valid_years:
     selected_year = int(valid_years[-1])
 year_index = valid_years.index(int(selected_year))
-selected_year = int(
-    st.selectbox(
-        "Story Year",
-        options=valid_years,
-        index=year_index,
-        key="selected_year",
-    )
-)
+selected_year = valid_years[-1]  # Always use latest available year on home page
 effective_year = int(selected_year)
 selected_quarter = _select_latest_quarter_for_year(macro_df, effective_year)
 
@@ -3912,7 +3905,6 @@ html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 .wr-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
 .wr-leg-dot{width:10px;height:10px;border-radius:2px;}
 </style>
-<div class="wr-sub">Total 2024 revenue per company. Orange = ad revenue. Blue = everything else.</div>
 <div class="wr-grid" id="wr-grid">
 </div>
 <div class="wr-legend">
