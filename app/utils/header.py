@@ -79,53 +79,54 @@ def _apply_query_language():
 
 def _render_bottom_nav(active_key: str):
     _pages = [
-        ("home",      "Home",       "Welcome.py"),
-        ("overview",  "Overview",   "pages/00_Overview.py"),
-        ("earnings",  "Earnings",   "pages/01_Earnings.py"),
-        ("stocks",    "Stocks",     "pages/02_Stocks.py"),
-        ("editorial", "Editorial",  "pages/03_Editorial.py"),
-        ("genie",     "Genie",      "pages/04_Genie.py"),
+        ("home",      "Home",      "home"),
+        ("overview",  "Overview",  "overview"),
+        ("earnings",  "Earnings",  "earnings"),
+        ("stocks",    "Stocks",    "stocks"),
+        ("editorial", "Editorial", "editorial"),
+        ("genie",     "Genie",     "genie"),
     ]
+    links_html = ""
+    for key, label, query in _pages:
+        active_cls = " bnav-active" if key == active_key else ""
+        links_html += f"<a href='?nav={query}' target='_self' rel='noopener' class='bnav-link{active_cls}'>{label}</a>"
+
     st.markdown(
-        """
+        f"""
         <style>
-        [data-testid="stPageLink"] a {
-            background: rgba(255,255,255,0.07) !important;
-            color: #94a3b8 !important;
-            border-radius: 20px !important;
-            padding: 7px 14px !important;
-            font-size: 0.82rem !important;
-            font-weight: 500 !important;
+          .app-bottom-nav {{
+            position: fixed; bottom: 16px; left: 50%;
+            transform: translateX(-50%); z-index: 9999;
+            background: rgba(15,23,42,0.95); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 50px;
+            padding: 6px 16px; display: flex; gap: 4px;
+          }}
+          .bnav-link {{
+            display: inline-flex; align-items: center;
+            padding: 6px 14px; border-radius: 20px;
             text-decoration: none !important;
-            white-space: nowrap !important;
-            border: 1px solid rgba(255,255,255,0.1) !important;
-        }
-        [data-testid="stPageLink"] a[aria-current="page"],
-        [data-testid="stPageLink"] a:hover {
-            background: #2563eb !important;
-            color: white !important;
-            border-color: #2563eb !important;
+            font-size: 0.82rem; font-weight: 500;
+            color: #94a3b8 !important;
+            border: 1px solid rgba(148,163,184,0.15);
+            transition: border-color 0.15s, color 0.15s;
+            white-space: nowrap;
+          }}
+          .bnav-link:hover {{
+            border-color: rgba(148,163,184,0.6) !important;
+            color: #e2e8f0 !important;
+          }}
+          .bnav-active {{
+            color: #fff !important;
+            border-color: rgba(99,130,255,0.8) !important;
             font-weight: 700 !important;
-        }
-        .app-bottom-nav-spacer { height: 80px; }
+          }}
+          .app-bottom-nav-spacer {{ height: 80px; }}
         </style>
+        <div class="app-bottom-nav">{links_html}</div>
+        <div class="app-bottom-nav-spacer"></div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(
-        "<div style='position:fixed;bottom:16px;left:50%;"
-        "transform:translateX(-50%);z-index:9999;"
-        "background:rgba(15,23,42,0.95);backdrop-filter:blur(12px);"
-        "border:1px solid rgba(255,255,255,0.1);border-radius:50px;"
-        "padding:6px 16px;display:flex;gap:4px;'>",
-        unsafe_allow_html=True,
-    )
-    cols = st.columns(len(_pages))
-    for col, (key, label, page_file) in zip(cols, _pages):
-        with col:
-            st.page_link(page_file, label=label, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("<div class='app-bottom-nav-spacer'></div>", unsafe_allow_html=True)
 
 
 def _render_sticky_top_bar(active_key: str):
