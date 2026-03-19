@@ -1804,8 +1804,8 @@ div[data-testid="stAppViewContainer"],
 div[data-testid="stMainBlockContainer"],
 div[data-testid="appViewBlockContainer"],
 div[data-testid="block-container"] {
-    background-color: transparent !important;
-    background: transparent !important;
+    background-color: #020810 !important;
+    background: #020810 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
     max-width: 100% !important;
