@@ -2791,6 +2791,7 @@ if(YEARS.length>0){{currentAngles=getAngles(YEARS[0]);drawDonut(currentAngles);d
 </div>
 """
 
+_section("THE STRUCTURAL SHIFT", "Television had the world's total attention. Then new players came to compete.", "Global advertising by channel. Watch where the money moved.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_build_ss_html(_ss_data_json), height=540)
 st.markdown("</div>", unsafe_allow_html=True)
@@ -2811,7 +2812,7 @@ html,body{background:#020810;color:#e6edf3;font-family:'DM Sans','Montserrat',sa
 .attn-body{color:#8899aa;font-size:13px;line-height:1.6;margin-bottom:24px;}
 .attn-stat-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8899aa;margin-bottom:4px;}
 .attn-stat-val{font-family:'Syne',sans-serif;font-size:clamp(32px,4vw,52px);font-weight:900;color:#ff0033;line-height:1;}
-.attn-legend{margin-top:16px;display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;}
+.attn-legend{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
 .attn-leg-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#8899aa;}
 .attn-leg-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
 #wa-attn-bubbles{position:absolute;right:0;top:0;width:60%;height:100%;z-index:1;}
@@ -3550,6 +3551,7 @@ root.addEventListener('mouseleave',function(){
 });
 </script></body></html>"""
 )
+_section("IF PLATFORMS WERE COUNTRIES", "If the world were divided by platform, this is how it would look.", "A billion people. One platform. One color.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.markdown("<div style='display:flex;justify-content:center;width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_platform_globe_html, height=720, scrolling=False)
@@ -3579,6 +3581,7 @@ for _hc in _human_companies:
         if _b64:
             _bubble_logo_map[_hname] = _b64
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str, _human_json, logos_json=json.dumps(_bubble_logo_map))
+_section("SECTION 01 — ATTENTION ECONOMY", "Who Owns Your Time", "Each bubble = a platform. Size = subscribers or monthly active users.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_attn_html, height=520)
 st.markdown("</div>", unsafe_allow_html=True)
@@ -3668,6 +3671,7 @@ _conc_all_years_json = json.dumps(_conc_all_years)
 _conc_seg_colors_json = json.dumps(_CONC_SEG_COLORS)
 _conc_seg_order_json = json.dumps(_CONC_SEG_ORDER)
 
+_section("THE CONCENTRATION", "Most of it went to very few hands.", "Of $943B spent globally on advertising in 2024, 4 companies captured 53% of the market.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(f"""
 <style>
@@ -3875,6 +3879,8 @@ for _wr_co in ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "D
     if _wr_b64:
         _wr_logos[_wr_co] = _wr_b64
 _wr_logos_json = json.dumps(_wr_logos)
+_section("REVENUE ANATOMY", "Not all revenue is advertising.", "Total 2024 revenue per company. Orange = ad revenue. Blue = everything else.")
+st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(
     """
 <div id="wm-rev-root">
@@ -3960,6 +3966,7 @@ io.observe(grid);
 """,
     height=640,
 )
+st.markdown("</div>", unsafe_allow_html=True)
 _separator()
 
 # Beat 6 — M2 vs ad spend
@@ -4081,105 +4088,6 @@ try:
             st.caption("Global ad spend by channel category, sourced from country-level aggregates. Values in $B.")
 except Exception:
     st.info("Structural shift chart unavailable.")
-_separator()
-
-# Beat 9 — Gapminder bubble
-_section(
-    "The Landscape",
-    "Not all Big Tech is equal. Who won?",
-    "Bubble size maps ad dependency, x-axis shows revenue growth, and y-axis captures market cap. This is the moving power map by year."
-)
-try:
-    if metrics.empty or "revenue" not in metrics.columns or mcap_col not in metrics.columns:
-        st.info("Bubble chart unavailable.")
-    else:
-        all_rows = []
-        for yr_val in sorted(metrics["year"].dropna().astype(int).unique().tolist()):
-            if yr_val < 2018:
-                continue
-            m = metrics[metrics["year"] == yr_val]
-            p = metrics[metrics["year"] == (yr_val - 1)]
-            ad_lookup_year = _load_ad_revenue_by_company(excel_path, source_stamp, yr_val) if excel_path else {}
-            for _, row in m.iterrows():
-                company = str(row.get("company", ""))
-                rev = float(pd.to_numeric(pd.Series([row.get("revenue", np.nan)]), errors="coerce").iloc[0] or 0.0)
-                prev_rows = p[p["company"] == company]
-                prev_rev = None
-                if not prev_rows.empty:
-                    prev_rev = float(pd.to_numeric(pd.Series([prev_rows.iloc[0].get("revenue", np.nan)]), errors="coerce").iloc[0] or 0.0)
-                rev_yoy = _yoy(rev, prev_rev) or 0.0
-                if rev_yoy is not None and abs(rev_yoy) < 5:
-                    rev_yoy = rev_yoy * 100
-                mcap = float(pd.to_numeric(pd.Series([row.get(mcap_col, np.nan)]), errors="coerce").iloc[0] or 0.0)
-                mcap_b = mcap / 1e3
-                ad_rev = float(ad_lookup_year.get(company, {}).get("ad_revenue_musd", 0.0))
-                ad_pct = min((ad_rev / rev * 100) if rev > 0 else 0.0, 100.0)
-                all_rows.append(
-                    {
-                        "year": str(yr_val),
-                        "company": company,
-                        "rev_yoy": rev_yoy,
-                        "market_cap_b": mcap_b,
-                        "sqrt_mcap": float(np.sqrt(max(mcap_b, 0))),
-                        "ad_pct": max(ad_pct, 1.0),
-                        "revenue_b": rev / 1e3,
-                        "ad_rev_b": ad_rev / 1e3,
-                    }
-                )
-        bubble_df = pd.DataFrame(all_rows).dropna(subset=["company", "year", "rev_yoy", "market_cap_b"])
-        if bubble_df.empty:
-            st.info("Bubble chart unavailable.")
-        else:
-            max_sqrt = float(bubble_df["sqrt_mcap"].max()) if not bubble_df.empty else 1.0
-            sizeref = 2.0 * max_sqrt / (40 ** 2)
-            company_colors = {c: _company_color(c) for c in bubble_df["company"].unique()}
-            b_fig = px.scatter(
-                bubble_df,
-                x="rev_yoy",
-                y="market_cap_b",
-                size="sqrt_mcap",
-                color="company",
-                color_discrete_map=company_colors,
-                animation_frame="year",
-                animation_group="company",
-                hover_name="company",
-                custom_data=["revenue_b", "ad_pct", "ad_rev_b"],
-                size_max=60,
-                log_y=True,
-                labels={"rev_yoy": "Revenue YoY Growth (%)", "market_cap_b": "Market Cap ($B)"},
-            )
-            b_fig.update_traces(
-                marker=dict(sizeref=sizeref, sizemode="area"),
-                hovertemplate="<b>%{hovertext}</b><br>Market Cap: $%{y:.0f}B<br>Rev YoY: %{x:+.1f}%<br>Ad Dependency: %{customdata[1]:.1f}%<br>Ad Revenue: $%{customdata[2]:.1f}B<extra></extra>"
-            )
-            _apply_dark_chart_layout(
-                b_fig,
-                height=590,
-                extra_layout=dict(
-                    xaxis=dict(ticksuffix="%", zeroline=True, zerolinecolor="rgba(255,255,255,0.15)"),
-                    updatemenus=[dict(
-                        type="buttons", showactive=False, y=1.08, x=0.1, xanchor="right",
-                        buttons=[
-                            dict(label="▶ Play", method="animate", args=[None, {"frame": {"duration": 900, "redraw": True}, "fromcurrent": True, "transition": {"duration": 400, "easing": "cubic-in-out"}}]),
-                            dict(label="⏸ Pause", method="animate", args=[[None], {"frame": {"duration": 0}, "mode": "immediate", "transition": {"duration": 0}}]),
-                        ],
-                        font=dict(color="#e6edf3"), bgcolor="rgba(255,255,255,0.07)", bordercolor="rgba(255,255,255,0.15)",
-                    )],
-                ),
-            )
-            st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-            st.plotly_chart(b_fig, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-            latest = bubble_df[bubble_df["year"] == str(effective_year)]
-            if not latest.empty:
-                top_mcap = latest.nlargest(1, "market_cap_b").iloc[0]
-                most_ad = latest.nlargest(1, "ad_pct").iloc[0]
-                st.caption(
-                    f"Bubble size = market cap (√-scaled). {top_mcap['company']} leads on market cap at ${top_mcap['market_cap_b']:.0f}B. "
-                    f"{most_ad['company']} is most ad-dependent at {most_ad['ad_pct']:.1f}% of total revenue."
-                )
-except Exception:
-    st.info("Bubble chart unavailable.")
 _separator()
 
 # Beat 10 — Performance chart
@@ -4522,15 +4430,14 @@ st.markdown(
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-if False:
- st.components.v1.html("""
+st.components.v1.html("""
 <script>
 (function() {
     function initScrollAnimations() {
         var doc = window.parent.document;
         var sections = doc.querySelectorAll('[data-ae-section]');
         if (!sections.length) {
-            setTimeout(initScrollAnimations, 800);
+            setTimeout(initScrollAnimations, 1000);
             return;
         }
 
@@ -4541,56 +4448,28 @@ if False:
                     if (entry.isIntersecting) {
                         el.style.opacity = '1';
                         el.style.transform = 'translateY(0) scale(1)';
-                        el.style.filter = 'blur(0px)';
                         el._ae_seen = true;
                     } else if (el._ae_seen) {
                         var rect = entry.boundingClientRect;
                         if (rect.top < 0) {
-                            // Scrolled past — shrink/fade upward
-                            el.style.opacity = '0';
-                            el.style.transform = 'translateY(-30px) scale(0.97)';
-                            el.style.filter = 'blur(2px)';
-                        } else {
-                            // Below viewport — reset to ready state
-                            el.style.opacity = '0';
-                            el.style.transform = 'translateY(40px) scale(0.98)';
-                            el.style.filter = 'blur(0px)';
+                            el.style.opacity = '0.3';
+                            el.style.transform = 'translateY(-20px) scale(0.98)';
                         }
                     }
                 });
             },
-            {
-                root: null,
-                rootMargin: '-5% 0px -10% 0px',
-                threshold: [0, 0.1, 0.2],
-            }
+            { rootMargin: '-5% 0px -10% 0px', threshold: 0.1 }
         );
 
         sections.forEach(function(el) {
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(40px) scale(0.98)';
-            el.style.filter = 'blur(0px)';
             el.style.transition = [
-                'opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1)',
-                'transform 0.65s cubic-bezier(0.16, 1, 0.3, 1)',
-                'filter 0.4s ease',
+                'opacity 0.6s cubic-bezier(0.16,1,0.3,1)',
+                'transform 0.6s cubic-bezier(0.16,1,0.3,1)',
             ].join(', ');
             observer.observe(el);
         });
-
-        // Safety fallback — reveal all if observer hasn't fired after 3s
-        setTimeout(function() {
-            sections.forEach(function(el) {
-                if (el.style.opacity === '0' || el.style.opacity === '') {
-                    el.style.opacity = '1';
-                    el.style.transform = 'none';
-                    el.style.filter = 'none';
-                }
-            });
-        }, 3000);
     }
-
-    setTimeout(initScrollAnimations, 2000);
+    setTimeout(initScrollAnimations, 3000);
 })();
 </script>
- """, height=0)
+""", height=0)

@@ -806,18 +806,34 @@ with col1:
         
         # Segment selection section
         # Helper function to get segments for a company/year
-        @st.cache_data(ttl=3600)
-        def get_company_segments_for_selection(company):
-            latest_year = max(data_processor.get_available_years(company))
-            segments_data = data_processor.get_segments(company, latest_year)
-            if segments_data and 'labels' in segments_data:
-                return [(company, segment) for segment in segments_data['labels']]
-            return []
-        
+        @st.cache_data(ttl=3600, show_spinner=False)
+        def get_company_segments_for_selection(company, excel_path):
+            """Get actual segment names for a company from the workbook."""
+            try:
+                df = pd.read_excel(excel_path, sheet_name="Company_yearly_segments_values")
+                df.columns = [str(c).strip().lower() for c in df.columns]
+                comp_col = "company" if "company" in df.columns else df.columns[0]
+                seg_col = next((c for c in df.columns if "segment" in c), None)
+                if not seg_col:
+                    return []
+                df["_comp"] = df[comp_col].astype(str).str.strip().str.lower()
+                comp_norm = str(company).strip().lower()
+                comp_df = df[df["_comp"] == comp_norm]
+                if comp_df.empty:
+                    comp_df = df[df["_comp"].str.contains(comp_norm[:6], na=False)]
+                if comp_df.empty:
+                    return []
+                segments = comp_df[seg_col].dropna().unique().tolist()
+                segments = [str(s).strip() for s in segments if str(s).strip()]
+                return [(company, seg) for seg in sorted(segments)]
+            except Exception:
+                return []
+
         # Get segments for all selected companies
         segment_options = []
+        excel_path = str(data_processor.data_path) if hasattr(data_processor, 'data_path') else ""
         for company in selected_companies:
-            company_segments = get_company_segments_for_selection(company)
+            company_segments = get_company_segments_for_selection(company, excel_path)
             segment_options.extend(company_segments)
         
         # Format segment options for display
@@ -837,7 +853,7 @@ with col1:
         selected_segment_options = st.multiselect(
             "Select Company Segments",
             options=formatted_segment_options,
-            default=[] if not formatted_segment_options else None,
+            default=[],
             help="Select segments to compare their revenue performance across years. Segments from different companies can be compared directly."
         )
         
@@ -2369,6 +2385,48 @@ if (
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
+
+    # Generate data-driven insight for displayed chart
+    _chart_insights = []
+    try:
+        for _co in selected_companies:
+            _co_metrics = selected_company_metrics if 'selected_company_metrics' in dir() else []
+            for _metric in (_co_metrics[:1] if _co_metrics else []):
+                _yrs = sorted(data_processor.get_available_years(_co))
+                if len(_yrs) >= 2:
+                    _latest_yr = _yrs[-1]
+                    _prev_yr = _yrs[-2]
+                    _metrics_latest = data_processor.get_metrics(_co, _latest_yr)
+                    _metrics_prev = data_processor.get_metrics(_co, _prev_yr)
+                    _metric_key = available_metrics.get(_metric, _metric.lower()) if 'available_metrics' in dir() else _metric.lower()
+                    _latest_val = _metrics_latest.get(_metric_key) if _metrics_latest else None
+                    _prev_val = _metrics_prev.get(_metric_key) if _metrics_prev else None
+                    if _latest_val and _prev_val and float(_prev_val) != 0:
+                        _yoy = (float(_latest_val) - float(_prev_val)) / abs(float(_prev_val)) * 100
+                        _direction = "grew" if _yoy > 0 else "declined"
+                        _color = "#22c55e" if _yoy > 0 else "#ef4444"
+                        if float(_latest_val) > 1000:
+                            _insight = (f"<b>{_co}</b> {_metric} {_direction} "
+                                f"<span style='color:{_color}'>{'+'if _yoy>0 else ''}{_yoy:.1f}%</span> "
+                                f"in {_latest_yr} vs {_prev_yr} "
+                                f"(${float(_latest_val)/1000:.1f}B → ${float(_prev_val)/1000:.1f}B)")
+                        else:
+                            _insight = (f"<b>{_co}</b> {_metric} {_direction} "
+                                f"<span style='color:{_color}'>{'+'if _yoy>0 else ''}{_yoy:.1f}%</span> "
+                                f"in {_latest_yr}")
+                        _chart_insights.append(_insight)
+    except Exception:
+        pass
+
+    if _chart_insights:
+        st.markdown(
+            "<div style='background:#f8fafc;border-left:3px solid #6366f1;"
+            "padding:10px 14px;border-radius:0 6px 6px 0;margin-top:8px;'>"
+            + "".join(f"<p style='margin:2px 0;font-size:0.83rem;color:#374151;'>{i}</p>"
+                      for i in _chart_insights)
+            + "</div>",
+            unsafe_allow_html=True
+        )
 
     # Optional: subscribers/users chart (sheet-backed, no hard-coded data)
     if 'show_subscribers' in locals() and show_subscribers and st.session_state.get("selected_services"):
