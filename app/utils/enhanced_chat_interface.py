@@ -5,6 +5,7 @@ import streamlit as st
 from utils.genie_ai import (
     build_genie_messages,
     build_query_transcript_context,
+    clean_thought_markers,
     stream_genie_response,
 )
 from utils.thought_map import add_nodes_to_map, parse_response_to_nodes
@@ -43,7 +44,7 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
         content = message.get("content", "")
         avatar = "🧞" if role == "assistant" else "👤"
         with st.chat_message(role, avatar=avatar):
-            st.markdown(content)
+            st.markdown(clean_thought_markers(content) if role == "assistant" else content)
 
     prefill = st.session_state.pop("prefill_message", None)
     user_input = st.chat_input(

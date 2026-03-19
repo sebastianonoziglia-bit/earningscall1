@@ -1229,12 +1229,12 @@ if current_granularity not in granularity_options:
 
 time_col1, time_col2, time_col3 = st.columns([1.0, 1.0, 1.0])
 with time_col1:
-    selected_granularity = st.selectbox(
-        "Data Granularity",
+    selected_granularity = st.radio(
+        "Granularity",
         options=granularity_options,
         index=granularity_options.index(current_granularity),
         key="genie_selected_granularity",
-        help="Auto uses each chart's native frequency. Other modes set a shared time context for Genie and future assistant widgets.",
+        horizontal=True,
     )
 
 selected_quarter_focus = "All Quarters"
@@ -1254,12 +1254,12 @@ with time_col2:
     current_q_focus = st.session_state.get("genie_selected_quarter_focus", "All Quarters")
     if current_q_focus not in quarter_focus_options:
         current_q_focus = "All Quarters"
-    selected_quarter_focus = st.selectbox(
-        f"Quarter Focus ({focus_year})",
+    selected_quarter_focus = st.radio(
+        f"Quarter ({focus_year})",
         options=quarter_focus_options,
         index=quarter_focus_options.index(current_q_focus),
         key="genie_selected_quarter_focus",
-        help="Context filter for quarterly-aware analysis and assistant responses.",
+        horizontal=True,
         disabled=selected_granularity not in {"Auto", "Quarterly"},
     )
 
@@ -2674,17 +2674,25 @@ st.markdown("""<style>
     color: #ff5b1f !important;
 }
 </style>""", unsafe_allow_html=True)
+if "used_chip_indices" not in st.session_state:
+    st.session_state["used_chip_indices"] = set()
+_used_chips = st.session_state["used_chip_indices"]
+
 st.markdown('<div class="genie-chips-wrap">', unsafe_allow_html=True)
 st.markdown("**Suggested questions:**")
 _chip_cols = st.columns(min(len(_suggestions), 3))
 for _i, _sugg in enumerate(_suggestions):
     with _chip_cols[_i % len(_chip_cols)]:
+        _is_used = _i in _used_chips
+        _chip_label = ("✓ " if _is_used else "") + _sugg[:80] + ("\u2026" if len(_sugg) > 80 else "")
         if st.button(
-            _sugg[:80] + ("\u2026" if len(_sugg) > 80 else ""),
+            _chip_label,
             key=f"suggestion_chip_{_i}",
             use_container_width=True,
-            help=_sugg
+            help=_sugg,
+            disabled=_is_used,
         ):
+            st.session_state["used_chip_indices"].add(_i)
             st.session_state.setdefault("genie_history", []).append(
                 {"role": "user", "content": _sugg}
             )
@@ -3284,9 +3292,11 @@ for _i, _msg in enumerate(_tm_history):
         _co = ""
         _logo = ""
 
+    _full_content = str(_msg.get("content", ""))
     _tm_nodes.append({
         "id": _i,
         "label": _content[:60] + ("..." if len(_content) > 60 else ""),
+        "full": _full_content[:800] + ("..." if len(_full_content) > 800 else ""),
         "color": _color,
         "role": _role,
         "company": _co,
@@ -3308,8 +3318,24 @@ svg{width:100%;height:100%;}
 #tm-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.97);
 border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;
 border-radius:8px;font-size:12px;pointer-events:none;z-index:100;max-width:280px;line-height:1.5;}
+#tm-detail{display:none;position:absolute;bottom:0;left:0;right:0;z-index:200;
+background:#0f172a;border-top:2px solid #0073FF;padding:12px 16px 14px;
+max-height:190px;overflow-y:auto;animation:tmslide 0.18s ease;}
+@keyframes tmslide{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+#tm-detail-close{float:right;background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem;padding:0 4px;}
+#tm-detail-close:hover{color:#e2e8f0;}
+#tm-detail-role{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;
+font-weight:700;color:#0f172a;background:#60a5fa;border-radius:4px;
+padding:1px 7px;display:inline-block;margin-bottom:7px;}
+#tm-detail-text{color:#cbd5e1;font-size:0.83rem;line-height:1.6;white-space:pre-wrap;}
 </style></head><body>
-<div id="tm-root"><div id="tm-tooltip"></div></div>
+<div id="tm-root"><div id="tm-tooltip"></div>
+<div id="tm-detail">
+  <button id="tm-detail-close" onclick="document.getElementById('tm-detail').style.display='none'">✕</button>
+  <div id="tm-detail-role"></div>
+  <div id="tm-detail-text"></div>
+</div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script>
 var nodes="""
@@ -3361,7 +3387,16 @@ var nodeGroups=nodeG.selectAll('g').data(nodes).enter().append('g')
         tooltip.innerHTML=(d.company?'<strong style="color:'+d.color+'">'+d.company+'</strong><br>':'')+
             '<span style="color:#9ca3af;font-size:10px;text-transform:uppercase">'+d.role+'</span><br>'+d.label;
     })
-    .on('mouseout',function(){tooltip.style.display='none';});
+    .on('mouseout',function(){tooltip.style.display='none';})
+    .on('click',function(event,d){
+        var det=document.getElementById('tm-detail');
+        var role=d.role==='user'?'Question':'Answer';
+        document.getElementById('tm-detail-role').textContent=role+(d.company?' — '+d.company:'');
+        document.getElementById('tm-detail-text').textContent=d.full||d.label;
+        det.style.display='block';
+        tooltip.style.display='none';
+        event.stopPropagation();
+    });
 nodeGroups.append('circle')
     .attr('r',function(d){return d.role==='user'?24:20;})
     .attr('fill',function(d){return d.color+'22';})
@@ -3407,9 +3442,94 @@ simulation.on('tick',function(){
     });
 });
 }
+svg.on('click',function(){document.getElementById('tm-detail').style.display='none';});
 </script></body></html>"""
 )
 st.components.v1.html(_tm_html, height=500, scrolling=False)
+
+# ── EARNINGS REACTION HEATMAP ────────────────────────────────────────────────
+st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
+st.markdown(
+    "<h3 style='margin-bottom:0.25rem;'>📡 Earnings Reaction Map</h3>"
+    "<p style='color:#64748B;font-size:0.88rem;margin-bottom:1rem;'>"
+    "Annual stock performance per company (year-over-year %). "
+    "Color = market signal. Click any cell to ask Genie about it.</p>",
+    unsafe_allow_html=True,
+)
+try:
+    _hm_df = pd.read_excel(excel_path, sheet_name="Stocks & Crypto")
+    # Normalise columns
+    _hm_df.columns = [str(c).strip().lower() for c in _hm_df.columns]
+    # Identify date + close columns
+    _date_col = next((c for c in _hm_df.columns if "date" in c), None)
+    _close_col = next((c for c in _hm_df.columns if c in ("close", "price", "adj close", "adj_close")), None)
+    _asset_col = next((c for c in _hm_df.columns if c in ("asset", "name", "company")), None)
+    _tag_col = next((c for c in _hm_df.columns if c in ("tag", "ticker", "symbol")), None)
+
+    if _date_col and _close_col and (_asset_col or _tag_col):
+        _hm_df[_date_col] = pd.to_datetime(_hm_df[_date_col], errors="coerce")
+        _hm_df = _hm_df.dropna(subset=[_date_col, _close_col])
+        _hm_df["_year"] = _hm_df[_date_col].dt.year
+        _label_col = _asset_col or _tag_col
+        # Compute first & last close per company per year → annual return
+        _grp = _hm_df.sort_values(_date_col).groupby([_label_col, "_year"])[_close_col]
+        _first = _grp.first().rename("first")
+        _last = _grp.last().rename("last")
+        _ret = ((_last - _first) / _first.replace(0, float("nan")) * 100).rename("pct").reset_index()
+        # Pivot: rows = companies, cols = years
+        _pivot = _ret.pivot(index=_label_col, columns="_year", values="pct")
+        # Keep only companies that are in the selected set OR top 10 by coverage
+        _keep_cos = selected_companies if selected_companies else list(_pivot.index[:10])
+        _pivot_filtered = _pivot.loc[[c for c in _keep_cos if c in _pivot.index]]
+        if _pivot_filtered.empty:
+            _pivot_filtered = _pivot.head(10)
+        # Keep years 2015 onward
+        _pivot_filtered = _pivot_filtered[[c for c in _pivot_filtered.columns if int(c) >= 2015]]
+
+        if not _pivot_filtered.empty:
+            _hm_z = _pivot_filtered.values.tolist()
+            _hm_x = [str(c) for c in _pivot_filtered.columns]
+            _hm_y = list(_pivot_filtered.index)
+            _hm_text = [[
+                f"{_hm_y[r]}<br>{_hm_x[c]}<br>{v:+.1f}%" if v == v else f"{_hm_y[r]}<br>{_hm_x[c]}<br>n/a"
+                for c, v in enumerate(row)
+            ] for r, row in enumerate(_hm_z)]
+            _hm_fig = go.Figure(go.Heatmap(
+                z=_hm_z, x=_hm_x, y=_hm_y,
+                text=_hm_text, hovertemplate="%{text}<extra></extra>",
+                colorscale=[[0,"#ef4444"],[0.5,"#1e293b"],[1,"#22c55e"]],
+                zmid=0, zmin=-60, zmax=60,
+                showscale=True,
+                colorbar=dict(title="YoY %", tickfont=dict(color="#94a3b8"), titlefont=dict(color="#94a3b8")),
+            ))
+            _hm_fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                margin=dict(l=10, r=10, t=10, b=10),
+                xaxis=dict(tickfont=dict(color="#94a3b8"), gridcolor="rgba(0,0,0,0)"),
+                yaxis=dict(tickfont=dict(color="#94a3b8"), gridcolor="rgba(0,0,0,0)"),
+                height=max(200, len(_hm_y) * 44 + 60),
+            )
+            _hm_event = st.plotly_chart(_hm_fig, use_container_width=True, on_select="rerun", key="earnings_heatmap")
+            # Handle cell click → prefill Genie
+            if _hm_event and hasattr(_hm_event, "selection") and _hm_event.selection:
+                _pts = getattr(_hm_event.selection, "points", [])
+                if _pts:
+                    _pt = _pts[0]
+                    _click_co = _pt.get("y") or ""
+                    _click_yr = _pt.get("x") or ""
+                    if _click_co and _click_yr:
+                        st.session_state["prefill_message"] = (
+                            f"What drove {_click_co}'s stock performance in {_click_yr}? "
+                            f"Include earnings highlights, key segment data, and any guidance signals."
+                        )
+                        st.rerun()
+        else:
+            st.caption("No annual stock data available for selected companies.")
+    else:
+        st.caption("Stock data format not recognised — heatmap unavailable.")
+except Exception as _hm_err:
+    st.caption(f"Earnings Reaction Map unavailable: {_hm_err}")
+
 st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
 
 # Show helper message if no data is selected

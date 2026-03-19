@@ -52,6 +52,25 @@ def _default_model() -> str:
     return "deepseek-chat" if has_deepseek else "gpt-4o"
 
 
+_DISPLAY_MARKER_RE = re.compile(
+    r"\[(STEP\s*\d+|BRANCH\s*[A-Z0-9]+|CONCLUSION|OBSERVATION|INFERENCE|ANALYSIS|RISK)\]"
+    r"(?:\s*([^:\n]{1,50}):\s*)?",
+    re.IGNORECASE,
+)
+
+
+def clean_thought_markers(text: str) -> str:
+    """Convert raw [STEP 1] tokens into readable markdown headings for chat display."""
+    def _sub(m: re.Match) -> str:
+        tag = m.group(1).strip().title()      # "Step 1", "Branch A", "Conclusion"
+        subtitle = (m.group(2) or "").strip()
+        if subtitle:
+            return f"\n\n**{tag} — {subtitle.title()}:** "
+        return f"\n\n**{tag}:** "
+
+    return _DISPLAY_MARKER_RE.sub(_sub, text).strip()
+
+
 GENIE_SYSTEM_PROMPT = """
 You are the Financial Genie, an expert AI analyst embedded in the Earningscall
 competitive intelligence dashboard. You have direct access to a proprietary
@@ -213,7 +232,7 @@ def stream_genie_response(messages: list[dict]) -> str:
                     full_response += delta
                     placeholder.markdown(full_response + "▌")
 
-            placeholder.markdown(full_response)
+            placeholder.markdown(clean_thought_markers(full_response))
 
         except Exception as exc:  # pragma: no cover
             error_msg = f"❌ AI API error: {str(exc)}"

@@ -145,6 +145,7 @@ def render_thought_map(height: int = 520):
                     "label": node["label"][:30] + ("…" if len(node["label"]) > 30 else ""),
                     "fullLabel": node["label"],
                     "content": node["content"][:150] + ("…" if len(node["content"]) > 150 else ""),
+                    "fullContent": node["content"],
                     "type": node["type"],
                     "color": color,
                     "depth": node["depth"],
@@ -192,6 +193,26 @@ def render_thought_map(height: int = 520):
   #tooltip .tt-label {{ font-weight: 800; color: #60A5FA; margin-bottom: 6px; font-size: 0.88rem; }}
   #tooltip .tt-type {{ font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 8px; }}
   #tooltip .tt-content {{ line-height: 1.5; color: #CBD5E1; }}
+  #detail-panel {{
+    display: none; position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
+    background: #0F172A; border-top: 2px solid #0073FF;
+    padding: 14px 18px 16px; max-height: 200px; overflow-y: auto;
+    animation: slideUp 0.2s ease;
+  }}
+  @keyframes slideUp {{ from {{ transform: translateY(100%); opacity:0; }} to {{ transform: translateY(0); opacity:1; }} }}
+  #dp-close {{
+    float: right; background: none; border: none; color: #64748B;
+    cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px;
+    transition: color 0.15s;
+  }}
+  #dp-close:hover {{ color: #E2E8F0; }}
+  #dp-label {{ font-weight: 800; color: #60A5FA; font-size: 0.92rem; margin-bottom: 4px; }}
+  #dp-type {{
+    display: inline-block; font-size: 0.65rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #0F172A; font-weight: 700;
+    background: #60A5FA; border-radius: 4px; padding: 1px 7px; margin-bottom: 10px;
+  }}
+  #dp-content {{ line-height: 1.6; color: #CBD5E1; font-size: 0.84rem; white-space: pre-wrap; }}
   .legend {{ display: flex; gap: 14px; align-items: center; }}
   .leg-dot {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }}
   .leg-item {{ font-size: 0.7rem; color: #64748B; display: flex; align-items: center; }}
@@ -213,6 +234,12 @@ def render_thought_map(height: int = 520):
 </div>
 <div id="cy"></div>
 <div id="tooltip"><div class="tt-label" id="tt-label"></div><div class="tt-type" id="tt-type"></div><div class="tt-content" id="tt-content"></div></div>
+<div id="detail-panel">
+  <button id="dp-close" onclick="document.getElementById('detail-panel').style.display='none'">✕</button>
+  <div id="dp-label"></div>
+  <div id="dp-type"></div>
+  <div id="dp-content"></div>
+</div>
 
 <script>
 const elements = {elements_json};
@@ -293,11 +320,19 @@ cy.on('mousemove', (evt) => {{
 cy.on('mouseout', 'node', () => tooltip.style.display = 'none');
 cy.on('tap', 'node', (evt) => {{
   const n = evt.target;
-  tooltip.style.left = (evt.renderedPosition.x + 16) + 'px';
-  tooltip.style.top = (evt.renderedPosition.y - 10) + 'px';
-  tooltip.style.display = 'block';
+  const panel = document.getElementById('detail-panel');
+  document.getElementById('dp-label').textContent = n.data('fullLabel');
+  document.getElementById('dp-type').textContent = n.data('type').toUpperCase();
+  document.getElementById('dp-content').textContent = n.data('fullContent') || n.data('content');
+  panel.style.display = 'block';
+  tooltip.style.display = 'none';
 }});
-cy.on('tap', (evt) => {{ if (evt.target === cy) tooltip.style.display = 'none'; }});
+cy.on('tap', (evt) => {{
+  if (evt.target === cy) {{
+    tooltip.style.display = 'none';
+    document.getElementById('detail-panel').style.display = 'none';
+  }}
+}});
 </script>
 </body>
 </html>"""
