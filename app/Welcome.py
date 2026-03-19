@@ -2648,7 +2648,7 @@ try:
                     lonaxis_showgrid=False,
                 )
                 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                st.plotly_chart(map_fig, use_container_width=True)
+                st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False})
                 st.markdown("</div>", unsafe_allow_html=True)
                 st.components.v1.html("""
 <script>
@@ -4008,7 +4008,7 @@ try:
                     ),
                 )
                 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                st.plotly_chart(m2_fig, use_container_width=True)
+                st.plotly_chart(m2_fig, use_container_width=True, config={"displayModeBar": False})
                 st.markdown("</div>", unsafe_allow_html=True)
                 st.caption("Both M2 money supply and global ad spend are indexed to 2010 = 100.")
 except Exception:
@@ -4078,7 +4078,7 @@ try:
                 ))
             _apply_dark_chart_layout(s_fig, height=390)
             st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-            st.plotly_chart(s_fig, use_container_width=True)
+            st.plotly_chart(s_fig, use_container_width=True, config={"displayModeBar": False})
             st.markdown("</div>", unsafe_allow_html=True)
             st.caption("Global ad spend by channel category, sourced from country-level aggregates. Values in $B.")
 except Exception:
@@ -4163,7 +4163,7 @@ try:
                 else:
                     _apply_dark_chart_layout(p_fig, height=370)
                     st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                    st.plotly_chart(p_fig, use_container_width=True)
+                    st.plotly_chart(p_fig, use_container_width=True, config={"displayModeBar": False})
                     st.markdown("</div>", unsafe_allow_html=True)
                     best = perf.nlargest(1, "tsr").iloc[0]
                     st.caption(
@@ -4203,7 +4203,7 @@ try:
                 mc_fig.add_trace(go.Bar(y=comp["company"], x=comp["mcap_now"] / 1e3, name=str(y_now), orientation="h", marker=dict(color="#ff5b1f"), hovertemplate=f"%{{y}} {y_now}: $%{{x:.0f}}B<extra></extra>"))
                 _apply_dark_chart_layout(mc_fig, height=410, margin=dict(l=120, r=0, t=32, b=40), extra_layout=dict(barmode="group"))
                 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                st.plotly_chart(mc_fig, use_container_width=True)
+                st.plotly_chart(mc_fig, use_container_width=True, config={"displayModeBar": False})
                 st.markdown("</div>", unsafe_allow_html=True)
                 total_then = comp["mcap_then"].sum() / 1e6
                 total_now = comp["mcap_now"].sum() / 1e6

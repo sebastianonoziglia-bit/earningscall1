@@ -2383,7 +2383,7 @@ if (
     
     # Display the plot with zoom effect
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Generate data-driven insight for displayed chart
@@ -2482,7 +2482,7 @@ if (
                 yaxis=dict(title="Subscribers / Users", tickfont=dict(color="#374151"), title_font=dict(color="#6b7280")),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(color="#374151")),
             )
-            st.plotly_chart(sub_fig, use_container_width=True)
+            st.plotly_chart(sub_fig, use_container_width=True, config={"displayModeBar": False})
         else:
             st.info("No subscriber/user data found in the selected year range.")
     
@@ -3197,7 +3197,7 @@ padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;'>
                                         font=dict(size=12, color="#f9fafb")),
                     )
                     topic_fig.update_yaxes(autorange="reversed")
-                    st.plotly_chart(topic_fig, use_container_width=True)
+                    st.plotly_chart(topic_fig, use_container_width=True, config={"displayModeBar": False})
 
         with st.expander("Transcript quotes", expanded=False):
             if topic_breakdown_df.empty or not transcript_topics_csv.exists() or not context_company or context_year is None or not context_quarter:
@@ -3545,7 +3545,7 @@ try:
                 yaxis=dict(tickfont=dict(color="#94a3b8"), gridcolor="rgba(0,0,0,0)"),
                 height=max(200, len(_hm_y) * 44 + 60),
             )
-            _hm_event = st.plotly_chart(_hm_fig, use_container_width=True, on_select="rerun", key="earnings_heatmap")
+            _hm_event = st.plotly_chart(_hm_fig, use_container_width=True, on_select="rerun", key="earnings_heatmap", config={"displayModeBar": False})
             # Handle cell click → prefill Genie
             if _hm_event and hasattr(_hm_event, "selection") and _hm_event.selection:
                 _pts = getattr(_hm_event.selection, "points", [])

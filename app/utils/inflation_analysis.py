@@ -206,7 +206,7 @@ def render_inflation_methodology_section():
                 
                 # Display chart
                 fig = create_inflation_comparison_chart(filtered_data)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
                 
                 # Display summary statistics
                 st.subheader("Summary Statistics")

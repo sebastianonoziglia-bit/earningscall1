@@ -586,7 +586,7 @@ with tab1:
 
                 _chart_key = f"chart_{service.replace(' ','_').replace('+','plus').replace('/','_').replace(' ','_')}"
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(fig, use_container_width=True, key=_chart_key)
+                st.plotly_chart(fig, use_container_width=True, key=_chart_key, config={"displayModeBar": False})
                 st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown("---")
@@ -793,7 +793,7 @@ with tab2:
         )
 
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
         st.markdown('</div>', unsafe_allow_html=True)
     elif selected_services:
         st.info("No data available for the selected filters.")

@@ -225,7 +225,7 @@ def render_bitcoin_analysis_section():
         
         # Display chart
         fig = create_bitcoin_monthly_returns_chart(filtered_data)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
         
         # Display summary statistics
         st.subheader("Summary Statistics")
