@@ -29,6 +29,22 @@ from utils.workbook_market_data import (
     load_combined_stock_market_data,
 )
 
+# Ensure transcript data is synced (flag file prevents repeat work)
+_SYNC_FLAG_FILE = "/tmp/transcript_sync_done"
+_AUTO_SYNC_ENV = "AUTO_SYNC_TRANSCRIPTS_ON_STARTUP"
+if (
+    str(os.getenv(_AUTO_SYNC_ENV, "1")).strip().lower() not in {"0", "false", "no", "off"}
+    and not os.path.exists(_SYNC_FLAG_FILE)
+):
+    try:
+        from utils.transcript_startup_sync import sync_local_transcripts_to_workbook
+        _sync_result = sync_local_transcripts_to_workbook(timeout_seconds=30)
+        if not _sync_result.error:
+            with open(_SYNC_FLAG_FILE, "w", encoding="utf-8") as _fh:
+                _fh.write(str(datetime.now()))
+    except Exception:
+        pass  # best-effort, don't block page load
+
 def main():
     # Page config must be the first Streamlit command
     st.set_page_config(page_title="Earnings", page_icon="E", layout="wide")

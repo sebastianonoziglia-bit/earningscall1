@@ -253,16 +253,17 @@ def _run_startup_transcript_sync() -> None:
     if os.path.exists(SYNC_FLAG_FILE):
         return
     try:
-        sync_local_transcripts_to_workbook()
+        sync_local_transcripts_to_workbook(timeout_seconds=30)
         with open(SYNC_FLAG_FILE, "w", encoding="utf-8") as handle:
             handle.write(str(datetime.now()))
     except Exception as exc:
         st.warning(f"Transcript sync failed: {exc}")
 
 
-# Keep startup fast/stable on hosted runtimes (HF).
-# Enable only when explicitly requested via env var.
-if str(os.getenv(AUTO_SYNC_ENV, "")).strip().lower() in {"1", "true", "yes", "on"}:
+# Transcript sync runs once per container (flag file prevents repeats).
+# Enabled by default so Transcript Intelligence works on HF Spaces.
+# Set AUTO_SYNC_TRANSCRIPTS_ON_STARTUP=0 to disable.
+if str(os.getenv(AUTO_SYNC_ENV, "1")).strip().lower() not in {"0", "false", "no", "off"}:
     _run_startup_transcript_sync()
 
 
