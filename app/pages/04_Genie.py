@@ -1028,26 +1028,78 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Create a title for Macro Economics Indicators with proper positioning
-st.markdown("""
-<div style="margin-top: 20px; margin-bottom: 10px;">
-    <div style="font-size: 18px; font-weight: bold;">🔧 Activate Macro Economics Indicators</div>
-</div>
-""", unsafe_allow_html=True)
+# Small spacer before the macro expander
+st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
 
-# Keep macro expander controls readable even when global theme CSS is aggressive.
+# Polished macro-indicator expander: dark panel, clear checkboxes, orange accents.
 st.markdown(
     """
     <style>
+    /* ── Macro Indicators Expander Panel ─────────────────────── */
+    div[data-testid="stExpander"]:has(summary:first-child) {
+        background: rgba(15, 23, 42, 0.55) !important;
+        border: 1px solid rgba(255, 91, 31, 0.25) !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+    }
+    /* Expander header (toggle bar) */
+    div[data-testid="stExpander"] summary {
+        background: rgba(15, 23, 42, 0.7) !important;
+        padding: 12px 16px !important;
+        font-weight: 600 !important;
+        color: #e6edf3 !important;
+        border-radius: 12px !important;
+    }
+    div[data-testid="stExpander"] summary:hover {
+        background: rgba(255, 91, 31, 0.12) !important;
+    }
+    /* Expander body */
+    div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {
+        padding: 12px 16px 16px !important;
+    }
+
+    /* ── Checkbox rows ───────────────────────────────────────── */
     div[data-testid="stExpander"] div[data-testid="stCheckbox"] label {
         display: flex !important;
         align-items: center !important;
-        gap: 0.45rem !important;
+        gap: 0.55rem !important;
         width: auto !important;
+        padding: 6px 10px !important;
+        border-radius: 8px !important;
+        cursor: pointer !important;
+        transition: background 0.15s ease !important;
     }
+    div[data-testid="stExpander"] div[data-testid="stCheckbox"] label:hover {
+        background: rgba(255, 255, 255, 0.06) !important;
+    }
+
+    /* Checkbox box — unchecked state */
     div[data-testid="stExpander"] div[data-testid="stCheckbox"] label > div:first-child {
-        flex: 0 0 18px !important;
+        flex: 0 0 20px !important;
+        width: 20px !important;
+        height: 20px !important;
     }
+    div[data-testid="stExpander"] div[data-testid="stCheckbox"] label > div:first-child > div {
+        width: 20px !important;
+        height: 20px !important;
+        border: 2px solid rgba(255, 255, 255, 0.35) !important;
+        border-radius: 4px !important;
+        background: transparent !important;
+        transition: all 0.15s ease !important;
+    }
+    /* Checkbox box — checked state (Streamlit adds aria-checked="true") */
+    div[data-testid="stExpander"] div[data-testid="stCheckbox"] label[data-checked="true"] > div:first-child > div,
+    div[data-testid="stExpander"] div[data-testid="stCheckbox"] input:checked ~ div > div {
+        background: #ff5b1f !important;
+        border-color: #ff5b1f !important;
+    }
+    /* The SVG checkmark icon inside */
+    div[data-testid="stExpander"] div[data-testid="stCheckbox"] svg {
+        color: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+
+    /* Label text */
     div[data-testid="stExpander"] div[data-testid="stCheckbox"] label > div:last-child,
     div[data-testid="stExpander"] div[data-testid="stCheckbox"] label > div:last-child * {
         writing-mode: horizontal-tb !important;
@@ -1056,11 +1108,16 @@ st.markdown(
         width: auto !important;
         max-width: 100% !important;
         display: inline !important;
-        line-height: 1.25 !important;
+        line-height: 1.3 !important;
         letter-spacing: normal !important;
         word-break: normal !important;
         overflow-wrap: normal !important;
+        color: #e6edf3 !important;
+        font-size: 0.88rem !important;
+        font-weight: 500 !important;
     }
+
+    /* ── Radio / selectbox inside expander ────────────────────── */
     div[data-testid="stExpander"] div[data-testid="stRadio"] [data-baseweb="button-group"] {
         flex-direction: row !important;
         flex-wrap: wrap !important;
@@ -1070,6 +1127,21 @@ st.markdown(
         white-space: nowrap !important;
         min-width: 120px !important;
     }
+
+    /* Help tooltips inside the expander */
+    div[data-testid="stExpander"] [data-testid="stTooltipIcon"] {
+        color: rgba(255, 255, 255, 0.4) !important;
+    }
+
+    /* Selectbox / multiselect inside expander */
+    div[data-testid="stExpander"] div[data-baseweb="select"] {
+        background: rgba(255, 255, 255, 0.07) !important;
+        border-color: rgba(255, 255, 255, 0.15) !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stExpander"] div[data-baseweb="select"] * {
+        color: #e6edf3 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1078,7 +1150,7 @@ st.markdown(
 # Organize options into expanders to reduce clutter
 show_fed_funds = False
 fed_funds_aggregation = "Annual Average"
-with st.expander("Activate Macro Economics Indicators", expanded=False):
+with st.expander("⚡ Macro Overlays — M2 · Inflation · Fed Rate · Recession · Subscribers", expanded=False):
     # Row 1 - Basic Options
     basic_cols = st.columns([1, 1])
     
@@ -2423,11 +2495,40 @@ if (
     except Exception:
         pass
 
+    # Also build country ad-spend insights
+    try:
+        if selected_metrics and all_selected_countries:
+            _ad_df = load_cached_advertising_data(
+                tuple(all_selected_countries), tuple(selected_metrics),
+                int(year_range[0]), int(year_range[1])
+            )
+            if _ad_df is not None and not _ad_df.empty:
+                for _ctry in [c for c in all_selected_countries if c != "Global"]:
+                    for _met in selected_metrics[:2]:  # limit to first 2 metrics
+                        _pdata = process_metrics_data(_ad_df, _ctry, _met, year_range)
+                        if _pdata and len(_pdata["years"]) >= 2:
+                            _lval = _pdata["values"][-1]
+                            _pval = _pdata["values"][-2]
+                            _lyr = _pdata["years"][-1]
+                            _pyr = _pdata["years"][-2]
+                            if _pval and float(_pval) != 0:
+                                _yoy = (float(_lval) - float(_pval)) / abs(float(_pval)) * 100
+                                _dir = "grew" if _yoy > 0 else "declined"
+                                _clr = "#22c55e" if _yoy > 0 else "#ef4444"
+                                _chart_insights.append(
+                                    f"<b>{_ctry}</b> {_met} ad spend {_dir} "
+                                    f"<span style='color:{_clr}'>{'+'if _yoy>0 else ''}{_yoy:.1f}%</span> "
+                                    f"in {_lyr} vs {_pyr} "
+                                    f"(${float(_lval):,.0f}M)"
+                                )
+    except Exception:
+        pass
+
     if _chart_insights:
         st.markdown(
-            "<div style='background:#f8fafc;border-left:3px solid #6366f1;"
-            "padding:10px 14px;border-radius:0 6px 6px 0;margin-top:8px;'>"
-            + "".join(f"<p style='margin:2px 0;font-size:0.83rem;color:#374151;'>{i}</p>"
+            "<div style='background:rgba(15,23,42,0.5);border-left:3px solid #6366f1;"
+            "padding:10px 14px;border-radius:0 8px 8px 0;margin-top:8px;'>"
+            + "".join(f"<p style='margin:2px 0;font-size:0.83rem;color:#e6edf3;'>{i}</p>"
                       for i in _chart_insights)
             + "</div>",
             unsafe_allow_html=True
