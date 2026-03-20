@@ -4833,6 +4833,252 @@ def _render_device_platform_market_share(
     return rendered
 
 
+# ---------------------------------------------------------------------------
+# Country Detail Panel — drill-down from map click
+# ---------------------------------------------------------------------------
+_CHANNEL_COLORS = {
+    "Digital": "#3B82F6",
+    "Television": "#8B5CF6",
+    "TV": "#8B5CF6",
+    "Newspaper": "#6B7280",
+    "Print": "#6B7280",
+    "Magazines": "#9CA3AF",
+    "Radio": "#F59E0B",
+    "Out of Home": "#10B981",
+    "OOH": "#10B981",
+    "Cinema": "#EF4444",
+    "Search": "#0EA5E9",
+    "NonSearch": "#6366F1",
+    "Retail_Media": "#F97316",
+    "Connected_TV": "#A855F7",
+    "Traditional_TV": "#7C3AED",
+    "Traditional_OOH": "#059669",
+    "Digital_OOH": "#34D399",
+}
+
+
+def _render_country_detail_panel(
+    country_ad_df: pd.DataFrame,
+    primary_country: str,
+    year: int,
+    plotly_config: dict | None = None,
+) -> bool:
+    """Render the light-themed country media deep-dive panel.
+
+    Returns True if something was rendered.
+    """
+    if country_ad_df.empty or not primary_country:
+        return False
+
+    all_countries = sorted(country_ad_df["Country"].dropna().unique().tolist())
+    if primary_country not in all_countries:
+        st.warning(f"No advertising data found for **{primary_country}**.")
+        return False
+
+    # ── Light panel CSS ──
+    st.markdown(
+        """
+        <style>
+          [data-testid="element-container"]:has(.country-detail-panel),
+          [data-testid="stMarkdownContainer"]:has(.country-detail-panel) {
+            padding: 0 !important;
+          }
+          .country-detail-panel {
+            background: #F8FAFC;
+            border-radius: 16px;
+            padding: 20px 24px 12px;
+            margin: 18px 0 8px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+          }
+          .country-detail-panel h3 {
+            color: #0F172A !important;
+            font-size: 1.2rem !important;
+            font-weight: 700 !important;
+            margin: 0 0 4px !important;
+          }
+          .country-detail-panel .cdp-subtitle {
+            color: #64748B;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Header bar with close button ──
+    header_col, close_col = st.columns([0.88, 0.12])
+    with header_col:
+        st.markdown(
+            f"""<div class="country-detail-panel" style="padding-bottom:4px;">
+                <h3>🌍 {html.escape(primary_country)} — Ad Spend by Channel</h3>
+                <div class="cdp-subtitle">Click another country on the map to switch, or compare below.</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with close_col:
+        if st.button("✕ Close", key="country_detail_close", type="secondary"):
+            st.session_state.pop("country_drilldown_primary", None)
+            # Clear stale query param
+            try:
+                if hasattr(st, "query_params") and "country" in st.query_params:
+                    del st.query_params["country"]
+            except Exception:
+                pass
+            st.rerun()
+
+    # ── Comparison multiselect ──
+    compare_options = [c for c in all_countries if c != primary_country]
+    compare_with = st.multiselect(
+        "Compare with other countries (up to 4)",
+        options=compare_options,
+        default=[],
+        max_selections=4,
+        key="country_compare_with",
+    )
+    selected_countries = [primary_country] + compare_with
+
+    # ── Filter data for selected countries and year ──
+    df_sel = country_ad_df[
+        (country_ad_df["Country"].isin(selected_countries))
+        & (country_ad_df["Year"] == year)
+    ].copy()
+
+    if df_sel.empty:
+        st.info(f"No channel data for {primary_country} in {year}.")
+        return True
+
+    # ── Chart 1: Horizontal stacked bar — channel breakdown per country ──
+    chart_col1, chart_col2 = st.columns(2)
+
+    with chart_col1:
+        st.markdown("**Channel Breakdown**")
+        pivot = (
+            df_sel.groupby(["Country", "Metric_type"], as_index=False)["Value"]
+            .sum()
+            .sort_values("Value", ascending=False)
+        )
+        channels = pivot.groupby("Metric_type")["Value"].sum().sort_values(ascending=False).index.tolist()
+
+        bar_fig = go.Figure()
+        for ch in channels:
+            ch_data = pivot[pivot["Metric_type"] == ch]
+            bar_fig.add_trace(
+                go.Bar(
+                    y=ch_data["Country"],
+                    x=ch_data["Value"],
+                    name=ch,
+                    orientation="h",
+                    marker_color=_CHANNEL_COLORS.get(ch, "#94A3B8"),
+                    hovertemplate=f"<b>%{{y}}</b><br>{ch}: %{{x:,.0f}}<extra></extra>",
+                )
+            )
+        bar_fig.update_layout(
+            barmode="stack",
+            height=max(200, 80 * len(selected_countries)),
+            margin=dict(l=10, r=10, t=10, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#0F172A", family="Poppins, system-ui, sans-serif", size=12),
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.15,
+                xanchor="center",
+                x=0.5,
+                font=dict(color="#475569", size=11),
+            ),
+            xaxis=dict(
+                showgrid=True,
+                gridcolor="rgba(148, 163, 184, 0.2)",
+                tickfont=dict(color="#64748B"),
+                title=None,
+            ),
+            yaxis=dict(
+                tickfont=dict(color="#0F172A", size=12),
+                title=None,
+                autorange="reversed",
+            ),
+        )
+        st.plotly_chart(bar_fig, use_container_width=True, config=plotly_config or {})
+
+    # ── Chart 2: Line chart — total ad spend over time ──
+    with chart_col2:
+        st.markdown("**Total Ad Spend Over Time**")
+        available_years = sorted(country_ad_df["Year"].dropna().unique().tolist())
+        df_time = (
+            country_ad_df[country_ad_df["Country"].isin(selected_countries)]
+            .groupby(["Country", "Year"], as_index=False)["Value"]
+            .sum()
+        )
+        _COUNTRY_LINE_COLORS = [
+            "#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6"
+        ]
+        line_fig = go.Figure()
+        for i, country in enumerate(selected_countries):
+            cdf = df_time[df_time["Country"] == country].sort_values("Year")
+            if cdf.empty:
+                continue
+            color = _COUNTRY_LINE_COLORS[i % len(_COUNTRY_LINE_COLORS)]
+            line_fig.add_trace(
+                go.Scatter(
+                    x=cdf["Year"],
+                    y=cdf["Value"],
+                    mode="lines+markers",
+                    name=country,
+                    line=dict(color=color, width=2.5),
+                    marker=dict(size=6, color=color),
+                    hovertemplate=f"<b>{country}</b><br>%{{x}}: %{{y:,.0f}}<extra></extra>",
+                )
+            )
+        line_fig.update_layout(
+            height=max(200, 80 * len(selected_countries)),
+            margin=dict(l=10, r=10, t=10, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#0F172A", family="Poppins, system-ui, sans-serif", size=12),
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.15,
+                xanchor="center",
+                x=0.5,
+                font=dict(color="#475569", size=11),
+            ),
+            xaxis=dict(
+                showgrid=True,
+                gridcolor="rgba(148, 163, 184, 0.2)",
+                tickfont=dict(color="#64748B"),
+                dtick=1,
+                title=None,
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor="rgba(148, 163, 184, 0.2)",
+                tickfont=dict(color="#64748B"),
+                title=None,
+            ),
+        )
+        st.plotly_chart(line_fig, use_container_width=True, config=plotly_config or {})
+
+    # ── Data table: channel values for all selected countries ──
+    with st.expander("📊 Channel detail table", expanded=False):
+        table_df = (
+            df_sel.groupby(["Country", "Metric_type"], as_index=False)["Value"]
+            .sum()
+            .pivot_table(index="Country", columns="Metric_type", values="Value", fill_value=0)
+        )
+        table_df["Total"] = table_df.sum(axis=1)
+        table_df = table_df.sort_values("Total", ascending=False)
+        st.dataframe(
+            table_df.style.format("{:,.0f}"),
+            use_container_width=True,
+        )
+
+    return True
+
+
 def _render_global_media_economy_extras(
     country_ad_df: pd.DataFrame,
     data_processor: FinancialDataProcessor,
@@ -6538,6 +6784,19 @@ plotly_config = {
 
 begin_snap_section("overview_summary")
 
+# ── Read ?country= query param for map drill-down ──
+_incoming_country = None
+try:
+    if hasattr(st, "query_params"):
+        _incoming_country = st.query_params.get("country")
+        if _incoming_country:
+            _incoming_country = str(_incoming_country).strip()
+            st.session_state["country_drilldown_primary"] = _incoming_country
+            st.session_state["overview_active_area"] = "global_media_map"
+            del st.query_params["country"]
+except Exception:
+    pass
+
 # Main app content
 st.title("Overview - Financial Market Intelligence")
 
@@ -7702,15 +7961,11 @@ if not country_ad_df.empty:
 
                         row.addEventListener("click", () => {{
                           const country = row.dataset.country || "";
-                          const indexMap = getCountryToIndexMap();
-                          const idx = indexMap.has(country) ? indexMap.get(country) : -1;
-                          const paths = getCountryPaths();
-                          if (idx < 0 || idx >= paths.length) return;
-                          if (selectedCountry && selectedCountry === country) {{
-                            clearSelected();
-                            return;
-                          }}
-                          setSelected(paths[idx], country);
+                          if (!country) return;
+                          // Navigate parent to ?country=X for drill-down panel
+                          var pLoc = window.parent.location;
+                          var base = pLoc.pathname;
+                          window.parent.location.href = base + '?country=' + encodeURIComponent(country);
                         }});
                       }});
                     }};
@@ -7734,11 +7989,10 @@ if not country_ad_df.empty:
                         const path = findPathForPoint(data);
                         const country = getCountryFromPoint(pt);
                         if (!path || !country) return;
-                        if (selectedCountry && selectedCountry === country) {{
-                          clearSelected();
-                        }} else {{
-                          setSelected(path, country);
-                        }}
+                        // Navigate parent to ?country=X for drill-down panel
+                        var pLoc = window.parent.location;
+                        var base = pLoc.pathname;
+                        window.parent.location.href = base + '?country=' + encodeURIComponent(country);
                       }});
                     }};
 
@@ -7766,6 +8020,16 @@ if not country_ad_df.empty:
         )
         if year_for_map != selected_year:
             st.caption(f"Country advertising data is not available for {selected_year}; showing {year_for_map} instead.")
+
+        # ── Country detail drill-down panel (appears when a country is clicked) ──
+        _drilldown_country = st.session_state.get("country_drilldown_primary")
+        if _drilldown_country:
+            _render_country_detail_panel(
+                country_ad_df=country_ad_df,
+                primary_country=_drilldown_country,
+                year=int(year_for_map),
+                plotly_config=plotly_config,
+            )
 
         extras_rendered = _render_global_media_economy_extras(
             country_ad_df=country_ad_df,

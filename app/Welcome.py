@@ -2683,7 +2683,7 @@ try:
                 st.components.v1.html("""
 <script>
 (function() {
-    var lon = 0, spinning = true, animId = null, bound = false;
+    var lon = 0, spinning = true, animId = null, bound = false, clickBound = false;
     function findGlobe() {
         var plots = window.parent.document.querySelectorAll('.js-plotly-plot');
         for (var i = 0; i < plots.length; i++) {
@@ -2696,6 +2696,22 @@ try:
         }
         return null;
     }
+    function bindClick(el) {
+        if (clickBound || !el || typeof el.on !== 'function') return;
+        clickBound = true;
+        el.on('plotly_click', function(data) {
+            var pt = data && data.points && data.points[0] ? data.points[0] : null;
+            var country = '';
+            if (pt && pt.hovertext) country = String(pt.hovertext).trim();
+            else if (pt && pt.location) country = String(pt.location).trim();
+            if (!country) return;
+            var base = window.parent.location.pathname.replace(/\/[^\/]*$/, '/');
+            window.parent.location.href = base + 'Overview?country=' + encodeURIComponent(country);
+        });
+        // Make choropleth paths show pointer cursor
+        var paths = el.querySelectorAll('.choroplethlayer path');
+        for (var i = 0; i < paths.length; i++) paths[i].style.cursor = 'pointer';
+    }
     function rotate() {
         if (spinning) {
             var el = findGlobe();
@@ -2706,6 +2722,7 @@ try:
                     el.addEventListener('mouseleave', function() { spinning = true; });
                     bound = true;
                 }
+                bindClick(el);
                 lon = (lon + 0.3) % 360;
                 try { Plotly.relayout(el, {'geo.projection.rotation.lon': lon}); } catch(e) {}
             }
@@ -3390,6 +3407,43 @@ _country_subs_json = json.dumps(_country_subs_map)
 _num2alpha_json = json.dumps(_num_iso_map)
 _timeline_json = json.dumps(_timeline_data)
 
+# ISO alpha-3 → English country name (for globe click → Overview drill-down)
+_ISO_TO_NAME = {
+    "USA": "United States", "GBR": "United Kingdom", "DEU": "Germany", "FRA": "France",
+    "JPN": "Japan", "CHN": "China", "IND": "India", "BRA": "Brazil", "CAN": "Canada",
+    "AUS": "Australia", "ITA": "Italy", "ESP": "Spain", "KOR": "South Korea",
+    "RUS": "Russia", "MEX": "Mexico", "IDN": "Indonesia", "TUR": "Turkey",
+    "NLD": "Netherlands", "SAU": "Saudi Arabia", "CHE": "Switzerland", "SWE": "Sweden",
+    "POL": "Poland", "BEL": "Belgium", "NOR": "Norway", "AUT": "Austria",
+    "ARE": "United Arab Emirates", "THA": "Thailand", "SGP": "Singapore",
+    "MYS": "Malaysia", "PHL": "Philippines", "VNM": "Vietnam", "ZAF": "South Africa",
+    "EGY": "Egypt", "NGA": "Nigeria", "ARG": "Argentina", "COL": "Colombia",
+    "CHL": "Chile", "PER": "Peru", "PRT": "Portugal", "DNK": "Denmark",
+    "FIN": "Finland", "IRL": "Ireland", "NZL": "New Zealand", "ISR": "Israel",
+    "CZE": "Czech Republic", "ROU": "Romania", "HUN": "Hungary", "GRC": "Greece",
+    "PAK": "Pakistan", "BGD": "Bangladesh", "IRN": "Iran", "IRQ": "Iraq",
+    "MAR": "Morocco", "DZA": "Algeria", "TUN": "Tunisia", "KEN": "Kenya",
+    "GHA": "Ghana", "ETH": "Ethiopia", "TZA": "Tanzania", "UGA": "Uganda",
+    "HKG": "Hong Kong", "TWN": "Taiwan", "MMR": "Myanmar", "KHM": "Cambodia",
+    "LKA": "Sri Lanka", "NPL": "Nepal", "ECU": "Ecuador", "VEN": "Venezuela",
+    "DOM": "Dominican Republic", "GTM": "Guatemala", "CRI": "Costa Rica",
+    "PAN": "Panama", "URY": "Uruguay", "PRY": "Paraguay", "BOL": "Bolivia",
+    "JAM": "Jamaica", "HND": "Honduras", "SLV": "El Salvador", "NIC": "Nicaragua",
+    "BGR": "Bulgaria", "HRV": "Croatia", "SRB": "Serbia", "SVK": "Slovakia",
+    "LTU": "Lithuania", "LVA": "Latvia", "EST": "Estonia", "SVN": "Slovenia",
+    "UKR": "Ukraine", "BLR": "Belarus", "ISL": "Iceland", "LUX": "Luxembourg",
+    "QAT": "Qatar", "KWT": "Kuwait", "OMN": "Oman", "BHR": "Bahrain",
+    "JOR": "Jordan", "LBN": "Lebanon", "SYR": "Syria", "YEM": "Yemen",
+    "LBY": "Libya", "SDN": "Sudan", "SOM": "Somalia", "CMR": "Cameroon",
+    "CIV": "Ivory Coast", "AGO": "Angola", "MOZ": "Mozambique", "MDG": "Madagascar",
+    "ZWE": "Zimbabwe", "RWA": "Rwanda", "BWA": "Botswana", "NAM": "Namibia",
+    "MWI": "Malawi", "ZMB": "Zambia", "MLI": "Mali", "BFA": "Burkina Faso",
+    "NER": "Niger", "TCD": "Chad", "GIN": "Guinea", "SWZ": "Eswatini",
+    "LSO": "Lesotho", "BLZ": "Belize", "CUB": "Cuba", "HTI": "Haiti",
+    "COD": "Democratic Republic of the Congo", "TEN": "Tencent",
+}
+_iso_to_name_json = json.dumps(_ISO_TO_NAME)
+
 _platform_globe_html = (
     """<!DOCTYPE html><html><head>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap">
@@ -3434,6 +3488,9 @@ var countrySubs="""
     + """;
 var num2alpha="""
     + _num2alpha_json
+    + """;
+var isoToName="""
+    + _iso_to_name_json
     + """;
 var platformData="""
     + _platform_data_json
@@ -3536,25 +3593,29 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(fun
     .attr('fill',function(d){var a=num2alpha[String(d.id)]||'';var c=countryColors[a];return c||'#1a2744';})
     .attr('opacity',function(d){var a=num2alpha[String(d.id)]||'';return countryColors[a]?0.75:1;})
     .attr('stroke','rgba(255,255,255,0.08)').attr('stroke-width',0.4)
-    .style('cursor',function(d){var a=num2alpha[String(d.id)]||'';return countryPlatform[a]?'pointer':'default';})
+    .style('cursor','pointer')
     .on('mousemove',function(event,d){
       var a=num2alpha[String(d.id)]||'';
+      var cName=isoToName[a]||'';
+      tooltip.style.display='block';
+      tooltip.style.left=(event.offsetX+12)+'px';
+      tooltip.style.top=(event.offsetY-10)+'px';
       if(countryPlatform[a]){
-        tooltip.style.display='block';
-        tooltip.style.left=(event.offsetX+12)+'px';
-        tooltip.style.top=(event.offsetY-10)+'px';
-        tooltip.innerHTML='<strong style="color:'+countryColors[a]+'">'+countryPlatform[a]+'</strong><br>'+countrySubs[a]+' subscribers<br><span style="font-size:11px;color:#93c5fd;opacity:0.8;">Click to explore on Editorial</span>';
+        tooltip.innerHTML='<strong style="color:'+countryColors[a]+'">'+countryPlatform[a]+'</strong><br>'+countrySubs[a]+' subscribers<br><span style="font-size:11px;color:#93c5fd;opacity:0.8;">Click to explore media data</span>';
+      } else if(cName){
+        tooltip.innerHTML='<strong>'+cName+'</strong><br><span style="font-size:11px;color:#93c5fd;opacity:0.8;">Click to explore media data</span>';
+      } else {
+        tooltip.style.display='none';
       }
     })
     .on('mouseleave',function(){tooltip.style.display='none';})
     .on('click',function(event,d){
       if(globeDragged)return;
       var a=num2alpha[String(d.id)]||'';
-      var platform=countryPlatform[a];
-      if(platform){
-        var bUrl=window.parent.location.pathname.replace(/\/[^\/]*$/,'/');
-        window.parent.location.href=bUrl+'Editorial?company='+encodeURIComponent(platform);
-      }
+      var cName=isoToName[a]||'';
+      if(!cName)return;
+      var bUrl=window.parent.location.pathname.replace(/\/[^\/]*$/,'/');
+      window.parent.location.href=bUrl+'Overview?country='+encodeURIComponent(cName);
     });
   drawLogos();
   startRotation();
