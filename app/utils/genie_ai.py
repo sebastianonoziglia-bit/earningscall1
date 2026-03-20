@@ -243,8 +243,8 @@ def stream_genie_response(messages: list[dict]) -> str:
             placeholder.markdown(clean_thought_markers(full_response))
 
         except Exception as exc:  # pragma: no cover
-            error_msg = f"❌ AI API error: {str(exc)}"
-            placeholder.error(error_msg)
+            error_msg = f"⚠️ AI API issue: {str(exc)}"
+            placeholder.warning(error_msg)
             return error_msg
 
     return full_response

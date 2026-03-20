@@ -1,3 +1,4 @@
+import logging
 import os
 import psycopg
 import streamlit as st
@@ -124,7 +125,7 @@ def ensure_segment_performance_insights(company, year, db_insights=None):
         return updated_insights
         
     except Exception as e:
-        st.error(f"Error generating segment performance insights: {str(e)}")
+        logging.debug(f"\1 unavailable: {e}")
         # Return original insights unchanged
         return db_insights
     
@@ -186,7 +187,7 @@ def get_company_insights(company, year):
         return dict(insights)
     
     except Exception as e:
-        st.error(f"Error fetching company insights: {str(e)}")
+        logging.debug(f"\1 unavailable: {e}")
         return {}
     
     finally:
@@ -245,7 +246,7 @@ def get_segment_insights(company, year):
         return dict(insights)
     
     except Exception as e:
-        st.error(f"Error fetching segment insights: {str(e)}")
+        logging.debug(f"\1 unavailable: {e}")
         return {}
     
     finally:

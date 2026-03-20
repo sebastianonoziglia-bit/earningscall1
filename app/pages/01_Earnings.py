@@ -5925,6 +5925,14 @@ function cgMetric(tab,mid,btn){
             "we remain","we believe","going forward","positioned","full year guidance",
             "we continue to expect","for the year","target","we guide",
         ],
+        "Investment & Acquisitions": [
+            "we invested","we will invest","we committed","we are investing","invest in",
+            "investment of","investments in","investing heavily","capital investment",
+            "acquire","acquired","acquisition","purchase","purchased","purchasing",
+            "buy","buying","bought","deal","transaction","takeover","merger",
+            "joint venture","strategic investment","committed to","billion investment",
+            "million investment","committed capital","deploying capital",
+        ],
     }
 
     _ti_excel = str(excel_path) if "excel_path" in dir() and excel_path else ""

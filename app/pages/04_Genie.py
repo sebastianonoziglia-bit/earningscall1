@@ -568,6 +568,14 @@ def _extract_forward_signals(excel_path: str, company: str = "", max_signals: in
             "looking ahead","we remain","we believe","going forward","positioned",
             "full year guidance","we continue to expect","for the year","target","we guide",
         ],
+        "Investment & Acquisitions": [
+            "we invested","we will invest","we committed","we are investing","invest in",
+            "investment of","investments in","investing heavily","capital investment",
+            "acquire","acquired","acquisition","purchase","purchased","purchasing",
+            "buy","buying","bought","deal","transaction","takeover","merger",
+            "joint venture","strategic investment","committed to","billion investment",
+            "million investment","committed capital","deploying capital",
+        ],
     }
 
     # Build list of (company, year, quarter, text) tuples from any available source
@@ -2882,66 +2890,208 @@ def _extract_node_intent(response_text: str, user_question: str = "") -> dict:
 # ── GENIE CHAT + THOUGHT MAP SECTION ────────────────────────────────────────
 st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
 
-# ── Suggestion chips ─────────────────────────────────────────────────────
+# ── Suggestion chips with category filter + shuffle ──────────────────────
+import random as _rng
+
 _primary = (selected_companies[0] if selected_companies else "Meta Platforms") if "selected_companies" in dir() else "Meta Platforms"
 _yr = (year_range[1] if "year_range" in dir() else 2024)
-_suggestions = [
-    f"What did {_primary} management say about AI investment plans?",
-    f"Compare {_primary} advertising revenue growth vs the overall market trend",
-    f"What are the key risks {_primary} flagged for the next 12 months?",
-    f"Which company had the most surprising segment performance in {_yr}?",
-    "How is the streaming wars playing out — who is winning on subscribers and margins?",
-    "What macro signals (M2, Fed rate) correlate most with ad market growth?",
-    f"Generate a 1-paragraph strategic brief on {_primary} for a European broadcaster",
-]
+
+# Question bank organised by category
+_QUESTION_BANK = {
+    "All": [],  # filled below from all categories
+    "AI & Technology": [
+        f"What did {_primary} management say about AI investment plans in {_yr}?",
+        f"How much is {_primary} spending on data centres and AI infrastructure?",
+        f"Compare AI mentions across Alphabet, Meta, and Microsoft transcripts in {_yr}",
+        "Which company is investing the most in generative AI based on their earnings calls?",
+        f"What AI products or features did {_primary} launch or announce recently?",
+    ],
+    "Advertising": [
+        f"Compare {_primary} advertising revenue growth vs the overall market trend",
+        f"How is {_primary} ad revenue split between search, display, and video?",
+        "Which company is gaining the most ad market share \u2014 and who is losing?",
+        "How did the ad market perform this quarter vs macro forecasts from GroupM/Magna?",
+        f"What did {_primary} say about advertiser demand and CPM trends?",
+    ],
+    "Revenue & Growth": [
+        f"Which company had the most surprising segment performance in {_yr}?",
+        f"Break down {_primary} revenue by segment \u2014 what is driving growth?",
+        "Which company has the fastest revenue growth among the tracked 13?",
+        f"What was {_primary} revenue guidance for the coming quarter?",
+        f"Compare {_primary} revenue trajectory vs its 5-year CAGR",
+    ],
+    "Subscribers & Users": [
+        "How is the streaming wars playing out \u2014 who is winning on subscribers and margins?",
+        f"What did {_primary} say about user growth and engagement trends?",
+        "Compare Netflix, Disney+, and Paramount+ subscriber trajectories",
+        "Which platform has the best revenue per subscriber?",
+        f"What retention or churn signals did {_primary} management highlight?",
+    ],
+    "Investment & Acquisitions": [
+        f"What acquisitions or investments did {_primary} announce in {_yr}?",
+        "Which company committed the most capital to acquisitions this year?",
+        f"What strategic investments is {_primary} making outside its core business?",
+        "Compare CapEx trajectories across Alphabet, Meta, Amazon, and Microsoft",
+        f"Did {_primary} mention any joint ventures or partnership deals?",
+    ],
+    "Cost & Margin": [
+        f"How are {_primary} operating margins trending \u2014 improving or declining?",
+        "Which company has the best cost discipline based on recent earnings calls?",
+        f"What did {_primary} say about headcount changes and efficiency programs?",
+        "Compare gross margins across the Big Tech companies",
+        f"What restructuring or cost-cutting measures did {_primary} announce?",
+    ],
+    "Macro & Market": [
+        "What macro signals (M2, Fed rate) correlate most with ad market growth?",
+        "How are companies talking about inflation and consumer spending?",
+        "What did management teams say about the economic outlook?",
+        "How does M2 money supply growth map to digital ad revenue growth?",
+        "Which companies flagged geopolitical risks in their latest calls?",
+    ],
+    "Competition": [
+        f"What are the key risks {_primary} flagged for the next 12 months?",
+        f"How does {_primary} compare to its closest competitor on key metrics?",
+        "Which company is winning the cloud market based on earnings commentary?",
+        f"What competitive advantages did {_primary} management highlight?",
+        "Who is disrupting whom in the current media landscape?",
+    ],
+    "Strategy Brief": [
+        f"Generate a 1-paragraph strategic brief on {_primary} for a European broadcaster",
+        f"What should Mediaset know about {_primary} as a potential partner or rival?",
+        f"Summarise {_primary} quarterly performance in 3 bullet points",
+        f"What is the single most important thing {_primary} said in their latest call?",
+        "Write a competitive landscape summary for the European ad market",
+    ],
+}
+# Fill "All" from every other category
+for _cat_key, _cat_qs in _QUESTION_BANK.items():
+    if _cat_key != "All" and _cat_qs:
+        _QUESTION_BANK["All"].extend(_cat_qs)
+
+# Shuffle seed in session state
+if "suggestion_seed" not in st.session_state:
+    st.session_state["suggestion_seed"] = _rng.randint(0, 999999)
+if "suggestion_category" not in st.session_state:
+    st.session_state["suggestion_category"] = "All"
+
 st.markdown("""<style>
-/* Suggestion chips */
-.genie-chips-wrap div[data-testid="stButton"] > button,
-.genie-chips-wrap [data-testid="stColumn"] div[data-testid="stButton"] > button {
-    background: #fff7f4 !important;
-    color: #7c2d12 !important;
-    border: 1.5px solid #fed7aa !important;
-    border-radius: 999px !important;
-    font-size: 0.8rem !important;
-    padding: 0.35rem 0.85rem !important;
+/* ── Suggestion area (clean minimal dark cards) ── */
+.genie-suggest-area { margin-bottom: 1rem; }
+.genie-suggest-area div[data-testid="stButton"] > button {
+    background: rgba(255,255,255,0.04) !important;
+    color: #c9d1d9 !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 14px !important;
+    font-size: 0.84rem !important;
+    padding: 0.75rem 1rem !important;
     white-space: normal !important;
     text-align: left !important;
     height: auto !important;
-    min-height: 2.2rem !important;
+    min-height: 3.2rem !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+    backdrop-filter: blur(8px) !important;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1) !important;
+}
+.genie-suggest-area div[data-testid="stButton"] > button:hover {
+    background: rgba(255,91,31,0.08) !important;
+    border-color: rgba(255,91,31,0.35) !important;
+    color: #ff8c42 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25) !important;
+}
+/* Category pills */
+.genie-cat-pills { margin: 0.4rem 0 0.7rem 0; }
+.genie-cat-pills div[data-testid="stButton"] > button {
+    background: transparent !important;
+    color: #6e7681 !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 999px !important;
+    font-size: 0.68rem !important;
+    padding: 0.18rem 0.6rem !important;
     font-weight: 500 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    letter-spacing: 0.02em !important;
     transition: all 0.15s ease !important;
 }
-.genie-chips-wrap div[data-testid="stButton"] > button:hover,
-.genie-chips-wrap [data-testid="stColumn"] div[data-testid="stButton"] > button:hover {
-    background: #ffedd5 !important;
-    border-color: #ff5b1f !important;
-    color: #ff5b1f !important;
+.genie-cat-pills div[data-testid="stButton"] > button:hover {
+    background: rgba(255,255,255,0.06) !important;
+    border-color: rgba(255,91,31,0.4) !important;
+    color: #ff8c42 !important;
+}
+/* Shuffle button */
+.genie-shuffle div[data-testid="stButton"] > button {
+    background: linear-gradient(135deg, #ff5b1f 0%, #ff8c42 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 999px !important;
+    font-size: 0.76rem !important;
+    padding: 0.28rem 0.9rem !important;
+    font-weight: 600 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    transition: all 0.15s ease !important;
+    box-shadow: 0 2px 8px rgba(255,91,31,0.2) !important;
+}
+.genie-shuffle div[data-testid="stButton"] > button:hover {
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 16px rgba(255,91,31,0.35) !important;
 }
 </style>""", unsafe_allow_html=True)
-if "used_chip_indices" not in st.session_state:
-    st.session_state["used_chip_indices"] = set()
-_used_chips = st.session_state["used_chip_indices"]
 
-st.markdown('<div class="genie-chips-wrap">', unsafe_allow_html=True)
-st.markdown("**Suggested questions:**")
-_chip_cols = st.columns(min(len(_suggestions), 3))
-for _i, _sugg in enumerate(_suggestions):
-    with _chip_cols[_i % len(_chip_cols)]:
-        _is_used = _i in _used_chips
-        _chip_label = ("✓ " if _is_used else "") + _sugg[:80] + ("\u2026" if len(_sugg) > 80 else "")
-        if st.button(
-            _chip_label,
-            key=f"suggestion_chip_{_i}",
-            use_container_width=True,
-            disabled=_is_used,
-        ):
-            st.session_state["used_chip_indices"].add(_i)
-            st.session_state.setdefault("genie_history", []).append(
-                {"role": "user", "content": _sugg}
-            )
+# Header row: title + shuffle
+_hdr_left, _hdr_right = st.columns([4, 1])
+with _hdr_left:
+    st.markdown(
+        "<p style='font-size:0.9rem;font-weight:600;color:#e6edf3;margin:0 0 0.2rem 0;'>"
+        "\U0001f4a1 Suggested questions</p>",
+        unsafe_allow_html=True,
+    )
+with _hdr_right:
+    st.markdown('<div class="genie-shuffle">', unsafe_allow_html=True)
+    if st.button("\U0001f500 Shuffle", key="shuffle_suggestions", use_container_width=True):
+        st.session_state["suggestion_seed"] = _rng.randint(0, 999999)
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Category filter pills
+_cat_names = [c for c in _QUESTION_BANK if _QUESTION_BANK[c]]
+st.markdown('<div class="genie-cat-pills">', unsafe_allow_html=True)
+_cat_cols = st.columns(min(len(_cat_names), 5))
+for _ci, _cname in enumerate(_cat_names):
+    with _cat_cols[_ci % len(_cat_cols)]:
+        _is_active = (st.session_state["suggestion_category"] == _cname)
+        _cat_label = f"\u25cf {_cname}" if _is_active else _cname
+        if st.button(_cat_label, key=f"cat_pill_{_ci}", use_container_width=True):
+            st.session_state["suggestion_category"] = _cname
+            st.session_state["suggestion_seed"] = _rng.randint(0, 999999)
             st.rerun()
-st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Pick 3 questions from the active category using the shuffle seed
+_active_cat = st.session_state["suggestion_category"]
+_pool = list(_QUESTION_BANK.get(_active_cat, _QUESTION_BANK["All"]))
+_seed_rng = _rng.Random(st.session_state["suggestion_seed"])
+_seed_rng.shuffle(_pool)
+_visible_suggestions = _pool[:3]
+
+# Display the 3 clickable question cards
+st.markdown('<div class="genie-suggest-area">', unsafe_allow_html=True)
+_sugg_cols = st.columns(3)
+for _si, _sq in enumerate(_visible_suggestions):
+    with _sugg_cols[_si]:
+        if st.button(
+            _sq[:140] + ("\u2026" if len(_sq) > 140 else ""),
+            key=f"suggest_q_{st.session_state['suggestion_seed']}_{_si}",
+            use_container_width=True,
+        ):
+            st.session_state.setdefault("genie_history", []).append(
+                {"role": "user", "content": _sq}
+            )
+            st.session_state["suggestion_seed"] = _rng.randint(0, 999999)
+            st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Forward Signals Panel ─────────────────────────────────────────────────
 st.markdown("<hr style='margin: 2rem 0 1rem 0;'>", unsafe_allow_html=True)
@@ -3017,7 +3167,8 @@ if _all_signals:
 
         _cat_order = ["AI & Technology", "Advertising", "Subscribers & Users", "Revenue & Growth",
                       "Business Strategy", "International Expansion", "Debt & Capital", "Competition",
-                      "Product & Innovation", "Cost & Margin", "Macro & Market", "Management Guidance"]
+                      "Product & Innovation", "Cost & Margin", "Macro & Market", "Management Guidance",
+                      "Investment & Acquisitions"]
         _cats_present = [c for c in _cat_order if c in _cats] + [c for c in _cats if c not in _cat_order]
         for _cat in _cats_present:
             with st.expander(

@@ -231,6 +231,6 @@ def render_ai_assistant(location="sidebar", width=None, height=None, current_pag
     except Exception as e:
         logger.error(f"Error rendering AI Assistant: {str(e)}")
         if location == "sidebar":
-            st.sidebar.error("Error displaying AI Assistant.")
+            pass  # silenced — AI assistant optional
         else:
-            st.error("Error displaying AI Assistant.")
+            pass  # silenced — AI assistant optional
