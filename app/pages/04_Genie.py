@@ -27,7 +27,7 @@ from utils.data_loader import load_advertising_data, get_available_filters, read
 from utils.components import render_ai_assistant
 from utils.styles import load_common_styles, load_genie_specific_styles
 from utils.enhanced_chat_interface import render_enhanced_chat_interface
-from utils.thought_map import render_thought_map, render_thought_map_controls
+from utils.thought_map import render_thought_map, render_thought_map_controls, match_signal_category
 from utils.m2_supply_data import get_m2_monthly_data, get_m2_annual_data, create_m2_visualization
 from utils.fed_funds_data import get_fed_funds_annual_data
 from utils.bitcoin_analysis import get_bitcoin_monthly_returns, create_bitcoin_monthly_returns_chart, render_bitcoin_analysis_section
@@ -109,14 +109,8 @@ def _render_ai_settings_controls(key_prefix: str = "sidebar"):
         st.rerun()
 
 
-# ── AI Settings sidebar ──
-with st.sidebar.expander("🔑 AI Settings", expanded=False):
-    _render_ai_settings_controls("sidebar")
-
-# Sidebar is hidden in fullscreen mode; provide visible fallback controls in main page.
-if st.session_state.get("hide_sidebar_nav", False):
-    with st.expander("🔑 AI Settings", expanded=False):
-        _render_ai_settings_controls("inline")
+# ── AI Settings hidden from user — keys managed via env/secrets only ──
+# (Previously exposed API key inputs here; removed for production UX)
 
 # Add SQL Assistant in the sidebar
 from utils.sql_assistant_sidebar import render_sql_assistant_sidebar
@@ -2942,7 +2936,22 @@ else:
         )
 
 st.markdown("</div>", unsafe_allow_html=True)
-render_enhanced_chat_interface(dashboard_state=dashboard_state, on_new_response=_store_last_genie_response)
+
+# ── Depth selector for thought map ──
+from utils.thought_map import render_depth_selector
+st.markdown(
+    "<div style='margin:1.5rem 0 0.5rem;'>"
+    "<span style='font-size:0.75rem;color:#6b7280;text-transform:uppercase;"
+    "letter-spacing:0.08em;font-weight:600;'>Thought map depth</span></div>",
+    unsafe_allow_html=True,
+)
+render_depth_selector()
+
+# ── Side-by-side: Chat (right) + Thought Map (left) ──
+_tm_col, _chat_col = st.columns([1.8, 1], gap="medium")
+
+with _chat_col:
+    render_enhanced_chat_interface(dashboard_state=dashboard_state, on_new_response=_store_last_genie_response)
 
 # Fallback for pre-existing chat sessions where callback has not fired yet in this run.
 if not st.session_state.get("last_genie_response"):
@@ -3400,211 +3409,216 @@ padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;'>
     except Exception:
         pass
 
-# ── THOUGHT MAP ──────────────────────────────────────────────────────────────
-st.markdown("<hr style='margin: 2.5rem 0 1rem 0;'>", unsafe_allow_html=True)
-st.markdown(
-    """
-<div style='display:flex; align-items:center; gap:12px; margin-bottom:6px;'>
-  <span style='font-size:1.15rem; font-weight:900; color:#0F172A;'>💭 Thought Map</span>
-  <span style='background:rgba(0,115,255,0.1); border:1px solid rgba(0,115,255,0.25);
-    border-radius:999px; padding:2px 10px; font-size:0.7rem; font-weight:700;
-    color:#0073FF; letter-spacing:0.06em; text-transform:uppercase;'>Beta</span>
-</div>
-<p style='color:#64748B; font-size:0.85rem; margin-bottom:1rem;'>
-  Visual map of Genie's reasoning — auto-populated from every response.
-  Add your own nodes, elaborate any branch, export as JSON or Markdown.
-</p>
-""",
-    unsafe_allow_html=True,
-)
-# ── D3 THOUGHT MAP ────────────────────────────────────────────────────────
-_tm_history = st.session_state.get("genie_history", [])
-_tm_nodes = []
-_tm_edges = []
+# ── THOUGHT MAP (rendered inside left column from the side-by-side layout) ──
+with _tm_col:
+    st.markdown(
+        """
+    <div style='display:flex; align-items:center; gap:12px; margin-bottom:6px;'>
+      <span style='font-size:1.15rem; font-weight:900; color:#0F172A;'>💭 Thought Map</span>
+      <span style='background:rgba(0,115,255,0.1); border:1px solid rgba(0,115,255,0.25);
+        border-radius:999px; padding:2px 10px; font-size:0.7rem; font-weight:700;
+        color:#0073FF; letter-spacing:0.06em; text-transform:uppercase;'>Beta</span>
+    </div>
+    <p style='color:#64748B; font-size:0.85rem; margin-bottom:1rem;'>
+      Visual map of Genie's reasoning — grows with every response.
+    </p>
+    """,
+        unsafe_allow_html=True,
+    )
+    # ── D3 THOUGHT MAP ────────────────────────────────────────────────────────
+    _tm_history = st.session_state.get("genie_history", [])
+    _tm_nodes = []
+    _tm_edges = []
 
-for _i, _msg in enumerate(_tm_history):
-    if _msg.get("role") not in {"user", "assistant"}:
-        continue
-    _content = str(_msg.get("content", ""))[:120]
-    _role = _msg.get("role", "")
-    try:
-        _intent = _extract_node_intent(_content)
-        _co = _intent.get("primary_company", "")
-        _ntype = _intent.get("node_type", "default")
-        _color = (COMPANY_BRAND_COLORS.get(_co.lower(), "") or
-                  TOPIC_NODE_COLORS.get(_ntype, "#94A3B8"))
-        _logo = ""
+    for _i, _msg in enumerate(_tm_history):
+        if _msg.get("role") not in {"user", "assistant"}:
+            continue
+        _content = str(_msg.get("content", ""))[:120]
+        _role = _msg.get("role", "")
         try:
-            _logos_dict = st.session_state.get("_cached_logos") or {}
-            if not _logos_dict:
-                from utils.logos import load_company_logos
-                _logos_dict = load_company_logos()
-                st.session_state["_cached_logos"] = _logos_dict
-            for _k in _logos_dict:
-                if _co and _k.lower() == _co.lower():
-                    _logo = _logos_dict[_k]
-                    break
+            _intent = _extract_node_intent(_content)
+            _co = _intent.get("primary_company", "")
+            _ntype = _intent.get("node_type", "default")
+            _color = (COMPANY_BRAND_COLORS.get(_co.lower(), "") or
+                      TOPIC_NODE_COLORS.get(_ntype, "#94A3B8"))
+            _logo = ""
+            try:
+                _logos_dict = st.session_state.get("_cached_logos") or {}
+                if not _logos_dict:
+                    from utils.logos import load_company_logos
+                    _logos_dict = load_company_logos()
+                    st.session_state["_cached_logos"] = _logos_dict
+                for _k in _logos_dict:
+                    if _co and _k.lower() == _co.lower():
+                        _logo = _logos_dict[_k]
+                        break
+            except Exception:
+                pass
         except Exception:
-            pass
-    except Exception:
-        _color = "#60A5FA" if _role == "user" else "#94A3B8"
-        _co = ""
-        _logo = ""
+            _color = "#60A5FA" if _role == "user" else "#94A3B8"
+            _co = ""
+            _logo = ""
 
-    _full_content = str(_msg.get("content", ""))
-    _tm_nodes.append({
-        "id": _i,
-        "label": _content[:60] + ("..." if len(_content) > 60 else ""),
-        "full": _full_content[:800] + ("..." if len(_full_content) > 800 else ""),
-        "color": _color,
-        "role": _role,
-        "company": _co,
-        "logo": _logo,
-    })
-    if _i > 0:
-        _tm_edges.append({"from": _i - 1, "to": _i, "color": _color})
+        _full_content = str(_msg.get("content", ""))
+        # Signal category tagging from intelligence layer
+        _sig_cat, _sig_border = match_signal_category(_full_content[:500])
+        if _sig_border and _role == "assistant":
+            _color = _sig_border  # Override node color with signal category
+        _tm_nodes.append({
+            "id": _i,
+            "label": _content[:60] + ("..." if len(_content) > 60 else ""),
+            "full": _full_content[:800] + ("..." if len(_full_content) > 800 else ""),
+            "color": _color,
+            "role": _role,
+            "company": _co,
+            "logo": _logo,
+            "signal": _sig_cat,
+        })
+        if _i > 0:
+            _tm_edges.append({"from": _i - 1, "to": _i, "color": _color})
 
-import json as _tm_json
-_nodes_json = _tm_json.dumps(_tm_nodes)
-_edges_json = _tm_json.dumps(_tm_edges)
+    import json as _tm_json
+    _nodes_json = _tm_json.dumps(_tm_nodes)
+    _edges_json = _tm_json.dumps(_tm_edges)
 
-_tm_html = (
-    """<!DOCTYPE html><html><head><style>
-html,body{margin:0;padding:0;background:#fafbfc;overflow:hidden;font-family:'DM Sans',sans-serif;}
-#tm-root{width:100%;height:480px;position:relative;}
-svg{width:100%;height:100%;}
-.node-card{cursor:pointer;}
-#tm-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.97);
-border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;
-border-radius:8px;font-size:12px;pointer-events:none;z-index:100;max-width:280px;line-height:1.5;}
-#tm-detail{display:none;position:absolute;bottom:0;left:0;right:0;z-index:200;
-background:#0f172a;border-top:2px solid #0073FF;padding:12px 16px 14px;
-max-height:190px;overflow-y:auto;animation:tmslide 0.18s ease;}
-@keyframes tmslide{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
-#tm-detail-close{float:right;background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem;padding:0 4px;}
-#tm-detail-close:hover{color:#e2e8f0;}
-#tm-detail-role{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;
-font-weight:700;color:#0f172a;background:#60a5fa;border-radius:4px;
-padding:1px 7px;display:inline-block;margin-bottom:7px;}
-#tm-detail-text{color:#cbd5e1;font-size:0.83rem;line-height:1.6;white-space:pre-wrap;}
-</style></head><body>
-<div id="tm-root"><div id="tm-tooltip"></div>
-<div id="tm-detail">
-  <button id="tm-detail-close" onclick="document.getElementById('tm-detail').style.display='none'">✕</button>
-  <div id="tm-detail-role"></div>
-  <div id="tm-detail-text"></div>
-</div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-<script>
-var nodes="""
-    + _nodes_json
-    + """;
-var edges="""
-    + _edges_json
-    + """;
-if(!nodes.length){
-    d3.select('#tm-root').append('div')
-        .style('display','flex').style('align-items','center')
-        .style('justify-content','center').style('height','100%')
-        .style('color','#9ca3af').style('font-size','14px')
-        .text('Ask Genie something to see your thought map grow here.');
-} else {
-var W=document.getElementById('tm-root').clientWidth||900;
-var H=480;
-var tooltip=document.getElementById('tm-tooltip');
-var svg=d3.select('#tm-root').append('svg');
-var simulation=d3.forceSimulation(nodes)
-    .force('link',d3.forceLink(edges).id(function(d){return d.id;}).distance(120).strength(0.8))
-    .force('charge',d3.forceManyBody().strength(-300))
-    .force('center',d3.forceCenter(W/2,H/2))
-    .force('collision',d3.forceCollide(60));
-svg.append('defs').append('marker')
-    .attr('id','arrowhead').attr('viewBox','0 0 10 10')
-    .attr('refX',28).attr('refY',5)
-    .attr('markerWidth',6).attr('markerHeight',6)
-    .attr('orient','auto-start-reverse')
-    .append('path').attr('d','M2 1L8 5L2 9')
-    .attr('fill','none').attr('stroke','#cbd5e1').attr('stroke-width',1.5);
-var edgeG=svg.append('g');
-var edgeLines=edgeG.selectAll('path').data(edges).enter().append('path')
-    .attr('fill','none').attr('stroke-opacity',0.4).attr('stroke-width',1.5)
-    .attr('stroke-dasharray','4 2')
-    .attr('stroke',function(d){return d.color||'#4b5563';})
-    .attr('marker-end','url(#arrowhead)');
-var nodeG=svg.append('g');
-var drag=d3.drag()
-    .on('start',function(event,d){if(!event.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
-    .on('drag',function(event,d){d.fx=event.x;d.fy=event.y;})
-    .on('end',function(event,d){if(!event.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;});
-var nodeGroups=nodeG.selectAll('g').data(nodes).enter().append('g')
-    .attr('class','node-card').call(drag)
-    .on('mouseover',function(event,d){
-        tooltip.style.display='block';
-        tooltip.style.left=(event.offsetX+12)+'px';
-        tooltip.style.top=(event.offsetY-10)+'px';
-        tooltip.innerHTML=(d.company?'<strong style="color:'+d.color+'">'+d.company+'</strong><br>':'')+
-            '<span style="color:#9ca3af;font-size:10px;text-transform:uppercase">'+d.role+'</span><br>'+d.label;
-    })
-    .on('mouseout',function(){tooltip.style.display='none';})
-    .on('click',function(event,d){
-        var det=document.getElementById('tm-detail');
-        var role=d.role==='user'?'Question':'Answer';
-        document.getElementById('tm-detail-role').textContent=role+(d.company?' — '+d.company:'');
-        document.getElementById('tm-detail-text').textContent=d.full||d.label;
-        det.style.display='block';
-        tooltip.style.display='none';
-        event.stopPropagation();
-    });
-nodeGroups.append('circle')
-    .attr('r',function(d){return d.role==='user'?24:20;})
-    .attr('fill',function(d){return d.color+'22';})
-    .attr('stroke',function(d){return d.color;})
-    .attr('stroke-width',function(d){return d.role==='user'?2:1.5;});
-nodeGroups.each(function(d){
-    var g=d3.select(this);
-    var r=d.role==='user'?14:12;
-    if(d.logo){
-        var clipId='clip-tm-'+d.id;
-        svg.select('defs').append('clipPath').attr('id',clipId)
-            .append('circle').attr('r',r);
-        g.append('image')
-            .attr('href','data:image/png;base64,'+d.logo)
-            .attr('x',-r).attr('y',-r).attr('width',r*2).attr('height',r*2)
-            .attr('clip-path','url(#'+clipId+')');
+    _tm_html = (
+        """<!DOCTYPE html><html><head><style>
+    html,body{margin:0;padding:0;background:#fafbfc;overflow:hidden;font-family:'DM Sans',sans-serif;}
+    #tm-root{width:100%;height:480px;position:relative;}
+    svg{width:100%;height:100%;}
+    .node-card{cursor:pointer;}
+    #tm-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.97);
+    border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;
+    border-radius:8px;font-size:12px;pointer-events:none;z-index:100;max-width:280px;line-height:1.5;}
+    #tm-detail{display:none;position:absolute;bottom:0;left:0;right:0;z-index:200;
+    background:#0f172a;border-top:2px solid #0073FF;padding:12px 16px 14px;
+    max-height:190px;overflow-y:auto;animation:tmslide 0.18s ease;}
+    @keyframes tmslide{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+    #tm-detail-close{float:right;background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem;padding:0 4px;}
+    #tm-detail-close:hover{color:#e2e8f0;}
+    #tm-detail-role{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;
+    font-weight:700;color:#0f172a;background:#60a5fa;border-radius:4px;
+    padding:1px 7px;display:inline-block;margin-bottom:7px;}
+    #tm-detail-text{color:#cbd5e1;font-size:0.83rem;line-height:1.6;white-space:pre-wrap;}
+    </style></head><body>
+    <div id="tm-root"><div id="tm-tooltip"></div>
+    <div id="tm-detail">
+      <button id="tm-detail-close" onclick="document.getElementById('tm-detail').style.display='none'">✕</button>
+      <div id="tm-detail-role"></div>
+      <div id="tm-detail-text"></div>
+    </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script>
+    var nodes="""
+        + _nodes_json
+        + """;
+    var edges="""
+        + _edges_json
+        + """;
+    if(!nodes.length){
+        d3.select('#tm-root').append('div')
+            .style('display','flex').style('align-items','center')
+            .style('justify-content','center').style('height','100%')
+            .style('color','#9ca3af').style('font-size','14px')
+            .text('Ask Genie something to see your thought map grow here.');
     } else {
-        g.append('text')
-            .attr('text-anchor','middle').attr('dominant-baseline','central')
-            .attr('font-size',d.role==='user'?'13px':'11px')
-            .attr('font-weight','700').attr('fill',d.color)
-            .text(d.company?d.company[0]:(d.role==='user'?'Q':'A'));
+    var W=document.getElementById('tm-root').clientWidth||900;
+    var H=480;
+    var tooltip=document.getElementById('tm-tooltip');
+    var svg=d3.select('#tm-root').append('svg');
+    var simulation=d3.forceSimulation(nodes)
+        .force('link',d3.forceLink(edges).id(function(d){return d.id;}).distance(120).strength(0.8))
+        .force('charge',d3.forceManyBody().strength(-300))
+        .force('center',d3.forceCenter(W/2,H/2))
+        .force('collision',d3.forceCollide(60));
+    svg.append('defs').append('marker')
+        .attr('id','arrowhead').attr('viewBox','0 0 10 10')
+        .attr('refX',28).attr('refY',5)
+        .attr('markerWidth',6).attr('markerHeight',6)
+        .attr('orient','auto-start-reverse')
+        .append('path').attr('d','M2 1L8 5L2 9')
+        .attr('fill','none').attr('stroke','#cbd5e1').attr('stroke-width',1.5);
+    var edgeG=svg.append('g');
+    var edgeLines=edgeG.selectAll('path').data(edges).enter().append('path')
+        .attr('fill','none').attr('stroke-opacity',0.4).attr('stroke-width',1.5)
+        .attr('stroke-dasharray','4 2')
+        .attr('stroke',function(d){return d.color||'#4b5563';})
+        .attr('marker-end','url(#arrowhead)');
+    var nodeG=svg.append('g');
+    var drag=d3.drag()
+        .on('start',function(event,d){if(!event.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
+        .on('drag',function(event,d){d.fx=event.x;d.fy=event.y;})
+        .on('end',function(event,d){if(!event.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;});
+    var nodeGroups=nodeG.selectAll('g').data(nodes).enter().append('g')
+        .attr('class','node-card').call(drag)
+        .on('mouseover',function(event,d){
+            tooltip.style.display='block';
+            tooltip.style.left=(event.offsetX+12)+'px';
+            tooltip.style.top=(event.offsetY-10)+'px';
+            var sigHtml=d.signal?'<span style="display:inline-block;font-size:9px;background:'+d.color+'22;color:'+d.color+';border:1px solid '+d.color+'44;border-radius:4px;padding:1px 6px;margin-bottom:4px;">'+d.signal+'</span><br>':'';
+                tooltip.innerHTML=sigHtml+(d.company?'<strong style="color:'+d.color+'">'+d.company+'</strong><br>':'')+
+                '<span style="color:#9ca3af;font-size:10px;text-transform:uppercase">'+d.role+'</span><br>'+d.label;
+        })
+        .on('mouseout',function(){tooltip.style.display='none';})
+        .on('click',function(event,d){
+            var det=document.getElementById('tm-detail');
+            var role=d.role==='user'?'Question':'Answer';
+            document.getElementById('tm-detail-role').textContent=role+(d.company?' — '+d.company:'');
+            document.getElementById('tm-detail-text').textContent=d.full||d.label;
+            det.style.display='block';
+            tooltip.style.display='none';
+            event.stopPropagation();
+        });
+    nodeGroups.append('circle')
+        .attr('r',function(d){return d.role==='user'?24:20;})
+        .attr('fill',function(d){return d.color+'22';})
+        .attr('stroke',function(d){return d.color;})
+        .attr('stroke-width',function(d){return d.role==='user'?2:1.5;});
+    nodeGroups.each(function(d){
+        var g=d3.select(this);
+        var r=d.role==='user'?14:12;
+        if(d.logo){
+            var clipId='clip-tm-'+d.id;
+            svg.select('defs').append('clipPath').attr('id',clipId)
+                .append('circle').attr('r',r);
+            g.append('image')
+                .attr('href','data:image/png;base64,'+d.logo)
+                .attr('x',-r).attr('y',-r).attr('width',r*2).attr('height',r*2)
+                .attr('clip-path','url(#'+clipId+')');
+        } else {
+            g.append('text')
+                .attr('text-anchor','middle').attr('dominant-baseline','central')
+                .attr('font-size',d.role==='user'?'13px':'11px')
+                .attr('font-weight','700').attr('fill',d.color)
+                .text(d.company?d.company[0]:(d.role==='user'?'Q':'A'));
+        }
+    });
+    nodeGroups.append('circle')
+        .attr('cx',16).attr('cy',-16).attr('r',6)
+        .attr('fill',function(d){return d.role==='user'?'#3b82f6':'#8b5cf6';})
+        .attr('stroke','#fafbfc').attr('stroke-width',1.5);
+    nodeGroups.append('text')
+        .attr('x',16).attr('y',-16).attr('text-anchor','middle')
+        .attr('dominant-baseline','central').attr('font-size','7px')
+        .attr('fill','white').attr('font-weight','700')
+        .text(function(d){return d.role==='user'?'Q':'A';});
+    simulation.on('tick',function(){
+        edgeLines.attr('d',function(d){
+            var dx=d.target.x-d.source.x;
+            var dy=d.target.y-d.source.y;
+            var dr=Math.sqrt(dx*dx+dy*dy)*1.2;
+            return 'M'+d.source.x+','+d.source.y+'A'+dr+','+dr+' 0 0,1 '+d.target.x+','+d.target.y;
+        });
+        nodeGroups.attr('transform',function(d){
+            return 'translate('+Math.max(30,Math.min(W-30,d.x))+','+Math.max(30,Math.min(H-30,d.y))+')';
+        });
+    });
     }
-});
-nodeGroups.append('circle')
-    .attr('cx',16).attr('cy',-16).attr('r',6)
-    .attr('fill',function(d){return d.role==='user'?'#3b82f6':'#8b5cf6';})
-    .attr('stroke','#fafbfc').attr('stroke-width',1.5);
-nodeGroups.append('text')
-    .attr('x',16).attr('y',-16).attr('text-anchor','middle')
-    .attr('dominant-baseline','central').attr('font-size','7px')
-    .attr('fill','white').attr('font-weight','700')
-    .text(function(d){return d.role==='user'?'Q':'A';});
-simulation.on('tick',function(){
-    edgeLines.attr('d',function(d){
-        var dx=d.target.x-d.source.x;
-        var dy=d.target.y-d.source.y;
-        var dr=Math.sqrt(dx*dx+dy*dy)*1.2;
-        return 'M'+d.source.x+','+d.source.y+'A'+dr+','+dr+' 0 0,1 '+d.target.x+','+d.target.y;
-    });
-    nodeGroups.attr('transform',function(d){
-        return 'translate('+Math.max(30,Math.min(W-30,d.x))+','+Math.max(30,Math.min(H-30,d.y))+')';
-    });
-});
-}
-svg.on('click',function(){document.getElementById('tm-detail').style.display='none';});
-</script></body></html>"""
-)
-st.components.v1.html(_tm_html, height=500, scrolling=False)
+    svg.on('click',function(){document.getElementById('tm-detail').style.display='none';});
+    </script></body></html>"""
+    )
+    st.components.v1.html(_tm_html, height=500, scrolling=False)
 
 # ── EARNINGS REACTION HEATMAP ────────────────────────────────────────────────
 st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)

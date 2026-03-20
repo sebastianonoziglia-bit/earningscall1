@@ -6,6 +6,96 @@ from datetime import datetime
 import streamlit as st
 import streamlit.components.v1 as components
 
+# ── Signal category tagging from transcript intelligence layer ──
+try:
+    from utils.transcript_live import (
+        SIGNAL_COLORS,
+        OUTLOOK_KEYWORDS,
+        RISK_KEYWORDS,
+        OPPORTUNITY_KEYWORDS,
+        INVESTMENT_KEYWORDS,
+        PRODUCT_SHIFT_KEYWORDS,
+        USER_BEHAVIOR_KEYWORDS,
+        MONETIZATION_KEYWORDS,
+        STRATEGIC_DIRECTION_KEYWORDS,
+        BROADCASTER_THREAT_KEYWORDS,
+    )
+except ImportError:
+    SIGNAL_COLORS = {}
+    OUTLOOK_KEYWORDS = RISK_KEYWORDS = OPPORTUNITY_KEYWORDS = []
+    INVESTMENT_KEYWORDS = PRODUCT_SHIFT_KEYWORDS = USER_BEHAVIOR_KEYWORDS = []
+    MONETIZATION_KEYWORDS = STRATEGIC_DIRECTION_KEYWORDS = BROADCASTER_THREAT_KEYWORDS = []
+
+_SIGNAL_KEYWORD_MAP = {
+    "Outlook": OUTLOOK_KEYWORDS,
+    "Risks": RISK_KEYWORDS,
+    "Opportunities": OPPORTUNITY_KEYWORDS,
+    "Investment": INVESTMENT_KEYWORDS,
+    "Product Shifts": PRODUCT_SHIFT_KEYWORDS,
+    "User Behavior": USER_BEHAVIOR_KEYWORDS,
+    "Monetization": MONETIZATION_KEYWORDS,
+    "Strategic Direction": STRATEGIC_DIRECTION_KEYWORDS,
+    "Broadcaster Threats": BROADCASTER_THREAT_KEYWORDS,
+}
+
+
+def match_signal_category(text: str) -> tuple[str, str]:
+    """Match node text against signal keyword maps. Returns (category, border_color) or ("","")."""
+    text_lower = text.lower()
+    best_cat = ""
+    best_score = 0
+    for cat, keywords in _SIGNAL_KEYWORD_MAP.items():
+        score = sum(1 for kw in keywords if kw.lower() in text_lower)
+        if score > best_score:
+            best_score = score
+            best_cat = cat
+    if best_score >= 1 and best_cat in SIGNAL_COLORS:
+        return best_cat, SIGNAL_COLORS[best_cat]["border"]
+    return "", ""
+
+
+# ── Depth mode definitions ──
+DEPTH_MODES = {
+    "focused": {
+        "label": "3-4 nodes",
+        "icon": "🎯",
+        "desc": "Tight causal chain",
+        "prompt_insert": (
+            "MODE: FOCUSED (3-4 nodes). Build a tight CAUSAL CHAIN. "
+            "Each step must logically follow the previous one. "
+            "Use exactly: [STEP 1] → [STEP 2] → [STEP 3] → [CONCLUSION]. "
+            "No branches. Linear reasoning only. Every link should feel inevitable."
+        ),
+    },
+    "balanced": {
+        "label": "5-7 nodes",
+        "icon": "🌿",
+        "desc": "Branching tree with loops",
+        "prompt_insert": (
+            "MODE: BALANCED (5-7 nodes). Build a BRANCHING TREE. "
+            "Start with 2-3 sequential steps, then FORK into at least one [BRANCH]. "
+            "One branch should loop back to challenge an earlier step. "
+            "Include ONE surprising lateral connection the user would not expect. "
+            "Use: [STEP 1] → [STEP 2] → [BRANCH A] alternative → [STEP 3] → [BRANCH B] risk → [CONCLUSION]."
+        ),
+    },
+    "deep": {
+        "label": "8-12 nodes",
+        "icon": "🕸️",
+        "desc": "Web with contrarian nodes",
+        "prompt_insert": (
+            "MODE: DEEP WEB (8-12 nodes). Build a complex WEB of reasoning. "
+            "Include SECOND-ORDER effects (what happens because of what happens). "
+            "Include at least 2 [BRANCH] nodes that are CONTRARIAN — ideas that push back "
+            "on the main thesis or reveal a hidden risk. "
+            "Create CROSS-CONNECTIONS between branches (mention earlier steps by name). "
+            "Include an [OBSERVATION] that connects two seemingly unrelated data points. "
+            "The map should feel like a network, not a line. "
+            "Use all marker types: STEP, BRANCH, OBSERVATION, INFERENCE, ANALYSIS, RISK, CONCLUSION."
+        ),
+    },
+}
+
 
 def _empty_map() -> dict:
     return {"nodes": {}, "edges": [], "root_ids": [], "version": 1}
@@ -15,6 +105,31 @@ def _get_map() -> dict:
     if "thought_map" not in st.session_state:
         st.session_state["thought_map"] = _empty_map()
     return st.session_state["thought_map"]
+
+
+def get_depth_prompt_insert() -> str:
+    """Return the prompt insert for the current depth mode."""
+    mode = st.session_state.get("thought_map_depth", "balanced")
+    return DEPTH_MODES.get(mode, DEPTH_MODES["balanced"])["prompt_insert"]
+
+
+def render_depth_selector():
+    """Render compact depth selector as horizontal buttons."""
+    current = st.session_state.get("thought_map_depth", "balanced")
+    cols = st.columns(len(DEPTH_MODES))
+    for i, (key, mode) in enumerate(DEPTH_MODES.items()):
+        with cols[i]:
+            is_active = key == current
+            style = "primary" if is_active else "secondary"
+            if st.button(
+                f"{mode['icon']} {mode['label']}",
+                key=f"depth_{key}",
+                type=style,
+                use_container_width=True,
+                help=mode["desc"],
+            ):
+                st.session_state["thought_map_depth"] = key
+                st.rerun()
 
 
 STEP_PATTERN = re.compile(
@@ -138,6 +253,12 @@ def render_thought_map(height: int = 520):
     cy_nodes = []
     for node in tm["nodes"].values():
         color = NODE_COLORS.get(node["type"], "#64748B")
+        # Signal category tagging — override color if node matches intelligence signals
+        sig_cat, sig_color = match_signal_category(
+            node.get("label", "") + " " + node.get("content", "")
+        )
+        if sig_color:
+            color = sig_color
         cy_nodes.append(
             {
                 "data": {
@@ -149,6 +270,7 @@ def render_thought_map(height: int = 520):
                     "type": node["type"],
                     "color": color,
                     "depth": node["depth"],
+                    "signalCategory": sig_cat,
                 }
             }
         )

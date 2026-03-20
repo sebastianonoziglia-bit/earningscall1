@@ -188,9 +188,17 @@ def build_genie_messages(
         f"Transcript excerpt: {transcript_excerpt}"
     )
 
+    # Inject depth mode into system prompt for thought map quality
+    try:
+        from utils.thought_map import get_depth_prompt_insert
+        depth_insert = get_depth_prompt_insert()
+    except ImportError:
+        depth_insert = ""
+
     state_json = json.dumps(dashboard_state, indent=2, default=str)
     system_content = (
         GENIE_SYSTEM_PROMPT
+        + (f"\n\n## THOUGHT MAP DEPTH MODE\n{depth_insert}" if depth_insert else "")
         + f"\n\n## DB CONTEXT\n{db_context_prompt}"
         + f"\n\n## CURRENT DASHBOARD STATE\n```json\n{state_json}\n```"
     )
