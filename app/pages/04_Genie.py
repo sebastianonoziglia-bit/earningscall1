@@ -1213,6 +1213,11 @@ all_years = sorted(int(y) for y in year_candidates if y is not None)
 if not all_years:
     all_years = list(range(2010, datetime.now().year + 1))
 
+# Ensure min < max to prevent RangeError on slider
+if len(all_years) < 2 or min(all_years) >= max(all_years):
+    _pad_min = min(all_years) if all_years else 2010
+    all_years = list(range(min(_pad_min, 2010), max(_pad_min + 1, datetime.now().year + 1)))
+
 year_range = st.slider(
     "Select Year Range",
     min_value=min(all_years),
@@ -2804,11 +2809,14 @@ if _all_signals:
                             )
                             st.rerun()
 else:
-    st.info(
-        "Select companies in the sidebar to see guidance signals."
-        if not _fs_companies
-        else "No forward-looking signals found in transcripts."
-    )
+    if not _fs_companies:
+        st.info("Select companies above to see guidance signals extracted from earnings call transcripts.")
+    else:
+        st.info(
+            f"No forward-looking signals found for {', '.join(_fs_companies[:3])}. "
+            "This requires a **Transcripts** sheet in the data source with columns: "
+            "`company`, `year`, `quarter`, `transcript_text`."
+        )
 
 st.markdown("</div>", unsafe_allow_html=True)
 render_enhanced_chat_interface(dashboard_state=dashboard_state, on_new_response=_store_last_genie_response)

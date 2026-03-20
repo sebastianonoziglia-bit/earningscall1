@@ -127,9 +127,24 @@ def get_available_filters():
     _ensure_loader_state()
     # Define default filters in case of error
     default_filters = {
-        'countries': ['Italy', 'United States', 'Global', 'United Kingdom', 'Japan', 'Germany', 'France', 'China'],
-        'ad_types': ['Free TV', 'Pay TV', 'Display Desktop', 'Display Mobile', 'Search Desktop', 'Search Mobile',
-                    'Social Desktop', 'Social Mobile', 'Video Desktop', 'Video Mobile', 'Cinema', 'Radio', 'Magazine', 'Newspaper'],
+        'countries': [
+            'Argentina', 'Australia', 'Austria', 'Belgium', 'Brazil', 'Canada', 'Chile',
+            'China', 'Colombia', 'Czech Republic', 'Denmark', 'Ecuador', 'Egypt',
+            'Finland', 'France', 'Germany', 'Global', 'Greece', 'Hong Kong', 'Hungary',
+            'India', 'Indonesia', 'Ireland', 'Israel', 'Italy', 'Japan', 'Kenya',
+            'Malaysia', 'Mexico', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway',
+            'Pakistan', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Romania',
+            'Russia', 'Saudi Arabia', 'Singapore', 'South Africa', 'South Korea',
+            'Spain', 'Sweden', 'Switzerland', 'Taiwan', 'Thailand', 'Turkey',
+            'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States',
+            'Uruguay', 'Vietnam',
+        ],
+        'ad_types': [
+            'Free TV', 'Pay TV', 'Display Desktop', 'Display Mobile',
+            'Search Desktop', 'Search Mobile', 'Social Desktop', 'Social Mobile',
+            'Video Desktop', 'Video Mobile', 'Cinema', 'Radio', 'Magazine',
+            'Newspaper', 'Traditional OOH', 'Digital OOH', 'Other Desktop', 'Other Mobile',
+        ],
         'macro_categories': ['Television', 'Digital', 'OOH', 'Press', 'Cinema', 'Radio'],
         'ad_type_mappings': AD_MACRO_CATEGORIES
     }
