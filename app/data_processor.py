@@ -472,17 +472,24 @@ class FinancialDataProcessor:
 
         try:
             if not _PSYCOPG_AVAILABLE or psycopg is None:
-                return []
+                raise RuntimeError("No DB available")
             conn = psycopg.connect(os.environ.get('DATABASE_URL'))
             cur = conn.cursor()
             cur.execute("SELECT DISTINCT company FROM company_metrics WHERE company IS NOT NULL ORDER BY company")
             companies = [row[0] for row in cur.fetchall()]
             cur.close()
             conn.close()
-            return companies if companies else []
+            if companies:
+                return companies
         except Exception as e:
             print(f"Error fetching companies from database: {e}")
-            return []
+
+        # Fallback company list when data is unavailable
+        return [
+            "Alphabet", "Amazon", "Apple", "Comcast", "Disney",
+            "Meta Platforms", "Microsoft", "Netflix", "Paramount Global",
+            "Roku", "Spotify", "Warner Bros. Discovery",
+        ]
 
     def get_available_years(self, company):
         """Get available years for a company, handling NA values"""
