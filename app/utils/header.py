@@ -41,6 +41,10 @@ def _inject_hero_loader():
   var pd=window.parent.document;
   if(!pd){{return;}}
 
+  // Remove any stale overlay from a previous attempt
+  var old=pd.getElementById('hero-loader-ov');
+  if(old)old.parentNode.removeChild(old);
+
   // Full-screen overlay
   var ov=pd.createElement('div');
   ov.id='hero-loader-ov';
@@ -55,26 +59,29 @@ def _inject_hero_loader():
   vid.playsInline=true;
   vid.style.cssText='width:100%;height:100%;object-fit:cover;';
 
-  function dismiss(){{
-    ov.style.opacity='0';
-    pd.body.style.overflow='';
-    setTimeout(function(){{if(ov.parentNode)ov.parentNode.removeChild(ov);}},650);
-  }}
-
-  vid.addEventListener('ended',dismiss);
-  // Safety fallback — dismiss after 12s even if video stalls
-  setTimeout(dismiss,12000);
-  // Allow click-to-skip
-  ov.addEventListener('click',dismiss);
-
   ov.appendChild(vid);
   pd.body.appendChild(ov);
   pd.body.style.overflow='hidden';
 
-  vid.play().catch(function(){{
-    // Autoplay blocked — dismiss immediately
-    dismiss();
-  }});
+  // Inject dismiss logic as a script in the PARENT document so it
+  // survives even if Streamlit destroys this iframe during a rerun.
+  var s=pd.createElement('script');
+  s.textContent='(function(){{'
+    +'var ov=document.getElementById("hero-loader-ov");'
+    +'if(!ov)return;'
+    +'var vid=ov.querySelector("video");'
+    +'function dismiss(){{'
+    +'  if(ov._dismissed)return;ov._dismissed=true;'
+    +'  ov.style.opacity="0";'
+    +'  document.body.style.overflow="";'
+    +'  setTimeout(function(){{if(ov.parentNode)ov.parentNode.removeChild(ov);}},650);'
+    +'}}'
+    +'if(vid)vid.addEventListener("ended",dismiss);'
+    +'setTimeout(dismiss,12000);'
+    +'ov.addEventListener("click",dismiss);'
+    +'if(vid)vid.play().catch(function(){{dismiss();}});'
+    +'}})();';
+  pd.body.appendChild(s);
 }})();
 </script>""",
         height=0,
