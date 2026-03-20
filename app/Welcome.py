@@ -1943,6 +1943,16 @@ div[data-testid="block-container"] {
 .stButton > button:hover {
     background: rgba(255,255,255,0.14) !important;
 }
+@keyframes ae-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.3); }
+    70%  { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+}
+.ae-cta-wrap a:hover {
+    background: rgba(255,255,255,0.14) !important;
+    border-color: rgba(255,255,255,0.8) !important;
+    transform: translateY(-1px);
+}
 .stPlotlyChart,
 .stPlotlyChart > div,
 .stPlotlyChart iframe,
@@ -1951,6 +1961,17 @@ div[data-testid="stPlotlyChart"] > div {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
+}
+.js-plotly-plot .plotly,
+.js-plotly-plot .plotly .svg-container {
+    background: transparent !important;
+}
+[data-testid="stComponentsIframeWrapper"],
+[data-testid="stIframe"] {
+    background: transparent !important;
+}
+.element-container {
+    background: transparent !important;
 }
 .wm-wrap {
     max-width: 1500px;
@@ -2271,11 +2292,7 @@ def _separator():
 
 
 def _deep_dive(nav: str, label: str):
-    """Render a subtle 'deep dive' CTA using a direct-URL HTML link.
-
-    Uses relative page slug (e.g. 'Overview') so the browser navigates
-    directly — NO ?nav= query params that could trigger redirect loops.
-    """
+    """Render a CTA button with pulse animation."""
     _SLUG_MAP = {
         "overview": "Overview",
         "earnings": "Earnings",
@@ -2287,12 +2304,14 @@ def _deep_dive(nav: str, label: str):
     if not slug:
         return
     st.markdown(
-        f"""<div style="text-align:right;padding:8px 0;">
+        f"""<div class="ae-cta-wrap" style="padding:10px 0;">
         <a href="{slug}" target="_self" rel="noopener"
-           style="color:#6b7280;font-size:0.82rem;text-decoration:none;
-                  border:1px solid rgba(255,255,255,0.1);border-radius:20px;
-                  padding:5px 14px;display:inline-flex;align-items:center;
-                  background:transparent;transition:border-color .15s,color .15s;">
+           style="color:#ffffff;font-size:0.95rem;text-decoration:none;
+                  border:1px solid rgba(255,255,255,0.55);border-radius:999px;
+                  padding:12px 28px;display:inline-flex;align-items:center;
+                  background:rgba(255,255,255,0.07);font-weight:500;
+                  transition:all .2s ease;cursor:pointer;
+                  animation:ae-pulse 2.5s ease-in-out infinite;">
           {escape(label)} →
         </a></div>""",
         unsafe_allow_html=True,
@@ -2757,7 +2776,22 @@ try:
                 st.info("Global map unavailable.")
             else:
                 # Build country name → ad spend % GDP dict for D3 globe
-                _NAME_TO_ISO = {v: k for k, v in _ISO_TO_NAME.items()} if '_ISO_TO_NAME' in dir() else {}
+                _CHOROPLETH_ISO_TO_NAME = {
+                    "USA": "United States", "GBR": "United Kingdom", "DEU": "Germany", "FRA": "France",
+                    "JPN": "Japan", "CHN": "China", "IND": "India", "BRA": "Brazil", "CAN": "Canada",
+                    "AUS": "Australia", "ITA": "Italy", "ESP": "Spain", "KOR": "South Korea",
+                    "RUS": "Russia", "MEX": "Mexico", "IDN": "Indonesia", "TUR": "Turkey",
+                    "NLD": "Netherlands", "SAU": "Saudi Arabia", "CHE": "Switzerland", "SWE": "Sweden",
+                    "POL": "Poland", "BEL": "Belgium", "NOR": "Norway", "AUT": "Austria",
+                    "ARE": "United Arab Emirates", "THA": "Thailand", "SGP": "Singapore",
+                    "MYS": "Malaysia", "PHL": "Philippines", "VNM": "Vietnam", "ZAF": "South Africa",
+                    "EGY": "Egypt", "NGA": "Nigeria", "ARG": "Argentina", "COL": "Colombia",
+                    "CHL": "Chile", "PER": "Peru", "PRT": "Portugal", "DNK": "Denmark",
+                    "FIN": "Finland", "IRL": "Ireland", "NZL": "New Zealand", "ISR": "Israel",
+                    "CZE": "Czech Republic", "GRC": "Greece", "HUN": "Hungary", "ROU": "Romania",
+                    "HKG": "Hong Kong", "TWN": "Taiwan", "PAK": "Pakistan", "BGD": "Bangladesh",
+                }
+                _NAME_TO_ISO = {v: k for k, v in _CHOROPLETH_ISO_TO_NAME.items()}
                 _ad_gdp_data: dict[str, float] = {}
                 for _, _row in scoped_map.iterrows():
                     _cname = str(_row[country_col])
@@ -4154,51 +4188,114 @@ html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 var WR_LOGOS="""
     + _wr_logos_json
     + """;
-const companies=[
-  {name:"Alphabet",total:350,ad:237,ticker:"GOOG"},
-  {name:"Amazon",total:638,ad:56,ticker:"AMZN"},
-  {name:"Apple",total:391,ad:18,ticker:"AAPL"},
-  {name:"Microsoft",total:245,ad:18,ticker:"MSFT"},
-  {name:"Meta",total:165,ad:164,ticker:"META"},
-  {name:"Netflix",total:39,ad:2.4,ticker:"NFLX"},
-  {name:"Disney",total:91,ad:3.4,ticker:"DIS"},
-  {name:"Comcast",total:123,ad:6.8,ticker:"CMCSA"},
-  {name:"Spotify",total:15.7,ad:2.1,ticker:"SPOT"},
-  {name:"Roku",total:4.1,ad:3.8,ticker:"ROKU"},
-].sort((a,b)=>b.total-a.total);
-const maxTotal=Math.max(...companies.map(c=>c.total));
+/* Year-by-year data — sorted by 2024 total revenue */
+const yearData={
+  2019:[
+    {name:"Amazon",total:280.5,ad:14.1},{name:"Apple",total:260.2,ad:7},
+    {name:"Alphabet",total:161.9,ad:134.8},{name:"Microsoft",total:125.8,ad:7.6},
+    {name:"Comcast",total:108.9,ad:5.2},{name:"Disney",total:69.6,ad:2.0},
+    {name:"Meta",total:70.7,ad:69.7},{name:"Netflix",total:20.2,ad:0},
+    {name:"Spotify",total:7.4,ad:0.8},{name:"Roku",total:1.1,ad:0.7}
+  ],
+  2020:[
+    {name:"Amazon",total:386.1,ad:19.8},{name:"Apple",total:274.5,ad:9},
+    {name:"Alphabet",total:182.5,ad:147},{name:"Microsoft",total:143.0,ad:8.5},
+    {name:"Comcast",total:103.6,ad:4.6},{name:"Disney",total:65.4,ad:1.6},
+    {name:"Meta",total:86.0,ad:84.2},{name:"Netflix",total:25.0,ad:0},
+    {name:"Spotify",total:9.0,ad:1.1},{name:"Roku",total:1.8,ad:1.3}
+  ],
+  2021:[
+    {name:"Amazon",total:469.8,ad:31.2},{name:"Apple",total:365.8,ad:13},
+    {name:"Alphabet",total:257.6,ad:209.5},{name:"Microsoft",total:168.1,ad:10},
+    {name:"Comcast",total:116.4,ad:5.8},{name:"Disney",total:67.4,ad:2.5},
+    {name:"Meta",total:117.9,ad:115.7},{name:"Netflix",total:29.7,ad:0},
+    {name:"Spotify",total:11.4,ad:1.5},{name:"Roku",total:2.8,ad:2.3}
+  ],
+  2022:[
+    {name:"Amazon",total:514.0,ad:37.7},{name:"Apple",total:394.3,ad:15},
+    {name:"Alphabet",total:282.8,ad:224.5},{name:"Microsoft",total:198.3,ad:12},
+    {name:"Comcast",total:121.4,ad:5.9},{name:"Disney",total:82.7,ad:3.0},
+    {name:"Meta",total:116.6,ad:113.6},{name:"Netflix",total:31.6,ad:0.8},
+    {name:"Spotify",total:12.4,ad:1.6},{name:"Roku",total:2.7,ad:2.1}
+  ],
+  2023:[
+    {name:"Amazon",total:574.8,ad:46.9},{name:"Apple",total:383.3,ad:16},
+    {name:"Alphabet",total:307.4,ad:237.9},{name:"Microsoft",total:211.9,ad:15},
+    {name:"Comcast",total:121.6,ad:6.2},{name:"Disney",total:88.9,ad:3.2},
+    {name:"Meta",total:134.9,ad:131.9},{name:"Netflix",total:33.7,ad:1.5},
+    {name:"Spotify",total:14.3,ad:1.8},{name:"Roku",total:3.5,ad:3.1}
+  ],
+  2024:[
+    {name:"Amazon",total:638,ad:56},{name:"Apple",total:391,ad:18},
+    {name:"Alphabet",total:350,ad:237},{name:"Microsoft",total:245,ad:18},
+    {name:"Comcast",total:123,ad:6.8},{name:"Disney",total:91,ad:3.4},
+    {name:"Meta",total:165,ad:164},{name:"Netflix",total:39,ad:2.4},
+    {name:"Spotify",total:15.7,ad:2.1},{name:"Roku",total:4.1,ad:3.8}
+  ]
+};
+const years=Object.keys(yearData).map(Number).sort();
+/* Use 2024 order for consistent column positions */
+const companyOrder=yearData[2024].sort((a,b)=>b.total-a.total).map(c=>c.name);
+const globalMax=Math.max(...Object.values(yearData).flatMap(arr=>arr.map(c=>c.total)));
 const maxH=320;
 const grid=document.getElementById('wr-grid');
-companies.forEach((c,idx)=>{
-  const adH=Math.round((c.ad/maxTotal)*maxH);
-  const otherH=Math.round(((c.total-c.ad)/maxTotal)*maxH);
-  const adPct=Math.round((c.ad/c.total)*100);
+
+/* Year overlay */
+const yrOverlay=document.createElement('div');
+yrOverlay.id='wr-year-overlay';
+yrOverlay.style.cssText='position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:64px;font-weight:800;color:rgba(255,255,255,0.04);font-family:Syne,sans-serif;pointer-events:none;z-index:0;transition:opacity 0.4s;';
+grid.style.position='relative';
+grid.appendChild(yrOverlay);
+
+/* Build columns once (2024 order) */
+companyOrder.forEach((name,idx)=>{
   const col=document.createElement('div');
   col.className='wr-col';
-  const logoHtml=WR_LOGOS[c.name]
-    ?`<img class="wr-logo-img" style="animation-delay:${idx*0.3}s" src="data:image/png;base64,${WR_LOGOS[c.name]}" alt="${c.name}">`
-    :`<div class="wr-name">${c.name}</div>`;
-  col.innerHTML=`${logoHtml}
-    <div class="wr-bars">
-      <div class="wr-bar wr-bar-other" style="height:0px" data-h="${otherH}"></div>
-      <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}" data-delay="${idx}"></div>
-    </div>
-    <div class="wr-total">$${c.total>=10?Math.round(c.total)+'B':c.total+'B'} · ${adPct}% ad</div>
-  `;
+  col.dataset.company=name;
+  const logoHtml=WR_LOGOS[name]
+    ?'<img class="wr-logo-img" style="animation-delay:'+idx*0.3+'s" src="data:image/png;base64,'+WR_LOGOS[name]+'" alt="'+name+'">'
+    :'<div class="wr-name">'+name+'</div>';
+  col.innerHTML=logoHtml+
+    '<div class="wr-bars">'+
+      '<div class="wr-bar wr-bar-other" style="height:0px"></div>'+
+      '<div class="wr-bar wr-bar-ad" style="height:0px"></div>'+
+    '</div>'+
+    '<div class="wr-total" style="min-height:18px"></div>';
   grid.appendChild(col);
 });
+
+function renderYear(yr){
+  yrOverlay.textContent=yr;
+  const data=yearData[yr]||[];
+  const lookup={};
+  data.forEach(d=>{lookup[d.name]=d;});
+  companyOrder.forEach(name=>{
+    const col=grid.querySelector('[data-company="'+name+'"]');
+    if(!col)return;
+    const d=lookup[name]||{total:0,ad:0};
+    const adH=Math.round((d.ad/globalMax)*maxH);
+    const otherH=Math.round(((d.total-d.ad)/globalMax)*maxH);
+    const adPct=d.total>0?Math.round((d.ad/d.total)*100):0;
+    col.querySelector('.wr-bar-other').style.height=otherH+'px';
+    col.querySelector('.wr-bar-ad').style.height=adH+'px';
+    col.querySelector('.wr-total').textContent='$'+(d.total>=10?Math.round(d.total)+'B':d.total+'B')+' \xb7 '+adPct+'% ad';
+  });
+}
+
+/* Animate through years when visible */
 const io=new IntersectionObserver(entries=>{
   if(!entries[0].isIntersecting)return;
-  /* Phase 1: blue (other) bars grow immediately */
-  document.querySelectorAll('.wr-bar-other').forEach(b=>{
-    setTimeout(()=>{b.style.height=b.dataset.h+'px';},100);
-  });
-  /* Phase 2: orange (ad) bars fill after blue finishes, staggered per column */
-  document.querySelectorAll('.wr-bar-ad').forEach(b=>{
-    var delay=1400+parseInt(b.dataset.delay||0)*120;
-    setTimeout(()=>{b.style.height=b.dataset.h+'px';},delay);
-  });
   io.unobserve(entries[0].target);
+  let step=0;
+  function playNext(){
+    if(step>=years.length)return;
+    renderYear(years[step]);
+    step++;
+    if(step<years.length){
+      setTimeout(playNext, step===1?1200:900);
+    }
+  }
+  setTimeout(playNext,400);
 },{threshold:0.2});
 io.observe(grid);
 </script>

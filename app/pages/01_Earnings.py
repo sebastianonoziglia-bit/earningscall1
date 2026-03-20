@@ -1772,10 +1772,40 @@ def main():
         company_name: str,
         quarterly_kpis_df: pd.DataFrame,
     ) -> list[int]:
-        if quarterly_kpis_df is None or quarterly_kpis_df.empty:
-            return []
         canonical = normalize_company(company_name)
-        return get_available_quarters(quarterly_kpis_df, year=int(selected_year), company=canonical)
+        all_quarters: set[int] = set()
+        # Source 1: quarterly KPIs sheet
+        if quarterly_kpis_df is not None and not quarterly_kpis_df.empty:
+            kpi_q = get_available_quarters(quarterly_kpis_df, year=int(selected_year), company=canonical)
+            all_quarters.update(kpi_q)
+        # Source 2: quarterly segments sheet (may have quarters KPIs sheet lacks)
+        try:
+            _seg_df = getattr(data_processor, "df_quarterly_segments", None)
+            if _seg_df is None:
+                from utils.workbook_source import resolve_financial_data_xlsx
+                _ep = resolve_financial_data_xlsx()
+                if _ep:
+                    _seg_df = pd.read_excel(_ep, sheet_name="Company_Quarterly_segments_valu")
+            if _seg_df is not None and not _seg_df.empty:
+                _seg_df.columns = [str(c).strip() for c in _seg_df.columns]
+                _co_col = next((c for c in _seg_df.columns if c.lower().strip() == "company"), None)
+                _yr_col = next((c for c in _seg_df.columns if c.lower().strip() == "year"), None)
+                _q_col = next((c for c in _seg_df.columns if "quarter" in c.lower()), None)
+                if _co_col and _yr_col and _q_col:
+                    _mask = (_seg_df[_co_col].astype(str).str.strip() == canonical) & (pd.to_numeric(_seg_df[_yr_col], errors="coerce") == int(selected_year))
+                    for qv in _seg_df.loc[_mask, _q_col].dropna().unique():
+                        qs = str(qv).strip().upper()
+                        if qs.startswith("Q") and len(qs) > 1 and qs[1].isdigit():
+                            q_int = int(qs[1])
+                            if 1 <= q_int <= 4:
+                                all_quarters.add(q_int)
+                        elif str(qv).strip().isdigit():
+                            q_int = int(str(qv).strip())
+                            if 1 <= q_int <= 4:
+                                all_quarters.add(q_int)
+        except Exception:
+            pass
+        return sorted(all_quarters)
 
 
     def _get_quarterly_metrics_snapshot(
@@ -6116,6 +6146,7 @@ function cgMetric(tab,mid,btn){
                                 key=f"ti_e_{hash(_sig['signal'][:60])}_{_ti_sel_period}",
                                 use_container_width=True,
                             ):
+                                st.session_state["prefill_message"] = _genie_prompt
                                 st.session_state.setdefault("genie_history", []).append(
                                     {"role": "user", "content": _genie_prompt}
                                 )
