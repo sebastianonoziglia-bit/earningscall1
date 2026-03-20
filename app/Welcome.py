@@ -603,8 +603,8 @@ def _build_hero_company_logo_bar(logos: Dict[str, str]) -> str:
             continue
         company_q = quote_plus(company)
         blocks.append(
-            f"<a class='wm-hero-logo-link' href='?nav=earnings&company={company_q}' "
-            f"target='_self' rel='noopener' onclick=\"window.location.assign('?nav=earnings&company={company_q}'); return false;\" "
+            f"<a class='wm-hero-logo-link' href='Earnings?company={company_q}' "
+            f"target='_self' rel='noopener' "
             f"aria-label='Open earnings for {escape(company)}'>"
             "<span class='wm-hero-logo-wrap'>"
             f"<img class='wm-hero-logo' src='data:image/png;base64,{img_b64}' alt='{escape(company)} logo' />"
@@ -2166,16 +2166,30 @@ def _separator():
 
 
 def _deep_dive(nav: str, label: str):
-    """Render a subtle 'deep dive' CTA that navigates via query param."""
+    """Render a subtle 'deep dive' CTA using a direct-URL HTML link.
+
+    Uses relative page slug (e.g. 'Overview') so the browser navigates
+    directly — NO ?nav= query params that could trigger redirect loops.
+    """
+    _SLUG_MAP = {
+        "overview": "Overview",
+        "earnings": "Earnings",
+        "stocks": "Stocks",
+        "editorial": "Editorial",
+        "genie": "Genie",
+    }
+    slug = _SLUG_MAP.get(nav)
+    if not slug:
+        return
     st.markdown(
-        f"<div style='text-align:right;margin-top:-60px;margin-bottom:20px;'>"
-        f"<a href='?nav={nav}' target='_self' rel='noopener' "
-        f"style='color:#6b7280;font-size:0.82rem;text-decoration:none;"
-        f"border:1px solid rgba(255,255,255,0.1);border-radius:20px;"
-        f"padding:5px 14px;transition:color 0.15s,border-color 0.15s;'"
-        f"onmouseover=\"this.style.color='#e2e8f0';this.style.borderColor='rgba(255,255,255,0.3)'\" "
-        f"onmouseout=\"this.style.color='#6b7280';this.style.borderColor='rgba(255,255,255,0.1)'\">"
-        f"{label} →</a></div>",
+        f"""<div style="text-align:right;padding:8px 0;">
+        <a href="{slug}" target="_self" rel="noopener"
+           style="color:#6b7280;font-size:0.82rem;text-decoration:none;
+                  border:1px solid rgba(255,255,255,0.1);border-radius:20px;
+                  padding:5px 14px;display:inline-flex;align-items:center;
+                  background:transparent;transition:border-color .15s,color .15s;">
+          {escape(label)} →
+        </a></div>""",
         unsafe_allow_html=True,
     )
 
@@ -2663,10 +2677,8 @@ try:
                     lonaxis_showgrid=False,
                 )
                 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                _map_event = st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False}, on_select="rerun", key="world_map_chart")
+                st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False})
                 st.markdown("</div>", unsafe_allow_html=True)
-                if _map_event and getattr(_map_event, "selection", None):
-                    st.switch_page("pages/00_Overview.py")
                 st.components.v1.html("""
 <script>
 (function() {
@@ -2968,7 +2980,7 @@ DATA.forEach(function(item, i) {
     + ';border:1.5px solid ' + item.color + '55;box-shadow:0 0 ' + Math.round(size / 3) + 'px ' + item.color + '44;cursor:pointer;';
   b.innerHTML = innerHtml;
   b.title = 'Explore ' + item.name + ' on Editorial';
-  (function(platformName){ b.addEventListener('click', function(){ window.parent.location.href = '?nav=editorial&company=' + encodeURIComponent(platformName); }); })(item.name);
+  (function(platformName){ b.addEventListener('click', function(){ var bUrl=window.parent.location.pathname.replace(/\/[^\/]*$/,'/'); window.parent.location.href = bUrl+'Editorial?company=' + encodeURIComponent(platformName); }); })(item.name);
   bfield.appendChild(b);
   var delay = i * 80;
   var floatAnim = FLOATS[i % 3];
@@ -3539,7 +3551,8 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(fun
       var a=num2alpha[String(d.id)]||'';
       var platform=countryPlatform[a];
       if(platform){
-        window.parent.location.href='?nav=editorial&company='+encodeURIComponent(platform);
+        var bUrl=window.parent.location.pathname.replace(/\/[^\/]*$/,'/');
+        window.parent.location.href=bUrl+'Editorial?company='+encodeURIComponent(platform);
       }
     });
   drawLogos();

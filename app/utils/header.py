@@ -304,7 +304,16 @@ def _render_nav(active_key: str):
 def display_header(enable_dom_patch: bool = True):
     """Display the common header across all app pages."""
     _inject_hero_loader()
-    _route_query_navigation()
+    # NOTE: _route_query_navigation() intentionally removed —
+    # all navigation now uses direct page URLs, not ?nav= params.
+    # Clear any stale ?nav= params so they don't linger in the URL bar.
+    try:
+        if hasattr(st, "query_params"):
+            for _k in ("nav", "go", "page"):
+                if _k in st.query_params:
+                    del st.query_params[_k]
+    except Exception:
+        pass
     _apply_query_language()
     init_language()
     st.session_state["hide_sidebar_nav"] = True
