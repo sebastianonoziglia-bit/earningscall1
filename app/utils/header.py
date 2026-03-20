@@ -186,118 +186,91 @@ def _render_nav(active_key: str):
             line-height:0!important; overflow:hidden!important;
           }
         </style>
-        <div style="height:80px;"></div>
         """,
         unsafe_allow_html=True,
     )
 
-    # ── Nav pill injected into the parent DOM (same technique as hero loader).
-    # Uses direct page-URL navigation — NO ?nav= params — so _route_query_navigation
-    # never intercepts nav clicks and can never cause a redirect loop.
-    slug_map = {
-        "home": "",
-        "overview": "Overview",
-        "earnings": "Earnings",
-        "stocks": "Stocks",
-        "editorial": "Editorial",
-        "genie": "Genie",
-    }
-    slug_map_js = "{" + ",".join(f"'{k}':'{v}'" for k, v in slug_map.items()) + "}"
-    nav_items_js = "[" + ",".join(
-        "{key:'" + item["key"] + "',label:'" + item["label"] + "'}"
-        for item in _NAV_ITEMS
-    ) + "]"
+    # ── Nav pill via st.markdown (proven to work with position:fixed in Streamlit).
+    # Uses direct page-slug URLs — NO ?nav= query params.
+    _SLUG = {"home": ".", "overview": "Overview", "earnings": "Earnings",
+             "stocks": "Stocks", "editorial": "Editorial", "genie": "Genie"}
 
-    _components.html(
-        f"""<script>
-(function(){{
-  var pd = window.parent.document;
-  if (!pd) return;
+    nav_links = ""
+    for item in _NAV_ITEMS:
+        active_cls = " bnav-active" if item["key"] == active_key else ""
+        slug = _SLUG.get(item["key"], ".")
+        nav_links += (
+            f"<a href='{slug}' target='_self' rel='noopener' "
+            f"class='bnav-link{active_cls}'>{item['label']}</a>"
+        )
 
-  // Remove stale nav from previous Streamlit rerun
-  var old = pd.getElementById('_app_pill_nav');
-  if (old) old.remove();
+    lang_en_cls = " bnav-lang-active" if current_lang == "en" else ""
+    lang_it_cls = " bnav-lang-active" if current_lang == "it" else ""
+    lang_es_cls = " bnav-lang-active" if current_lang == "es" else ""
 
-  var slugs = {slug_map_js};
-  var items = {nav_items_js};
-  var active = '{active_key}';
-  var langActive = '{current_lang}';
-
-  function getBase() {{
-    var p = window.parent.location.pathname;
-    var base = p.replace(/\\/(Welcome|Overview|Earnings|Stocks|Editorial|Genie)\\/?$/i,'');
-    if (!base.endsWith('/')) base += '/';
-    return window.parent.location.origin + base;
-  }}
-
-  function navTo(key) {{
-    var slug = (slugs[key] !== undefined) ? slugs[key] : '';
-    window.parent.location.href = getBase() + slug;
-  }}
-
-  function setLang(code) {{
-    var url = window.parent.location.href.split('?')[0];
-    window.parent.location.href = url + '?lang=' + code;
-  }}
-
-  // Build nav HTML
-  var nav = pd.createElement('div');
-  nav.id = '_app_pill_nav';
-  nav.style.cssText =
-    'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:2147483646;'
-    +'background:rgba(15,23,42,0.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);'
-    +'border:1px solid rgba(255,255,255,0.1);border-radius:50px;'
-    +'padding:6px 12px;display:flex;align-items:center;gap:2px;'
-    +'white-space:nowrap;font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
-
-  var btnBase =
-    'display:inline-flex;align-items:center;padding:5px 13px;border-radius:20px;'
-    +'text-decoration:none;cursor:pointer;font-size:0.82rem;font-weight:500;color:#94a3b8;'
-    +'border:1px solid rgba(148,163,184,0.15);background:transparent;'
-    +'transition:border-color .15s,color .15s;white-space:nowrap;';
-  var btnActive =
-    'color:#fff!important;border-color:rgba(99,130,255,0.75)!important;font-weight:700!important;';
-
-  items.forEach(function(item) {{
-    var btn = pd.createElement('button');
-    btn.textContent = item.label;
-    btn.style.cssText = btnBase + (item.key === active ? btnActive : '');
-    btn.onmouseover = function() {{
-      if (item.key !== active) {{
-        btn.style.borderColor='rgba(148,163,184,0.55)';
-        btn.style.color='#e2e8f0';
-      }}
-    }};
-    btn.onmouseout = function() {{
-      if (item.key !== active) {{
-        btn.style.borderColor='rgba(148,163,184,0.15)';
-        btn.style.color='#94a3b8';
-      }}
-    }};
-    btn.addEventListener('click', (function(k){{ return function(){{ navTo(k); }}; }})(item.key));
-    nav.appendChild(btn);
-  }});
-
-  var sep = pd.createElement('span');
-  sep.style.cssText = 'width:1px;height:20px;background:rgba(148,163,184,0.2);margin:0 6px;flex-shrink:0;';
-  nav.appendChild(sep);
-
-  [['en','🇺🇸'],['it','🇮🇹'],['es','🇪🇸']].forEach(function(pair) {{
-    var btn = pd.createElement('button');
-    btn.textContent = pair[1];
-    var isAct = pair[0] === langActive;
-    btn.style.cssText =
-      'display:inline-flex;align-items:center;padding:5px 8px;border-radius:20px;cursor:pointer;'
-      +'font-size:0.85rem;background:transparent;border:1px solid '
-      +(isAct?'rgba(148,163,184,0.3)':'transparent')+';opacity:'+(isAct?'1':'0.5')+';';
-    btn.addEventListener('click',(function(c){{ return function(){{ setLang(c); }}; }})(pair[0]));
-    nav.appendChild(btn);
-  }});
-
-  pd.body.appendChild(nav);
-}})();
-</script>""",
-        height=0,
+    st.markdown(
+        f"""
+        <style>
+          [data-testid="element-container"]:has(.app-bottom-nav),
+          [data-testid="stMarkdownContainer"]:has(.app-bottom-nav) {{
+            margin: 0 !important; padding: 0 !important;
+            height: 0 !important; min-height: 0 !important;
+            overflow: visible !important; line-height: 0 !important;
+          }}
+          .app-bottom-nav {{
+            position: fixed; bottom: 16px; left: 50%;
+            transform: translateX(-50%); z-index: 9999;
+            background: rgba(15,23,42,0.95); backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 50px;
+            padding: 6px 12px; display: flex; align-items: center; gap: 2px;
+          }}
+          .bnav-link {{
+            display: inline-flex; align-items: center;
+            padding: 5px 13px; border-radius: 20px;
+            text-decoration: none !important;
+            font-size: 0.82rem; font-weight: 500;
+            color: #94a3b8 !important;
+            border: 1px solid rgba(148,163,184,0.15);
+            transition: border-color 0.15s, color 0.15s;
+            white-space: nowrap;
+          }}
+          .bnav-link:hover {{
+            border-color: rgba(148,163,184,0.55) !important;
+            color: #e2e8f0 !important;
+          }}
+          .bnav-active {{
+            color: #fff !important;
+            border-color: rgba(99,130,255,0.75) !important;
+            font-weight: 700 !important;
+          }}
+          .bnav-sep {{
+            width: 1px; height: 20px;
+            background: rgba(148,163,184,0.2);
+            margin: 0 6px; flex-shrink: 0;
+          }}
+          .bnav-lang {{
+            display: inline-flex; align-items: center;
+            padding: 5px 8px; border-radius: 20px;
+            text-decoration: none !important;
+            font-size: 0.85rem;
+            border: 1px solid transparent;
+            transition: border-color 0.15s;
+            opacity: 0.5;
+          }}
+          .bnav-lang:hover {{ opacity: 1; border-color: rgba(148,163,184,0.4) !important; }}
+          .bnav-lang-active {{ opacity: 1 !important; border-color: rgba(148,163,184,0.3) !important; }}
+        </style>
+        <div class="app-bottom-nav">
+          {nav_links}
+          <span class="bnav-sep"></span>
+          <a href="?lang=en" target="_self" rel="noopener" class="bnav-lang{lang_en_cls}">🇺🇸</a>
+          <a href="?lang=it" target="_self" rel="noopener" class="bnav-lang{lang_it_cls}">🇮🇹</a>
+          <a href="?lang=es" target="_self" rel="noopener" class="bnav-lang{lang_es_cls}">🇪🇸</a>
+        </div>
+        <div class="app-bottom-nav-spacer" style="height:80px;"></div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
