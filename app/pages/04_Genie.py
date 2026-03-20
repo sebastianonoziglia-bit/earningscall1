@@ -1278,8 +1278,8 @@ if show_m2_supply:
 if show_fed_funds:
     year_candidates.update(get_fed_funds_years())
 
-if not year_candidates:
-    year_candidates.update(range(2010, datetime.now().year + 1))
+# Always include baseline range so slider is never too narrow
+year_candidates.update(range(2010, datetime.now().year + 1))
 
 all_years = sorted(int(y) for y in year_candidates if y is not None)
 if not all_years:
@@ -1287,8 +1287,7 @@ if not all_years:
 
 # Ensure min < max to prevent RangeError on slider
 if len(all_years) < 2 or min(all_years) >= max(all_years):
-    _pad_min = min(all_years) if all_years else 2010
-    all_years = list(range(min(_pad_min, 2010), max(_pad_min + 1, datetime.now().year + 1)))
+    all_years = list(range(2010, datetime.now().year + 1))
 
 year_range = st.slider(
     "Select Year Range",
@@ -2504,6 +2503,7 @@ if (
             )
             if _ad_df is not None and not _ad_df.empty:
                 for _ctry in [c for c in all_selected_countries if c != "Global"]:
+                    _found_insight = False
                     for _met in selected_metrics[:2]:  # limit to first 2 metrics
                         _pdata = process_metrics_data(_ad_df, _ctry, _met, year_range)
                         if _pdata and len(_pdata["years"]) >= 2:
@@ -2521,6 +2521,28 @@ if (
                                     f"in {_lyr} vs {_pyr} "
                                     f"(${float(_lval):,.0f}M)"
                                 )
+                                _found_insight = True
+                    # Fallback: aggregate total for this country if individual metrics failed
+                    if not _found_insight:
+                        _ctry_df = _ad_df[_ad_df["country"] == _ctry]
+                        if not _ctry_df.empty and "year" in _ctry_df.columns and "value" in _ctry_df.columns:
+                            _ctry_totals = _ctry_df.groupby("year", as_index=False)["value"].sum()
+                            _ctry_totals = _ctry_totals.sort_values("year")
+                            if len(_ctry_totals) >= 2:
+                                _lval = float(_ctry_totals.iloc[-1]["value"])
+                                _pval = float(_ctry_totals.iloc[-2]["value"])
+                                _lyr = int(_ctry_totals.iloc[-1]["year"])
+                                _pyr = int(_ctry_totals.iloc[-2]["year"])
+                                if _pval != 0:
+                                    _yoy = (_lval - _pval) / abs(_pval) * 100
+                                    _dir = "grew" if _yoy > 0 else "declined"
+                                    _clr = "#22c55e" if _yoy > 0 else "#ef4444"
+                                    _chart_insights.append(
+                                        f"<b>{_ctry}</b> total ad spend {_dir} "
+                                        f"<span style='color:{_clr}'>{'+'if _yoy>0 else ''}{_yoy:.1f}%</span> "
+                                        f"in {_lyr} vs {_pyr} "
+                                        f"(${_lval:,.0f}M)"
+                                    )
     except Exception:
         pass
 

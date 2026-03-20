@@ -3375,7 +3375,8 @@ def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> li
         "Disney+":      {"color": "#113CCF", "logo": "Disney",                "countries": ["FRA","BEL","LUX","NLD","ESP","ITA"], "centroid": (46.2, 2.2)},
         "WBD":          {"color": "#4a90d9", "logo": "Warner Bros. Discovery","countries": ["GBR","IRL"], "centroid": (54.0, -2.0)},
         "Paramount+":   {"color": "#7B2FBE", "logo": "Paramount",             "countries": ["ARG","COL","PER","VEN"], "centroid": (-38.4, -63.6)},
-        "Peacock":      {"color": "#9B2335", "logo": "Comcast",               "countries": ["GTM","HND"], "centroid": (15.5, -90.0)},
+        "Peacock":      {"color": "#9B2335", "logo": "Comcast",               "countries": ["GTM","HND","BLZ","SLV","NIC","CUB","HTI"], "centroid": (15.5, -90.0)},
+        "TikTok":       {"color": "#010101", "logo": "TikTok",               "countries": ["CHN","MNG"], "centroid": (35.8, 104.1)},
     }
     if not excel_path:
         return []
@@ -3486,7 +3487,8 @@ if not _platform_data:
         {"platform": "Disney+",      "subscribers_m": 174,  "subscribers_label": "174M", "color": "#113CCF", "logo_name": "Disney",                "countries": ["FRA","BEL","LUX","NLD","ESP","ITA"], "centroid": (46.2,2.2)},
         {"platform": "WBD",          "subscribers_m": 116,  "subscribers_label": "116M", "color": "#4a90d9", "logo_name": "Warner Bros. Discovery","countries": ["GBR","IRL"], "centroid": (54.0,-2.0)},
         {"platform": "Paramount+",   "subscribers_m": 77,   "subscribers_label": "77M",  "color": "#7B2FBE", "logo_name": "Paramount",             "countries": ["ARG","COL","PER","VEN"], "centroid": (-38.4,-63.6)},
-        {"platform": "Peacock",      "subscribers_m": 36,   "subscribers_label": "36M",  "color": "#9B2335", "logo_name": "Comcast",               "countries": ["GTM","HND"], "centroid": (15.5,-90.0)},
+        {"platform": "Peacock",      "subscribers_m": 36,   "subscribers_label": "36M",  "color": "#9B2335", "logo_name": "Comcast",               "countries": ["GTM","HND","BLZ","SLV","NIC","CUB","HTI"], "centroid": (15.5,-90.0)},
+        {"platform": "TikTok",       "subscribers_m": 1500, "subscribers_label": "1.5B", "color": "#010101", "logo_name": "TikTok",               "countries": ["CHN","MNG"], "centroid": (35.8,104.1)},
     ]
 
 # Load logos for all platforms — use original (non-white-overridden) logos for the globe
@@ -3814,7 +3816,7 @@ for _hc in _human_companies:
         if _b64:
             _bubble_logo_map[_hname] = _b64
 _attn_html = _build_attn_html(_ad_json_str, _global_adv_json_str, _human_json, logos_json=json.dumps(_bubble_logo_map))
-_section("SECTION 01 — ATTENTION ECONOMY", "Who Owns Your Time", "Each bubble = a platform. Size = subscribers or monthly active users.")
+_section("ATTENTION ECONOMY", "Who Owns Your Time", "Each bubble = a platform. Size = subscribers or monthly active users.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(_attn_html, height=520)
 st.markdown("</div>", unsafe_allow_html=True)
@@ -4118,18 +4120,14 @@ st.components.v1.html(
 html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 #wm-rev-root{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
 #wm-rev-root *{box-sizing:border-box;}
-.wr-label{color:#4aaeff;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:10px;font-weight:700;}
-.wr-headline{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:0 0 6px;color:#e6edf3;}
-.wr-sub{color:#8b949e;font-size:14px;margin:0 0 36px;}
 .wr-grid{display:flex;gap:0;align-items:flex-end;justify-content:space-between;width:100%;}
 .wr-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;}
-.wr-bars{display:flex;flex-direction:column;align-items:stretch;width:70%;margin:0 auto 6px;}
-.wr-bar{width:100%;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);position:relative;min-height:2px;}
-.wr-bar-ad{background:#ff5b1f;}
-.wr-bar-other{background:#1e3a5f;}
-.wr-bar-other{border-radius:4px 4px 0 0;}
-.wr-bar-ad{border-radius:0 0 4px 4px;}
-.wr-logo-img{height:28px;width:auto;max-width:62px;object-fit:contain;margin-bottom:4px;display:block;}
+.wr-bars{display:flex;flex-direction:column;align-items:stretch;width:80%;margin:0 auto 6px;}
+.wr-bar{width:100%;position:relative;min-height:2px;}
+.wr-bar-other{background:#1e3a5f;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);border-radius:4px 4px 0 0;}
+.wr-bar-ad{background:#ff5b1f;transition:height 1.0s cubic-bezier(.34,1.1,.64,1);border-radius:0 0 4px 4px;}
+@keyframes wrBreathe{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:0.85;}}
+.wr-logo-img{height:34px;width:auto;max-width:68px;object-fit:contain;margin-bottom:6px;display:block;animation:wrBreathe 3s ease-in-out infinite;}
 .wr-name{font-size:11px;font-weight:700;color:#e6edf3;text-align:center;margin-bottom:4px;font-family:'Syne',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
 .wr-total{font-size:11px;color:#8b949e;text-align:center;margin-top:3px;}
 .wr-legend{display:flex;gap:20px;margin-top:20px;}
@@ -4159,21 +4157,21 @@ const companies=[
   {name:"Roku",total:4.1,ad:3.8,ticker:"ROKU"},
 ].sort((a,b)=>b.total-a.total);
 const maxTotal=Math.max(...companies.map(c=>c.total));
-const maxH=240;
+const maxH=320;
 const grid=document.getElementById('wr-grid');
-companies.forEach(c=>{
+companies.forEach((c,idx)=>{
   const adH=Math.round((c.ad/maxTotal)*maxH);
   const otherH=Math.round(((c.total-c.ad)/maxTotal)*maxH);
   const adPct=Math.round((c.ad/c.total)*100);
   const col=document.createElement('div');
   col.className='wr-col';
   const logoHtml=WR_LOGOS[c.name]
-    ?`<img class="wr-logo-img" src="data:image/png;base64,${WR_LOGOS[c.name]}" alt="${c.name}">`
+    ?`<img class="wr-logo-img" style="animation-delay:${idx*0.3}s" src="data:image/png;base64,${WR_LOGOS[c.name]}" alt="${c.name}">`
     :`<div class="wr-name">${c.name}</div>`;
   col.innerHTML=`${logoHtml}
     <div class="wr-bars">
       <div class="wr-bar wr-bar-other" style="height:0px" data-h="${otherH}"></div>
-      <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}"></div>
+      <div class="wr-bar wr-bar-ad" style="height:0px" data-h="${adH}" data-delay="${idx}"></div>
     </div>
     <div class="wr-total">$${c.total>=10?Math.round(c.total)+'B':c.total+'B'} · ${adPct}% ad</div>
   `;
@@ -4181,8 +4179,14 @@ companies.forEach(c=>{
 });
 const io=new IntersectionObserver(entries=>{
   if(!entries[0].isIntersecting)return;
-  document.querySelectorAll('.wr-bar').forEach(b=>{
+  /* Phase 1: blue (other) bars grow immediately */
+  document.querySelectorAll('.wr-bar-other').forEach(b=>{
     setTimeout(()=>{b.style.height=b.dataset.h+'px';},100);
+  });
+  /* Phase 2: orange (ad) bars fill after blue finishes, staggered per column */
+  document.querySelectorAll('.wr-bar-ad').forEach(b=>{
+    var delay=1400+parseInt(b.dataset.delay||0)*120;
+    setTimeout(()=>{b.style.height=b.dataset.h+'px';},delay);
   });
   io.unobserve(entries[0].target);
 },{threshold:0.2});
@@ -4190,7 +4194,7 @@ io.observe(grid);
 </script>
 </div>
 """,
-    height=640,
+    height=740,
 )
 st.markdown("</div>", unsafe_allow_html=True)
 _deep_dive("earnings", "See full earnings breakdown")
@@ -4510,9 +4514,12 @@ _deep_dive("earnings", "Explore company financials in depth")
 _separator()
 
 # Beat 13 — Live ticker
-# ── THE CLOCK — session timer header ────────────────────────────────────
-st.markdown("""
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+# ── THE CLOCK — session timer header (in iframe so JS executes) ─────────
+st.components.v1.html("""
+<style>
+html,body{margin:0;padding:0;background:transparent;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+</style>
+<div style="display:flex;align-items:center;justify-content:space-between;">
   <div>
     <div style="font-size:0.7rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">THE CLOCK</div>
     <div style="font-size:1.6rem;font-weight:700;color:#f1f5f9;border-left:3px solid #f97316;padding-left:12px;">
@@ -4527,9 +4534,18 @@ st.markdown("""
 <script>
 (function() {
   var KEY = 'ae_session_start';
-  var stored = window.sessionStorage.getItem(KEY);
-  if (!stored) { stored = Date.now().toString(); window.sessionStorage.setItem(KEY, stored); }
+  var stored = null;
+  try { stored = localStorage.getItem(KEY); } catch(e) {}
+  if (!stored) {
+    stored = Date.now().toString();
+    try { localStorage.setItem(KEY, stored); } catch(e) {}
+  }
   var startTime = parseInt(stored, 10);
+  // Reset if older than 4 hours
+  if (Date.now() - startTime > 4*60*60*1000) {
+    startTime = Date.now();
+    try { localStorage.setItem(KEY, startTime.toString()); } catch(e) {}
+  }
   function tick() {
     var el = document.getElementById('ae-session-timer');
     if (!el) return;
@@ -4539,7 +4555,7 @@ st.markdown("""
   tick(); setInterval(tick, 1000);
 })();
 </script>
-""", unsafe_allow_html=True)
+""", height=90)
 
 try:
     company_ticker_map = {

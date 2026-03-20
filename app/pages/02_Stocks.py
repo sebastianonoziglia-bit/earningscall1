@@ -671,25 +671,39 @@ st.markdown("""
     .stButton > button,
     .stButton > button:focus,
     .stButton > button:active,
-    div[data-testid="stButton"] > button {
-        background-color: #f3f4f6 !important;
+    .stButton > button:visited,
+    div[data-testid="stButton"] > button,
+    div[data-testid="stButton"] > button:focus,
+    div[data-testid="stButton"] > button:active {
+        background-color: #1e40af !important;
         background-image: none !important;
-        border: 1px solid #e5e7eb !important;
-        color: #111827 !important;
+        border: 1px solid #1e3a8a !important;
+        color: #ffffff !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
-        font-size: 0.8rem !important;
-        padding: 5px 16px !important;
+        font-size: 0.82rem !important;
+        padding: 8px 18px !important;
         letter-spacing: 0.04em !important;
-        box-shadow: none !important;
+        box-shadow: 0 1px 3px rgba(30,64,175,0.25) !important;
         width: 100% !important;
-        transition: background 0.15s ease !important;
+        transition: all 0.2s ease !important;
+        cursor: pointer !important;
+    }
+    .stButton > button *,
+    div[data-testid="stButton"] > button *,
+    .stButton > button p,
+    .stButton > button span,
+    div[data-testid="stButton"] > button p,
+    div[data-testid="stButton"] > button span {
+        color: #ffffff !important;
     }
     .stButton > button:hover,
     div[data-testid="stButton"] > button:hover {
-        background-color: #e5e7eb !important;
-        color: #111827 !important;
-        border-color: #d1d5db !important;
+        background-color: #1d4ed8 !important;
+        color: #ffffff !important;
+        border-color: #1e40af !important;
+        box-shadow: 0 3px 8px rgba(30,64,175,0.35) !important;
+        transform: translateY(-1px);
     }
     .price-up {
         color: green;
