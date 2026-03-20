@@ -4510,11 +4510,37 @@ _deep_dive("earnings", "Explore company financials in depth")
 _separator()
 
 # Beat 13 — Live ticker
-_section(
-    "The Clock",
-    "Every second you stay on this page, revenue keeps running.",
-    "This meter starts at zero when the component loads and accumulates in real-time from annualized run-rate assumptions."
-)
+# ── THE CLOCK — session timer header ────────────────────────────────────
+st.markdown("""
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+  <div>
+    <div style="font-size:0.7rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">THE CLOCK</div>
+    <div style="font-size:1.6rem;font-weight:700;color:#f1f5f9;border-left:3px solid #f97316;padding-left:12px;">
+      Every second you stay on this page, revenue keeps running.
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div style="font-size:0.65rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px;">Time on dashboard</div>
+    <div id="ae-session-timer" style="font-size:2rem;font-weight:800;color:#f97316;font-variant-numeric:tabular-nums;letter-spacing:0.05em;">00:00</div>
+  </div>
+</div>
+<script>
+(function() {
+  var KEY = 'ae_session_start';
+  var stored = window.sessionStorage.getItem(KEY);
+  if (!stored) { stored = Date.now().toString(); window.sessionStorage.setItem(KEY, stored); }
+  var startTime = parseInt(stored, 10);
+  function tick() {
+    var el = document.getElementById('ae-session-timer');
+    if (!el) return;
+    var s = Math.floor((Date.now() - startTime) / 1000);
+    el.textContent = Math.floor(s/60).toString().padStart(2,'0') + ':' + (s%60).toString().padStart(2,'0');
+  }
+  tick(); setInterval(tick, 1000);
+})();
+</script>
+""", unsafe_allow_html=True)
+
 try:
     company_ticker_map = {
         "Alphabet": "GOOGL",
@@ -4531,8 +4557,34 @@ try:
         "Paramount Global": "PARA",
     }
 
-    ticker_data: list[tuple[str, str, float]] = []
+    # ── Ad revenue per company (for dual-column clock) ──
+    _ad_rev_fallback_b = {
+        "Alphabet": 237.0, "Meta Platforms": 160.0, "Amazon": 56.2,
+        "Apple": 7.0, "Microsoft": 13.0, "Netflix": 2.2,
+        "Disney": 0.0, "Comcast": 0.0, "Spotify": 0.0,
+        "Roku": 0.0, "Warner Bros. Discovery": 0.0, "Paramount Global": 0.0,
+    }
+    # Try live ad_lookup first; fall back to _ad_by_year then hard-coded.
+    _clock_ad_annual: dict[str, float] = {}  # company → annual ad revenue USD
+    for _ck_co in company_ticker_map:
+        ad_info = ad_lookup.get(_ck_co) if 'ad_lookup' in dir() else None
+        if ad_info and float(ad_info.get("ad_revenue_musd", 0)) > 0:
+            _clock_ad_annual[_ck_co] = float(ad_info["ad_revenue_musd"]) * 1e6
+        elif '_ad_by_year' in dir() and _ad_by_year:
+            yr_data = _ad_by_year.get(effective_year, _ad_by_year.get(max(_ad_by_year.keys()), {}))
+            # _ad_by_year uses short names like "Meta" not "Meta Platforms"
+            _short_map = {"Meta Platforms": "Meta", "Warner Bros. Discovery": "Warner Bros Discovery",
+                          "Paramount Global": "Paramount"}
+            _short = _short_map.get(_ck_co, _ck_co)
+            ad_b = yr_data.get(_ck_co, yr_data.get(_short, 0.0))
+            _clock_ad_annual[_ck_co] = float(ad_b) * 1e9 if ad_b else 0.0
+        else:
+            _fb = _ad_rev_fallback_b.get(_ck_co, 0.0)
+            _clock_ad_annual[_ck_co] = float(_fb) * 1e9
+
+    ticker_data: list[tuple[str, str, float, float]] = []  # (company, ticker, total_rps, ad_rps)
     total_rps = 0.0
+    total_ad_rps = 0.0
     seconds_per_year = 365 * 24 * 3600
 
     metrics_scope = pd.DataFrame()
@@ -4559,8 +4611,11 @@ try:
                 if annual_revenue_usd <= 0:
                     continue
                 rps = annual_revenue_usd / seconds_per_year
+                ad_annual = _clock_ad_annual.get(company, 0.0)
+                ad_rps = ad_annual / seconds_per_year if ad_annual > 0 else 0.0
                 total_rps += rps
-                ticker_data.append((company, company_ticker_map.get(company, ""), rps))
+                total_ad_rps += ad_rps
+                ticker_data.append((company, company_ticker_map.get(company, ""), rps, ad_rps))
 
     # Fallback: use known company-level annual revenue ($B) when metrics sheet unavailable.
     if not ticker_data:
@@ -4580,14 +4635,17 @@ try:
         for _co, _tk, _rev_b in _clock_fallback:
             annual_revenue_usd = _rev_b * 1_000_000_000
             rps = annual_revenue_usd / seconds_per_year
+            ad_annual = _clock_ad_annual.get(_co, 0.0)
+            ad_rps = ad_annual / seconds_per_year if ad_annual > 0 else 0.0
             total_rps += rps
-            ticker_data.append((_co, _tk, rps))
+            total_ad_rps += ad_rps
+            ticker_data.append((_co, _tk, rps, ad_rps))
 
     if not ticker_data:
         st.info("Revenue ticker unavailable.")
     else:
         rows_html = ""
-        for company, ticker, rps in ticker_data:
+        for company, ticker, rps, ad_rps in ticker_data:
             logo_b64 = _resolve_logo(company, logos)
             logo_html = (
                 f"<img src='data:image/png;base64,{logo_b64}' alt='{escape(company)} logo' "
@@ -4598,40 +4656,73 @@ try:
                 "border-radius:50%;background:rgba(148,163,184,0.16);color:#ffffff;'>•</span>"
             )
             ticker_label = f" · {ticker}" if ticker else ""
+            # Ad revenue column: show counter or dash
+            if ad_rps > 0:
+                ad_col_html = (
+                    f"<div style='text-align:right;min-width:180px;'>"
+                    f"<div style='font-size:0.6rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;'>Ad Rev</div>"
+                    f"<span data-rps='{ad_rps:.6f}' style='color:#f1f5f9;font-family:monospace;font-size:1.1rem;font-weight:800;'>$0</span>"
+                    f"</div>"
+                )
+            else:
+                ad_col_html = (
+                    f"<div style='text-align:right;min-width:180px;'>"
+                    f"<div style='font-size:0.6rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;'>Ad Rev</div>"
+                    f"<span style='color:rgba(255,255,255,0.2);font-family:monospace;font-size:1.1rem;font-weight:800;'>—</span>"
+                    f"</div>"
+                )
             rows_html += (
                 "<div style='display:flex;justify-content:space-between;align-items:center;padding:12px 0;"
                 "border-bottom:1px solid rgba(255,255,255,0.07);'>"
-                "<div style='display:inline-flex;align-items:center;gap:8px;'>"
+                "<div style='display:inline-flex;align-items:center;gap:8px;min-width:200px;'>"
                 f"{logo_html}<span style='color:#ffffff;font-weight:600;font-size:0.92rem;'>{escape(company)}</span>"
                 f"<span style='color:rgba(255,255,255,0.55);font-size:0.75rem;'>{escape(ticker_label)}</span>"
                 "</div>"
-                f"<span data-rps='{rps:.6f}' style='color:#ff5b1f;font-family:monospace;font-size:1.2rem;font-weight:800;'>$0</span>"
+                "<div style='display:flex;gap:24px;align-items:flex-start;'>"
+                f"<div style='text-align:right;min-width:180px;'>"
+                f"<div style='font-size:0.6rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;'>Total</div>"
+                f"<span data-rps='{rps:.6f}' style='color:#ff5b1f;font-family:monospace;font-size:1.1rem;font-weight:800;'>$0</span>"
+                f"</div>"
+                f"{ad_col_html}"
+                "</div>"
                 "</div>"
             )
+
+        # Combined row
+        if total_ad_rps > 0:
+            combined_ad_html = (
+                f"<div style='text-align:right;min-width:180px;'>"
+                f"<div style='font-size:0.6rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;'>Ad Rev</div>"
+                f"<span data-rps='{total_ad_rps:.6f}' style='color:#f1f5f9;font-family:monospace;font-size:1.2rem;font-weight:800;'>$0</span>"
+                f"</div>"
+            )
+        else:
+            combined_ad_html = "<div style='min-width:180px;'></div>"
 
         rows_html += (
             "<div style='display:flex;justify-content:space-between;align-items:center;padding:14px 0 0;'>"
             "<span style='color:rgba(255,255,255,0.45);font-size:0.88rem;'>Combined</span>"
-            f"<span data-rps='{total_rps:.6f}' style='color:white;font-family:monospace;font-size:1.3rem;font-weight:800;'>$0</span>"
+            "<div style='display:flex;gap:24px;align-items:flex-start;'>"
+            f"<div style='text-align:right;min-width:180px;'>"
+            f"<div style='font-size:0.6rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;'>Total</div>"
+            f"<span data-rps='{total_rps:.6f}' style='color:white;font-family:monospace;font-size:1.2rem;font-weight:800;'>$0</span>"
+            f"</div>"
+            f"{combined_ad_html}"
+            "</div>"
             "</div>"
         )
 
-        component_height = int(min(860, max(240, 118 + len(ticker_data) * 50)))
+        component_height = int(min(960, max(280, 130 + len(ticker_data) * 58)))
         st.components.v1.html(
             f"""
-	            <style>
-	              html, body {{
-	                margin: 0;
-	                padding: 0;
-	                background: #020810;
-	                color: #e6edf3;
-	                overflow: hidden;
-	                border: none;
-	                outline: none;
-	              }}
-	            </style>
-	            <div style="background:#020810;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
-	              {rows_html}
+            <style>
+              html, body {{
+                margin: 0; padding: 0; background: #020810;
+                color: #e6edf3; overflow: hidden; border: none; outline: none;
+              }}
+            </style>
+            <div style="background:#020810;padding:20px 18px;border-radius:12px;font-family:sans-serif;">
+              {rows_html}
               <div style="color:rgba(255,255,255,0.3);font-size:0.72rem;margin-top:14px;">
                 Based on {effective_year} annual revenue ÷ seconds per year. Updates every 120ms since you opened this page.
               </div>
