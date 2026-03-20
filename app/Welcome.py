@@ -2737,7 +2737,11 @@ map_body = (
 )
 _section("The World", "Every dollar. Every country.", map_body)
 try:
-    country_df = _read_excel_sheet_cached(excel_path, "Country_Totals_vs_GDP", source_stamp) if excel_path else pd.DataFrame()
+    country_df = pd.DataFrame()
+    # Try main excel_path first, then live_excel_path as fallback
+    for _ep in [excel_path, live_excel_path if "live_excel_path" in dir() else ""]:
+        if _ep and country_df.empty:
+            country_df = _read_excel_sheet_cached(_ep, "Country_Totals_vs_GDP", source_stamp)
     if country_df.empty:
         logger.warning("Country_Totals_vs_GDP sheet unavailable — using fallback")
         _ctry_fb = [
@@ -3867,11 +3871,15 @@ st.markdown("</div>", unsafe_allow_html=True)
 _deep_dive("editorial", "Deep dive into platforms")
 _separator()
 # --- Concentration: animated stacked bar 2010→latest ---
-_CONC_SEG_ORDER = ["Alphabet", "Meta", "Amazon", "Apple + MSFT", "Other Digital",
+_CONC_SEG_ORDER = ["Alphabet", "Meta", "Amazon", "Apple + MSFT",
+                   "Search (other)", "Social (other)", "Display (other)", "Video (other)", "Other Digital",
                    "TV (Free + Pay)", "Print", "Radio", "OOH", "Cinema"]
 _CONC_SEG_COLORS = {
     "Alphabet": "#4285f4", "Meta": "#0082fb", "Amazon": "#ff9900",
-    "Apple + MSFT": "#ff4202", "Other Digital": "#4a4a4a",
+    "Apple + MSFT": "#ff4202",
+    "Search (other)": "#5c6bc0", "Social (other)": "#26a69a",
+    "Display (other)": "#7e57c2", "Video (other)": "#ef5350",
+    "Other Digital": "#4a4a4a",
     "TV (Free + Pay)": "#444444", "Print": "#333333",
     "Radio": "#282828", "OOH": "#1e1e1e", "Cinema": "#141414",
 }
@@ -3894,12 +3902,27 @@ for _ay in range(_conc_anim_start, (effective_year or 2024) + 1):
     _ay_named = _ay_alpha + _ay_meta + _ay_amzn + _ay_apple + _ay_msft
     _ay_df = global_adv_df[global_adv_df["year"] == _ay] if not global_adv_df.empty else pd.DataFrame()
     _ay_by_type = (_ay_df.groupby("metric_type")["value"].sum() / 1_000.0).to_dict() if not _ay_df.empty else {}
-    _ay_dig_total = sum(_ay_by_type.get(k, 0) for k in _ay_by_type if any(x in k for x in _CONC_DIG_PATTERNS))
-    _ay_dig_other = max(0.0, _ay_dig_total - _ay_named)
+    # Granular digital breakdown
+    _ay_search_total = sum(_ay_by_type.get(k, 0) for k in ["Search Desktop Worldwide", "Search Mobile Worldwide"])
+    _ay_social_total = sum(_ay_by_type.get(k, 0) for k in ["Social Desktop Worldwide", "Social Mobile Worldwide"])
+    _ay_display_total = sum(_ay_by_type.get(k, 0) for k in ["Display Desktop Worldwide", "Display Mobile Worldwide"])
+    _ay_video_total = sum(_ay_by_type.get(k, 0) for k in ["Video Desktop Worldwide", "Video Mobile Worldwide"])
+    _ay_dig_other_raw = sum(_ay_by_type.get(k, 0) for k in ["Other Desktop Worldwide", "Other Mobile Worldwide", "Digital OOH Worldwide"])
+    # Subtract named company ad revenue from the appropriate digital categories
+    # Alphabet is mostly search, Meta is mostly social, Amazon is mostly display/other
+    _ay_search_other = max(0.0, _ay_search_total - _ay_alpha)
+    _ay_social_other = max(0.0, _ay_social_total - _ay_meta)
+    _ay_display_other = max(0.0, _ay_display_total - _ay_amzn)
+    _ay_video_other = _ay_video_total
+    _ay_remaining_dig = max(0.0, _ay_dig_other_raw - (_ay_apple + _ay_msft))
     _ay_vals: dict = {
         "Alphabet": _ay_alpha, "Meta": _ay_meta, "Amazon": _ay_amzn,
         "Apple + MSFT": _ay_apple + _ay_msft,
-        "Other Digital": _ay_dig_other if _ay_dig_other > 0.5 else 0.0,
+        "Search (other)": _ay_search_other if _ay_search_other > 0.3 else 0.0,
+        "Social (other)": _ay_social_other if _ay_social_other > 0.3 else 0.0,
+        "Display (other)": _ay_display_other if _ay_display_other > 0.3 else 0.0,
+        "Video (other)": _ay_video_other if _ay_video_other > 0.3 else 0.0,
+        "Other Digital": _ay_remaining_dig if _ay_remaining_dig > 0.3 else 0.0,
         "TV (Free + Pay)": sum(_ay_by_type.get(k, 0) for k in ["Free TV Worldwide", "Pay TV Worldwide"]),
         "Print":  sum(_ay_by_type.get(k, 0) for k in ["Newspaper Worldwide", "Magazine Worldwide"]),
         "Radio":  _ay_by_type.get("Radio Worldwide", 0.0),
