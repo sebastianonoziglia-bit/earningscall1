@@ -3700,8 +3700,7 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(fun
       var a=num2alpha[String(d.id)]||'';
       var cName=isoToName[a]||'';
       if(!cName)return;
-      var bUrl=window.parent.location.pathname.replace(/\/[^\/]*$/,'/');
-      window.parent.location.href=bUrl+'Overview?country='+encodeURIComponent(cName);
+      try{window.open('/Overview?country='+encodeURIComponent(cName),'_blank');}catch(e){}
     });
   drawLogos();
   startRotation();

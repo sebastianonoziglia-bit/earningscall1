@@ -7962,10 +7962,13 @@ if not country_ad_df.empty:
                         row.addEventListener("click", () => {{
                           const country = row.dataset.country || "";
                           if (!country) return;
-                          // Navigate parent to ?country=X for drill-down panel
-                          var pLoc = window.parent.location;
-                          var base = pLoc.pathname;
-                          window.parent.location.href = base + '?country=' + encodeURIComponent(country);
+                          // Visual highlight only — drill-down is handled by Streamlit selectbox
+                          const indexMap = getCountryToIndexMap();
+                          const idx = indexMap.has(country) ? indexMap.get(country) : -1;
+                          const paths = getCountryPaths();
+                          if (idx >= 0 && idx < paths.length) {{
+                            setSelected(paths[idx], country);
+                          }}
                         }});
                       }});
                     }};
@@ -7989,10 +7992,8 @@ if not country_ad_df.empty:
                         const path = findPathForPoint(data);
                         const country = getCountryFromPoint(pt);
                         if (!path || !country) return;
-                        // Navigate parent to ?country=X for drill-down panel
-                        var pLoc = window.parent.location;
-                        var base = pLoc.pathname;
-                        window.parent.location.href = base + '?country=' + encodeURIComponent(country);
+                        // Visual highlight only — drill-down is handled by Streamlit selectbox
+                        setSelected(path, country);
                       }});
                     }};
 
@@ -8021,7 +8022,29 @@ if not country_ad_df.empty:
         if year_for_map != selected_year:
             st.caption(f"Country advertising data is not available for {selected_year}; showing {year_for_map} instead.")
 
-        # ── Country detail drill-down panel (appears when a country is clicked) ──
+        # ── Country drill-down selector (works around sandboxed-iframe limitation) ──
+        _all_map_countries = sorted(country_ad_df["Country"].dropna().unique().tolist())
+        _current_drill = st.session_state.get("country_drilldown_primary", "")
+        _drill_idx = 0
+        _drill_options = ["— Select a country to explore —"] + _all_map_countries
+        if _current_drill and _current_drill in _all_map_countries:
+            _drill_idx = _all_map_countries.index(_current_drill) + 1
+        _selected_drill = st.selectbox(
+            "🔍 Explore country ad spend by channel",
+            options=_drill_options,
+            index=_drill_idx,
+            key="map_country_drilldown_select",
+            label_visibility="collapsed",
+        )
+        if _selected_drill and _selected_drill != "— Select a country to explore —":
+            if _selected_drill != st.session_state.get("country_drilldown_primary"):
+                st.session_state["country_drilldown_primary"] = _selected_drill
+                st.rerun()
+        elif _selected_drill == "— Select a country to explore —" and st.session_state.get("country_drilldown_primary"):
+            st.session_state.pop("country_drilldown_primary", None)
+            st.rerun()
+
+        # ── Country detail drill-down panel (appears when a country is selected) ──
         _drilldown_country = st.session_state.get("country_drilldown_primary")
         if _drilldown_country:
             _render_country_detail_panel(
