@@ -500,7 +500,7 @@ def _get_active_overview_auto_insights(excel_path: str) -> list[dict]:
     return cleaned_rows
 
 @st.cache_data(ttl=3600)
-def _extract_forward_signals(excel_path: str, company: str = "", max_signals: int = 30) -> list:
+def _extract_forward_signals(excel_path: str, company: str = "", max_signals: int = 80) -> list:
     FORWARD_TRIGGERS = [
         "we expect","we anticipate","we are targeting","we plan to","we intend to",
         "our outlook","looking ahead","heading into","next quarter","full year guidance",
@@ -509,11 +509,65 @@ def _extract_forward_signals(excel_path: str, company: str = "", max_signals: in
         "positioned to","we continue to expect","for the year"
     ]
     CATEGORY_KEYWORDS = {
-        "AI & Technology": ["ai","artificial intelligence","machine learning","cloud","compute","model","llm","gemini","copilot","gpt"],
-        "Advertising": ["advertising","ad revenue","ad market","monetization","arpu","cpm","impressions","sponsored","programmatic"],
-        "Subscribers & Users": ["subscribers","users","dau","mau","engagement","retention","churn","paid members","streaming"],
-        "Cost & Margin": ["cost","margin","efficiency","headcount","opex","capex","restructur","expense","savings"],
-        "Macro & Market": ["macro","economy","recession","consumer","market condition","interest rate","inflation"],
+        "AI & Technology": [
+            "ai","artificial intelligence","machine learning","cloud","compute","model",
+            "llm","gemini","copilot","gpt","neural","language model","automation","robotics",
+            "data center","infrastructure","generative","algorithm","inference","training",
+        ],
+        "Advertising": [
+            "advertising","ad revenue","ad market","monetization","arpu","cpm","impressions",
+            "sponsored","programmatic","brand","campaign","targeting","measurement",
+            "agency","upfront","performance marketing","demand","supply side",
+        ],
+        "Subscribers & Users": [
+            "subscribers","users","dau","mau","engagement","retention","churn","paid members",
+            "streaming","audience","reach","active users","monthly active","daily active",
+            "signups","premium","conversion",
+        ],
+        "Revenue & Growth": [
+            "revenue","growth","top line","year over year","yoy","outperform","beat",
+            "exceeded","record","strong","accelerating","trajectory",
+        ],
+        "Business Strategy": [
+            "strategy","strategic","partnership","acquisition","merger","expand","launch",
+            "invest","priority","focus","initiative","roadmap","transformation","pivot",
+            "restructur","reorgani","new market","new product",
+        ],
+        "International Expansion": [
+            "international","global","emea","apac","latin america","europe","asia","japan",
+            "india","china","emerging market","region","cross-border","fx","currency",
+            "foreign exchange","overseas",
+        ],
+        "Debt & Capital": [
+            "debt","leverage","balance sheet","cash flow","free cash flow","fcf","buyback",
+            "repurchase","dividend","capital allocation","credit","bond","financing","liquidity",
+            "capex","capital expenditure","net debt","interest expense",
+        ],
+        "Competition": [
+            "competition","competitive","market share","rival","competitor","differentiat",
+            "moat","advantage","pricing","price war","ecosystem","switching",
+            "incumbent","disrupt","win rate",
+        ],
+        "Product & Innovation": [
+            "product","feature","release","update","version","build","develop",
+            "innovation","r&d","research","design","user experience",
+            "quality","performance","speed","scale",
+        ],
+        "Cost & Margin": [
+            "cost","margin","efficiency","headcount","opex","restructur","expense",
+            "savings","profitability","operating leverage","gross margin","ebitda",
+            "cash generation","cost control","optimize","lean","scalable",
+        ],
+        "Macro & Market": [
+            "macro","economy","recession","consumer","market condition","interest rate",
+            "inflation","gdp","fiscal","monetary","fed","supply chain",
+            "geopolit","uncertainty","slowdown","recovery","cycle",
+        ],
+        "Management Guidance": [
+            "full year","next quarter","we project","we forecast","we plan","we intend",
+            "looking ahead","we remain","we believe","going forward","positioned",
+            "full year guidance","we continue to expect","for the year","target","we guide",
+        ],
     }
 
     # Build list of (company, year, quarter, text) tuples from any available source
@@ -569,7 +623,7 @@ def _extract_forward_signals(excel_path: str, company: str = "", max_signals: in
                     break
             signals.append({"company": comp, "year": int(year), "quarter": quarter,
                              "signal": sentence, "category": category})
-            if len(signals) >= max_signals * 3:
+            if len(signals) >= max_signals * 5:
                 break
     seen = set()
     deduped = []
@@ -2925,7 +2979,7 @@ _fs_companies = selected_companies if "selected_companies" in dir() and selected
 _fs_excel = str(excel_path) if "excel_path" in dir() and excel_path else ""
 _all_signals = []
 for _fs_co in _fs_companies[:3]:
-    _co_signals = _extract_forward_signals(_fs_excel, company=_fs_co, max_signals=15)
+    _co_signals = _extract_forward_signals(_fs_excel, company=_fs_co, max_signals=60)
     _all_signals.extend(_co_signals)
 if _all_signals:
     # Build sorted period list (year + quarter, chronological)
@@ -2961,7 +3015,9 @@ if _all_signals:
         for sig in _period_signals:
             _cats.setdefault(sig["category"], []).append(sig)
 
-        _cat_order = ["AI & Technology", "Advertising", "Subscribers & Users", "Revenue & Growth", "Cost & Margin", "Macro & Market"]
+        _cat_order = ["AI & Technology", "Advertising", "Subscribers & Users", "Revenue & Growth",
+                      "Business Strategy", "International Expansion", "Debt & Capital", "Competition",
+                      "Product & Innovation", "Cost & Margin", "Macro & Market", "Management Guidance"]
         _cats_present = [c for c in _cat_order if c in _cats] + [c for c in _cats if c not in _cat_order]
         for _cat in _cats_present:
             with st.expander(

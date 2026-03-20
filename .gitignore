@@ -12,3 +12,7 @@ reports/
 earningscall_intelligence.db
 reports/latest_diagnostic.html
 reports/*.html
+
+venv/
+__pycache__/
+*.pyc

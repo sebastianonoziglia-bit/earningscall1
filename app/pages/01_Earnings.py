@@ -166,6 +166,11 @@ def main():
             max-width: 1500px;
         }
 
+        @keyframes kpiCardFadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
         .earnings-hero-panel .kpi-card {
             background: rgba(15, 23, 42, 0.55);
             border: 1px solid rgba(248, 250, 252, 0.25);
@@ -175,9 +180,22 @@ def main():
             opacity: 0;
             transform: translateY(6px);
             transition: opacity 0.6s ease, transform 0.6s ease;
+            /* CSS-only fallback: cards appear even if JS animation fails */
+            animation: kpiCardFadeIn 0.6s ease forwards;
+            animation-delay: 1.8s;
         }
+        .earnings-hero-panel .kpi-card:nth-child(2) { animation-delay: 1.92s; }
+        .earnings-hero-panel .kpi-card:nth-child(3) { animation-delay: 2.04s; }
+        .earnings-hero-panel .kpi-card:nth-child(4) { animation-delay: 2.16s; }
+        .earnings-hero-panel .kpi-card:nth-child(5) { animation-delay: 2.28s; }
+        .earnings-hero-panel .kpi-card:nth-child(6) { animation-delay: 2.40s; }
+        .earnings-hero-panel .kpi-card:nth-child(7) { animation-delay: 2.52s; }
+        .earnings-hero-panel .kpi-card:nth-child(8) { animation-delay: 2.64s; }
+        .earnings-hero-panel .kpi-card:nth-child(9) { animation-delay: 2.76s; }
+        .earnings-hero-panel .kpi-card:nth-child(10) { animation-delay: 2.88s; }
 
         .earnings-hero-panel .kpi-card.kpi-show {
+            animation: none;
             opacity: 1;
             transform: translateY(0);
         }
@@ -3435,9 +3453,17 @@ def main():
         <script>
     	    (function() {{
     	        const doc = window.parent.document;
-    	        const hero = doc.getElementById("earnings-hero-{kpi_anim_key}");
-    	        const panel = doc.getElementById("kpi-panel-{kpi_anim_key}");
-    	        if (!hero || !panel) return;
+    	        function tryInit(attempt) {{
+    	            const hero = doc.getElementById("earnings-hero-{kpi_anim_key}");
+    	            const panel = doc.getElementById("kpi-panel-{kpi_anim_key}");
+    	            if (!hero || !panel) {{
+    	                if (attempt < 10) window.parent.setTimeout(() => tryInit(attempt + 1), 200);
+    	                return;
+    	            }}
+    	            runAnimation(hero, panel);
+    	        }}
+    	        tryInit(0);
+    	        function runAnimation(hero, panel) {{
 
             hero.classList.remove("is-collapsed");
             const cards = panel.querySelectorAll(".kpi-card");
@@ -3553,6 +3579,7 @@ def main():
                     card.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
                 }});
             }});
+        }}
         }})();
         </script>
         """,
@@ -5902,16 +5929,45 @@ function cgMetric(tab,mid,btn){
 
     _ti_excel = str(excel_path) if "excel_path" in dir() and excel_path else ""
 
+    # ── Local transcript file reader (fallback when sheet is unavailable) ──────
+    _TRANSCRIPT_ROOT_TI = Path(__file__).resolve().parents[1] / "earningscall_transcripts"
+    _TRANSCRIPT_ROOT_TI_ALT = Path(__file__).resolve().parents[2] / "earningscall_transcripts"
+    _TI_COMPANY_FIXES = {
+        "Paramount_Global": "Paramount Global",
+        "Warner_Bros_Discovery": "Warner Bros. Discovery",
+    }
+
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def _load_local_transcripts_for_ti() -> list[dict]:
+        """Scan earningscall_transcripts/ and return list of {company, year, quarter, text}."""
+        root = _TRANSCRIPT_ROOT_TI if _TRANSCRIPT_ROOT_TI.exists() else _TRANSCRIPT_ROOT_TI_ALT
+        if not root.exists():
+            return []
+        rows = []
+        for company_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+            company = _TI_COMPANY_FIXES.get(company_dir.name, company_dir.name.replace("_", " ").strip())
+            for year_dir in sorted(p for p in company_dir.iterdir() if p.is_dir() and p.name.isdigit()):
+                year = int(year_dir.name)
+                for txt in sorted(year_dir.glob("Q[1-4].txt")):
+                    quarter = txt.stem.upper()
+                    text = txt.read_text(encoding="utf-8", errors="ignore").strip()
+                    if text:
+                        rows.append({"company": company, "year": year, "quarter": quarter, "text": text})
+        return rows
+
     @st.cache_data(ttl=3600, show_spinner=False)
     def _extract_ti_signals(excel_path_str: str, company_str: str) -> list:
-        if not excel_path_str:
-            return []
-        try:
-            df = pd.read_excel(excel_path_str, sheet_name="Transcripts")
-        except Exception:
+        df = None
+        # Try Google Sheet XLSX first
+        if excel_path_str:
             try:
-                from pathlib import Path as _Path
-                _db = _Path(excel_path_str).resolve().parents[0] / "earningscall_intelligence.db"
+                df = pd.read_excel(excel_path_str, sheet_name="Transcripts")
+            except Exception:
+                pass
+        # Try SQLite fallback
+        if df is None or df.empty:
+            try:
+                _db = Path(excel_path_str).resolve().parents[0] / "earningscall_intelligence.db"
                 import sqlite3 as _sql
                 with _sql.connect(str(_db)) as _conn:
                     df = pd.read_sql_query(
@@ -5919,9 +5975,16 @@ function cgMetric(tab,mid,btn){
                         _conn, params=[company_str]
                     )
             except Exception:
-                return []
+                pass
+        # Try local transcript files
+        if df is None or df.empty:
+            local_rows = _load_local_transcripts_for_ti()
+            if local_rows:
+                df = pd.DataFrame(local_rows)
+                df.rename(columns={"text": "transcript_text"}, inplace=True)
         if df is None or df.empty:
             return []
+        df.columns = [str(c).strip().lower() for c in df.columns]
         text_col = "transcript_text" if "transcript_text" in df.columns else ("text" if "text" in df.columns else None)
         if not text_col:
             return []
