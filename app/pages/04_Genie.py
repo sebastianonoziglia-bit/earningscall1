@@ -22,6 +22,7 @@ import sqlite3
 import re
 import math
 from datetime import datetime
+from pathlib import Path
 from data_processor import FinancialDataProcessor
 from utils.data_loader import load_advertising_data, get_available_filters, read_excel_data
 from utils.components import render_ai_assistant
@@ -345,65 +346,113 @@ def _get_quarterly_years_for_companies(excel_path: str, companies: tuple) -> lis
     return sorted(set(years))
 
 
+# ── Local transcript file reader ─────────────────────────────────────────────
+_TRANSCRIPT_ROOT = Path(__file__).resolve().parents[2] / "earningscall_transcripts"
+_COMPANY_NAME_NORMALIZE = {
+    "Paramount_Global": "Paramount Global",
+    "Warner_Bros_Discovery": "Warner Bros. Discovery",
+    "Meta Platforms": "Meta Platforms",
+}
+
+
+def _normalize_company_folder(folder_name: str) -> str:
+    return _COMPANY_NAME_NORMALIZE.get(folder_name, folder_name.replace("_", " ").strip())
+
+
+@st.cache_data(ttl=3600)
+def _load_local_transcripts_index() -> dict:
+    """Scan earningscall_transcripts/ folder and return {(company, year, quarter): path}."""
+    index: dict = {}
+    root = _TRANSCRIPT_ROOT
+    if not root.exists():
+        return index
+    for company_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+        company = _normalize_company_folder(company_dir.name)
+        for year_dir in sorted(p for p in company_dir.iterdir() if p.is_dir() and p.name.isdigit()):
+            year = int(year_dir.name)
+            for txt in sorted(year_dir.glob("Q[1-4].txt")):
+                quarter = txt.stem.upper()
+                index[(company, year, quarter)] = str(txt)
+    return index
+
+
+@st.cache_data(ttl=3600)
+def _read_local_transcript(company: str, year: int, quarter: str) -> str:
+    """Read a single transcript from local files."""
+    idx = _load_local_transcripts_index()
+    path = idx.get((company, year, quarter))
+    if not path:
+        for key, p in idx.items():
+            if key[0].lower() == company.lower() and key[1] == year and key[2] == quarter.upper():
+                path = p
+                break
+    if not path:
+        return ""
+    try:
+        return Path(path).read_text(encoding="utf-8", errors="ignore").strip()
+    except Exception:
+        return ""
+
+
 @st.cache_data(ttl=3600)
 def _get_transcript_index(excel_path: str) -> dict:
     """
-    Build a lightweight index of available transcripts for AI context.
-    Reads only company/year/quarter metadata.
+    Build a lightweight index of available transcripts.
+    Tries Google Sheet first, falls back to local .txt files.
     """
-    if not excel_path:
-        return {}
-    try:
-        index_df = pd.read_excel(
-            excel_path,
-            sheet_name="Transcripts",
-            usecols=["company", "year", "quarter"],
-        )
-    except Exception:
-        return {}
+    # Try Google Sheet first
+    if excel_path:
+        try:
+            index_df = pd.read_excel(
+                excel_path,
+                sheet_name="Transcripts",
+                usecols=["company", "year", "quarter"],
+            )
+            if index_df is not None and not index_df.empty:
+                result = {}
+                for _, row in index_df.iterrows():
+                    company = str(row.get("company", "")).strip()
+                    year = pd.to_numeric(row.get("year"), errors="coerce")
+                    quarter = str(row.get("quarter", "")).strip()
+                    if not company or pd.isna(year) or not quarter:
+                        continue
+                    key = f"{company} {int(year)} {quarter}"
+                    result[key] = True
+                if result:
+                    return result
+        except Exception:
+            pass
 
-    if index_df is None or index_df.empty:
-        return {}
-
-    result = {}
-    for _, row in index_df.iterrows():
-        company = str(row.get("company", "")).strip()
-        year = pd.to_numeric(row.get("year"), errors="coerce")
-        quarter = str(row.get("quarter", "")).strip()
-        if not company or pd.isna(year) or not quarter:
-            continue
-        key = f"{company} {int(year)} {quarter}"
-        result[key] = True
-    return result
+    # Fallback: local transcript files
+    local_idx = _load_local_transcripts_index()
+    return {f"{c} {y} {q}": True for (c, y, q) in local_idx.keys()}
 
 
 @st.cache_data(ttl=3600)
 def _search_transcript(excel_path: str, company: str, year: int, quarter: str) -> str:
-    """Fetch a specific transcript row by company/year/quarter."""
-    if not excel_path:
-        return ""
-    try:
-        transcripts_df = pd.read_excel(excel_path, sheet_name="Transcripts")
-    except Exception:
-        return ""
-    if transcripts_df is None or transcripts_df.empty:
-        return ""
-    required = {"company", "year", "quarter", "transcript_text"}
-    if not required.issubset(set(transcripts_df.columns)):
-        return ""
+    """Fetch a specific transcript. Tries Google Sheet, falls back to local files."""
+    # Try Google Sheet first
+    if excel_path:
+        try:
+            transcripts_df = pd.read_excel(excel_path, sheet_name="Transcripts")
+            if transcripts_df is not None and not transcripts_df.empty:
+                required = {"company", "year", "quarter", "transcript_text"}
+                if required.issubset(set(transcripts_df.columns)):
+                    mask = (
+                        transcripts_df["company"].astype(str).str.lower().str.strip() == str(company).lower().strip()
+                    ) & (
+                        pd.to_numeric(transcripts_df["year"], errors="coerce") == int(year)
+                    ) & (
+                        transcripts_df["quarter"].astype(str).str.upper().str.strip() == str(quarter).upper().strip()
+                    )
+                    result = transcripts_df[mask]
+                    if not result.empty:
+                        return str(result.iloc[0].get("transcript_text", "") or "")
+        except Exception:
+            pass
 
-    mask = (
-        transcripts_df["company"].astype(str).str.lower().str.strip() == str(company).lower().strip()
-    ) & (
-        pd.to_numeric(transcripts_df["year"], errors="coerce") == int(year)
-    ) & (
-        transcripts_df["quarter"].astype(str).str.upper().str.strip() == str(quarter).upper().strip()
-    )
-
-    result = transcripts_df[mask]
-    if result.empty:
-        return ""
-    return str(result.iloc[0].get("transcript_text", "") or "")
+    # Fallback: local transcript files
+    return _read_local_transcript(company, int(year), str(quarter).upper().strip())
 
 
 @st.cache_data(ttl=3600)
@@ -466,26 +515,45 @@ def _extract_forward_signals(excel_path: str, company: str = "", max_signals: in
         "Cost & Margin": ["cost","margin","efficiency","headcount","opex","capex","restructur","expense","savings"],
         "Macro & Market": ["macro","economy","recession","consumer","market condition","interest rate","inflation"],
     }
-    if not excel_path:
+
+    # Build list of (company, year, quarter, text) tuples from any available source
+    transcript_rows: list[tuple] = []
+
+    # Try Google Sheet first
+    if excel_path:
+        try:
+            df = pd.read_excel(excel_path, sheet_name="Transcripts")
+            if df is not None and not df.empty and {"company","year","quarter","transcript_text"}.issubset(set(df.columns)):
+                if company:
+                    df = df[df["company"].astype(str).str.lower().str.strip() == company.lower().strip()]
+                for _, row in df.iterrows():
+                    comp = str(row.get("company","")).strip()
+                    yr = pd.to_numeric(row.get("year"), errors="coerce")
+                    qtr = str(row.get("quarter","")).strip()
+                    txt = str(row.get("transcript_text","") or "")
+                    if txt and not pd.isna(yr):
+                        transcript_rows.append((comp, int(yr), qtr, txt))
+        except Exception:
+            pass
+
+    # Fallback: local transcript files
+    if not transcript_rows:
+        local_idx = _load_local_transcripts_index()
+        for (comp, yr, qtr), path in local_idx.items():
+            if company and comp.lower().strip() != company.lower().strip():
+                continue
+            try:
+                txt = Path(path).read_text(encoding="utf-8", errors="ignore").strip()
+                if txt:
+                    transcript_rows.append((comp, yr, qtr, txt))
+            except Exception:
+                continue
+
+    if not transcript_rows:
         return []
-    try:
-        df = pd.read_excel(excel_path, sheet_name="Transcripts")
-    except Exception:
-        return []
-    if df is None or df.empty:
-        return []
-    if not {"company","year","quarter","transcript_text"}.issubset(set(df.columns)):
-        return []
-    if company:
-        df = df[df["company"].astype(str).str.lower().str.strip() == company.lower().strip()]
+
     signals = []
-    for _, row in df.iterrows():
-        comp = str(row.get("company","")).strip()
-        year = pd.to_numeric(row.get("year"), errors="coerce")
-        quarter = str(row.get("quarter","")).strip()
-        text = str(row.get("transcript_text","") or "")
-        if not text or pd.isna(year):
-            continue
+    for comp, year, quarter, text in transcript_rows:
         sentences = re.split(r'(?<=[.!?])\s+', text)
         for sentence in sentences:
             sentence = sentence.strip()
