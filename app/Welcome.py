@@ -2719,7 +2719,6 @@ map_body = (
 _section("The World", "Every dollar. Every country.", map_body)
 try:
     country_df = _read_excel_sheet_cached(excel_path, "Country_Totals_vs_GDP", source_stamp) if excel_path else pd.DataFrame()
-    # ── Fallback: if Country_Totals_vs_GDP empty, use known ad spend % GDP ──
     if country_df.empty:
         logger.warning("Country_Totals_vs_GDP sheet unavailable — using fallback")
         _ctry_fb = [
@@ -2757,115 +2756,126 @@ try:
             if scoped_map.empty:
                 st.info("Global map unavailable.")
             else:
-                map_fig = px.choropleth(
-                    scoped_map,
-                    locations=country_col,
-                    locationmode="country names",
-                    color=value_col,
-                    color_continuous_scale="Blues",
-                    hover_name=country_col,
-                    hover_data={country_col: False, value_col: ":.2f"},
-                    labels={value_col: "Ad Spend % GDP"},
-                )
-                map_fig.update_traces(
-                    hovertemplate="<b>%{hovertext}</b><br>Ad spend % of GDP: %{z:.2f}%<extra></extra>",
-                    marker_line_color="rgba(255,255,255,0.12)",
-                    marker_line_width=0.5,
-                )
-                _apply_dark_chart_layout(
-                    map_fig,
-                    height=520,
-                    margin=dict(l=0, r=0, t=0, b=0),
-                    extra_layout=dict(
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        geo=dict(
-                            bgcolor="rgba(0,0,0,0)",
-                            showland=True,
-                            landcolor="#1a2332",
-                            showframe=False,
-                            showcoastlines=True,
-                            coastlinecolor="rgba(255,255,255,0.12)",
-                            showocean=True,
-                            oceancolor="rgba(0,0,0,0)",
-                            showlakes=False,
-                            showcountries=False,
-                            projection_type="orthographic",
-                            lataxis_showgrid=False,
-                            lonaxis_showgrid=False,
-                        ),
-                    ),
-                )
-                map_fig.update_geos(
-                    showocean=True,
-                    oceancolor="rgba(0,0,0,0)",
-                    bgcolor="rgba(0,0,0,0)",
-                    lataxis_showgrid=False,
-                    lonaxis_showgrid=False,
-                )
-                st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False})
-                st.markdown("</div>", unsafe_allow_html=True)
-                st.components.v1.html("""
+                # Build country name → ad spend % GDP dict for D3 globe
+                _NAME_TO_ISO = {v: k for k, v in _ISO_TO_NAME.items()} if '_ISO_TO_NAME' in dir() else {}
+                _ad_gdp_data: dict[str, float] = {}
+                for _, _row in scoped_map.iterrows():
+                    _cname = str(_row[country_col])
+                    _val = float(_row[value_col])
+                    _iso = _NAME_TO_ISO.get(_cname, "")
+                    if _iso:
+                        _ad_gdp_data[_iso] = round(_val, 3)
+                _ad_gdp_json = json.dumps(_ad_gdp_data)
+                _ad_gdp_names_json = json.dumps({v: k for k, v in _NAME_TO_ISO.items() if v in _ad_gdp_data})
+
+                st.components.v1.html(
+                    """<!DOCTYPE html><html><head>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap">
+<style>
+html,body{margin:0;padding:0;background:#020810;overflow:hidden;font-family:'DM Sans',sans-serif;}
+#adglobe-root{width:100%;height:600px;position:relative;background:#020810;}
+#adglobe-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.95);border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;border-radius:8px;font-size:13px;pointer-events:none;z-index:100;max-width:220px;}
+#adglobe-legend{position:absolute;bottom:16px;left:16px;display:flex;align-items:center;gap:6px;}
+.adglobe-grad{width:180px;height:10px;border-radius:5px;background:linear-gradient(90deg,#0d2847,#1a5fb4,#3b82f6,#f97316,#ef4444);}
+.adglobe-min,.adglobe-max{font-size:10px;color:#8b949e;}
+</style></head><body>
+<div id="adglobe-root">
+<div id="adglobe-tooltip"></div>
+<div id="adglobe-legend">
+  <span class="adglobe-min">0%</span>
+  <div class="adglobe-grad"></div>
+  <span class="adglobe-max">1.5%+</span>
+  <span style="font-size:10px;color:#6b7280;margin-left:8px;">Ad Spend % of GDP</span>
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
-(function() {
-    var lon = 0, spinning = true, animId = null, bound = false, clickBound = false;
-    function findGlobe() {
-        var plots = window.parent.document.querySelectorAll('.js-plotly-plot');
-        for (var i = 0; i < plots.length; i++) {
-            try {
-                var fl = plots[i]._fullLayout;
-                if (fl && fl.geo && fl.geo.projection && fl.geo.projection.type === 'orthographic') {
-                    return plots[i];
-                }
-            } catch(e) {}
-        }
-        return null;
-    }
-    function bindClick(el) {
-        if (clickBound || !el || typeof el.on !== 'function') return;
-        clickBound = true;
-        el.on('plotly_click', function(data) {
-            var pt = data && data.points && data.points[0] ? data.points[0] : null;
-            var country = '';
-            if (pt && pt.hovertext) country = String(pt.hovertext).trim();
-            else if (pt && pt.location) country = String(pt.location).trim();
-            if (!country) return;
-            var base = window.parent.location.pathname.replace(/\/[^\/]*$/, '/');
-            window.parent.location.href = base + 'Overview?country=' + encodeURIComponent(country);
-        });
-        // Make choropleth paths show pointer cursor
-        var paths = el.querySelectorAll('.choroplethlayer path');
-        for (var i = 0; i < paths.length; i++) paths[i].style.cursor = 'pointer';
-    }
-    function rotate() {
-        if (spinning) {
-            var el = findGlobe();
-            var Plotly = window.parent.Plotly || window.Plotly;
-            if (el && Plotly) {
-                if (!bound) {
-                    el.addEventListener('mouseenter', function() { spinning = false; });
-                    el.addEventListener('mouseleave', function() { spinning = true; });
-                    bound = true;
-                }
-                bindClick(el);
-                lon = (lon + 0.3) % 360;
-                try { Plotly.relayout(el, {'geo.projection.rotation.lon': lon}); } catch(e) {}
-            }
-        }
-        animId = requestAnimationFrame(rotate);
-    }
-    function startRotation() {
-        if (!findGlobe()) { setTimeout(startRotation, 600); return; }
-        animId = requestAnimationFrame(rotate);
-    }
-    setTimeout(startRotation, 2500);
-})();
-</script>
-""", height=0)
+var adGdpData="""
+                    + _ad_gdp_json
+                    + """;
+var num2alpha="""
+                    + json.dumps(_build_numeric_iso_map())
+                    + """;
+var isoNames="""
+                    + _ad_gdp_names_json
+                    + """;
+var root=document.getElementById('adglobe-root');
+var tooltip=document.getElementById('adglobe-tooltip');
+var W=root.clientWidth||900,H=600;
+var svg=d3.select('#adglobe-root').append('svg').attr('width',W).attr('height',H).style('position','absolute').style('top','0').style('left','0');
+var projection=d3.geoOrthographic().scale(Math.min(W,H)*0.42).translate([W/2,H/2]).clipAngle(90).rotate([0,-20]);
+var path=d3.geoPath().projection(projection);
+svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','#0d1f35').attr('stroke','rgba(99,179,237,0.15)').attr('stroke-width',1);
+var gCountries=svg.append('g');
+function adColor(v){
+  if(!v&&v!==0)return '#1a2744';
+  var t=Math.min(v/1.5,1);
+  if(t<0.25)return d3.interpolateRgb('#0d2847','#1a5fb4')(t/0.25);
+  if(t<0.5)return d3.interpolateRgb('#1a5fb4','#3b82f6')((t-0.25)/0.25);
+  if(t<0.75)return d3.interpolateRgb('#3b82f6','#f97316')((t-0.5)/0.25);
+  return d3.interpolateRgb('#f97316','#ef4444')((t-0.75)/0.25);
+}
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(function(r){return r.json();}).then(function(world){
+  var countries=topojson.feature(world,world.objects.countries).features;
+  gCountries.selectAll('path').data(countries).enter().append('path')
+    .attr('d',path)
+    .attr('fill',function(d){var a=num2alpha[String(d.id)]||'';var v=adGdpData[a];return adColor(v);})
+    .attr('stroke','rgba(255,255,255,0.1)').attr('stroke-width',0.4)
+    .style('cursor','pointer')
+    .on('mousemove',function(event,d){
+      var a=num2alpha[String(d.id)]||'';
+      var cName=isoNames[a]||'';
+      var v=adGdpData[a];
+      if(!cName){tooltip.style.display='none';return;}
+      tooltip.style.display='block';
+      tooltip.style.left=(event.offsetX+12)+'px';
+      tooltip.style.top=(event.offsetY-10)+'px';
+      var pctHtml=v!==undefined?'<br>Ad Spend: <strong style="color:#f97316">'+v.toFixed(2)+'%</strong> of GDP':'';
+      tooltip.innerHTML='<strong>'+cName+'</strong>'+pctHtml+'<br><span style="font-size:11px;color:#93c5fd;opacity:0.8;">Click to explore</span>';
+    })
+    .on('mouseleave',function(){tooltip.style.display='none';})
+    .on('click',function(event,d){
+      if(globeDragged)return;
+      var a=num2alpha[String(d.id)]||'';
+      var cName=isoNames[a]||'';
+      if(!cName)return;
+      try{window.open('/Overview?country='+encodeURIComponent(cName),'_blank');}catch(e){}
+    });
+  startRotation();
+});
+var lon=0,spinning=true,animId=null,lastTime=0;
+var isDragging=false,dragStart=null,rotateStart=[0,-20],globeDragged=false;
+function rotate(ts){
+  if(!spinning)return;
+  if(ts-lastTime>16){lon=(lon+0.25)%360;projection.rotate([lon,-20]);gCountries.selectAll('path').attr('d',path);lastTime=ts;}
+  animId=requestAnimationFrame(rotate);
+}
+function startRotation(){spinning=true;animId=requestAnimationFrame(rotate);}
+root.addEventListener('mousedown',function(e){
+  isDragging=true;spinning=false;globeDragged=false;
+  if(animId)cancelAnimationFrame(animId);
+  dragStart=[e.clientX,e.clientY];rotateStart=projection.rotate().slice();
+  tooltip.style.display='none';
+});
+root.addEventListener('mousemove',function(e){
+  if(!isDragging||!dragStart)return;
+  var dx=e.clientX-dragStart[0],dy=e.clientY-dragStart[1];
+  if(Math.sqrt(dx*dx+dy*dy)>5)globeDragged=true;
+  var newLon=rotateStart[0]+dx*0.4;
+  var newLat=Math.max(-60,Math.min(60,rotateStart[1]-dy*0.4));
+  lon=newLon%360;projection.rotate([lon,newLat]);
+  gCountries.selectAll('path').attr('d',path);
+});
+root.addEventListener('mouseup',function(){isDragging=false;dragStart=null;setTimeout(function(){if(!isDragging)startRotation();},2000);});
+root.addEventListener('mouseleave',function(){if(isDragging){isDragging=false;dragStart=null;setTimeout(function(){startRotation();},2000);}});
+</script></body></html>""",
+                    height=660,
+                    scrolling=False,
+                )
 except Exception:
     st.info("Global map unavailable.")
-st.caption("Map shows advertising spend by country as a % of GDP. Darker = higher ad market intensity.")
+st.caption("Globe shows advertising spend by country as a % of GDP. Blue → orange → red = higher ad market intensity.")
 _deep_dive("overview", "Explore ad data by country")
 _separator()
 
