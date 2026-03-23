@@ -1,4 +1,5 @@
 import json
+import html
 import re
 import uuid
 from datetime import datetime
@@ -236,6 +237,38 @@ def promote_queued_nodes():
         node["type"] = "root"
         texts.append(node["content"])
     st.session_state["thought_map"] = tm
+    return texts
+
+
+def get_pending_human_notes() -> list[dict]:
+    """Return human-authored notes that have not yet been included in a Genie prompt."""
+    tm = _get_map()
+    pending = []
+    for node in tm["nodes"].values():
+        if node.get("type") != "human":
+            continue
+        meta = node.get("meta") or {}
+        if not meta.get("prompt_consumed", False):
+            pending.append(node)
+    return sorted(pending, key=lambda node: node.get("created_at", ""))
+
+
+def consume_pending_human_notes() -> list[str]:
+    """Mark pending human notes as consumed and return their text for prompt injection."""
+    tm = _get_map()
+    texts = []
+    changed = False
+    for node in get_pending_human_notes():
+        text = str(node.get("content", "") or "").strip()
+        if text:
+            texts.append(text)
+        meta = dict(node.get("meta") or {})
+        meta["prompt_consumed"] = True
+        meta["prompt_consumed_at"] = datetime.now().isoformat()
+        node["meta"] = meta
+        changed = True
+    if changed:
+        st.session_state["thought_map"] = tm
     return texts
 
 
@@ -712,11 +745,13 @@ def render_thought_map_dashboard():
     for n in latest_nodes:
         icon = {"root": "&#x1F535;", "step": "&#x27A1;", "branch": "&#x1F500;", "conclusion": "&#x2705;",
                 "human": "&#x1F4AC;", "queued": "&#x1F7E0;"}.get(n["type"], "&#x2022;")
+        safe_label = html.escape(str(n.get("label", ""))[:40])
+        safe_type = html.escape(str(n.get("type", "")))
         activity_html += (
             f"<div class='tm-activity'>"
             f"<span>{icon}</span>"
-            f"<span class='tm-act-label'>{n['label'][:40]}</span>"
-            f"<span class='tm-act-type'>{n['type']}</span>"
+            f"<span class='tm-act-label'>{safe_label}</span>"
+            f"<span class='tm-act-type'>{safe_type}</span>"
             f"</div>"
         )
 
@@ -770,6 +805,7 @@ def render_thought_map_controls():
                 "collapsed": False,
                 "created_at": datetime.now().isoformat(),
                 "source_message_index": -1,
+                "meta": {"prompt_consumed": False},
             }
             tm["nodes"][human_node["id"]] = human_node
             tm["root_ids"].append(human_node["id"])

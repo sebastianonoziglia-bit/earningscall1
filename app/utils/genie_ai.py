@@ -204,11 +204,26 @@ def build_genie_messages(
     except ImportError:
         depth_insert = ""
 
+    thought_map_user_notes = [
+        str(note).strip()
+        for note in (dashboard_state.get("thought_map_user_notes") or [])
+        if str(note).strip()
+    ]
+    thought_map_notes_block = ""
+    if thought_map_user_notes:
+        notes_lines = "\n".join(f"- {note}" for note in thought_map_user_notes)
+        thought_map_notes_block = (
+            "\n\n## USER NOTES FROM THOUGHT MAP\n"
+            "Treat these notes as explicit user priorities for the next answer.\n"
+            f"{notes_lines}"
+        )
+
     state_json = json.dumps(dashboard_state, indent=2, default=str)
     system_content = (
         GENIE_SYSTEM_PROMPT
         + (f"\n\n## THOUGHT MAP DEPTH MODE\n{depth_insert}" if depth_insert else "")
         + f"\n\n## DB CONTEXT\n{db_context_prompt}"
+        + thought_map_notes_block
         + f"\n\n## CURRENT DASHBOARD STATE\n```json\n{state_json}\n```"
     )
     messages = [{"role": "system", "content": system_content}]

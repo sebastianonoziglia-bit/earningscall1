@@ -1,5 +1,6 @@
 """Enhanced Genie chat UI wired to OpenAI + Thought Map."""
 
+import html
 import json
 from datetime import datetime
 from io import BytesIO
@@ -14,6 +15,8 @@ from utils.genie_ai import (
 )
 from utils.thought_map import (
     add_nodes_to_map,
+    consume_pending_human_notes,
+    get_pending_human_notes,
     get_queued_nodes,
     parse_response_to_nodes,
     promote_queued_nodes,
@@ -149,10 +152,11 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
 
     # ── Show queued items count ──
     queued = get_queued_nodes()
+    pending_notes = get_pending_human_notes()
     if queued:
         _items_html = ""
         for q in queued[:4]:
-            _txt = q["content"][:120]
+            _txt = html.escape(str(q.get("content", ""))[:120])
             _items_html += (
                 f"<div style='background:rgba(255,255,255,0.06);border:1px solid rgba(255,91,31,0.2);"
                 f"border-radius:8px;padding:6px 10px;margin-top:6px;font-size:0.82rem;"
@@ -192,13 +196,27 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
         background: linear-gradient(135deg, #ff5b1f 0%, #ff8c42 100%) !important;
         background-image: none !important;
     }
+    div[data-testid="stChatInput"] textarea,
+    div[data-testid="stChatInput"] input {
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+        -webkit-text-fill-color: #0f172a !important;
+        caret-color: #0f172a !important;
+    }
+    div[data-testid="stChatInput"] textarea::placeholder,
+    div[data-testid="stChatInput"] input::placeholder {
+        color: #64748b !important;
+        opacity: 1 !important;
+        -webkit-text-fill-color: #64748b !important;
+    }
     </style>""", unsafe_allow_html=True)
 
     # ── CTA + unified export ──
     _cta_col, _export_col = st.columns([3, 1])
     with _cta_col:
         st.markdown('<div class="genie-start-btn">', unsafe_allow_html=True)
-        _btn_label = f"Start Genie Thoughts ({len(queued)})" if queued else "Start Genie Thoughts"
+        _pending_prompt_count = len(queued) + len(pending_notes)
+        _btn_label = f"Start Genie Thoughts ({_pending_prompt_count})" if _pending_prompt_count else "Start Genie Thoughts"
         _start_clicked = st.button(
             _btn_label,
             key="start_genie_thoughts_btn",
@@ -252,16 +270,18 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     )
 
     # "Start Genie Thoughts" collects queued map nodes into a combined prompt
-    if _start_clicked and queued:
-        queued_texts = promote_queued_nodes()
+    if _start_clicked and (queued or pending_notes):
+        queued_texts = promote_queued_nodes() if queued else []
         if len(queued_texts) == 1:
             user_input = queued_texts[0]
-        else:
+        elif len(queued_texts) > 1:
             user_input = (
                 "I've selected these topics to reason about together:\n\n"
                 + "\n".join(f"- {t}" for t in queued_texts)
                 + "\n\nPlease analyze each point and connect them where relevant."
             )
+        else:
+            user_input = "Please reason through the note I added to the thought map."
 
     if user_input:
         with st.chat_message("user", avatar="👤"):
@@ -273,6 +293,9 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
         })
 
         runtime_state = dict(dashboard_state or {})
+        thought_map_user_notes = consume_pending_human_notes()
+        if thought_map_user_notes:
+            runtime_state["thought_map_user_notes"] = thought_map_user_notes
         transcript_context = build_query_transcript_context(user_input, runtime_state)
         if transcript_context:
             runtime_state["matched_transcript_context"] = transcript_context
