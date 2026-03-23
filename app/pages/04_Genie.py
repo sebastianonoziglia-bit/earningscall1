@@ -2195,16 +2195,15 @@ if (
     if show_global:
         current_position -= right_side_spacing
         layout_dict['yaxis2'] = dict(
-            title="Global Values" + (" (YoY % Change)" if show_growth_rates else " (In millions of USD)"),
+            title=dict(text="Global Values" + (" (YoY % Change)" if show_growth_rates else " (In millions of USD)"), font=dict(size=11, color='#2ca02c')),
             overlaying="y",
             side="right",
             anchor="free",
             position=current_position,
             showgrid=False,
             range=[-50, 50] if show_growth_rates else ([0, global_max * 1.1] if global_max > 0 else None),
-            tickformat=',',  # Use comma separator
-            title=dict(font=dict(size=11, color='#2ca02c')),  # Slightly smaller font with color
-            tickfont=dict(size=10, color='#2ca02c'),  # Smaller tick font with matching color
+            tickformat=',',
+            tickfont=dict(size=10, color='#2ca02c'),
             tickmode='auto',
             nticks=6  # Fewer ticks to reduce overlap
         )
@@ -2213,16 +2212,15 @@ if (
     if show_inflation:
         current_position -= right_side_spacing
         layout_dict['yaxis3'] = dict(
-            title="USD Inflation Rate (%)",
+            title=dict(text="USD Inflation Rate (%)", font=dict(size=11, color='rgba(255, 0, 0, 0.6)')),
             overlaying="y",
             side="right",
             anchor="free",
             position=current_position,
             showgrid=False,
-            range=[0, 15],  # Fixed range for inflation percentage
-            tickformat='.1f',  # One decimal place
-            title=dict(font=dict(size=11, color='rgba(255, 0, 0, 0.6)')),  # Red-themed for inflation
-            tickfont=dict(size=10, color='rgba(255, 0, 0, 0.6)')   # Matching tick color
+            range=[0, 15],
+            tickformat='.1f',
+            tickfont=dict(size=10, color='rgba(255, 0, 0, 0.6)')
         )
 
     # Add Fed Funds axis if needed
@@ -2237,7 +2235,7 @@ if (
                 fed_high = fed_low + 1.0
             fed_range = [fed_low, fed_high]
         layout_dict['yaxis8'] = dict(
-            title=f"Fed Funds Rate (%) [{fed_funds_aggregation}]",
+            title=dict(text=f"Fed Funds Rate (%) [{fed_funds_aggregation}]", font=dict(size=11, color='rgba(245, 158, 11, 0.95)')),
             overlaying="y",
             side="right",
             anchor="free",
@@ -2245,7 +2243,6 @@ if (
             showgrid=False,
             range=fed_range,
             tickformat='.2f',
-            title=dict(font=dict(size=11, color='rgba(245, 158, 11, 0.95)')),
             tickfont=dict(size=10, color='rgba(245, 158, 11, 0.95)'),
             tickmode='auto',
             nticks=6
@@ -2255,16 +2252,15 @@ if (
     if selected_companies and selected_company_metrics:
         current_position -= right_side_spacing
         layout_dict['yaxis4'] = dict(
-            title="Company Values" + (" (YoY % Change)" if show_growth_rates else " (In millions of USD)"),
+            title=dict(text="Company Values" + (" (YoY % Change)" if show_growth_rates else " (In millions of USD)"), font=dict(size=11, color='#1f77b4')),
             overlaying="y",
             side="right",
             anchor="free",
             position=current_position,
             showgrid=False,
             range=[-50, 50] if show_growth_rates else ([0, company_max * 1.1] if company_max > 0 else None),
-            tickformat=',',  # Use comma separator
-            title=dict(font=dict(size=11, color='#1f77b4')),  # Blue color for company metrics
-            tickfont=dict(size=10, color='#1f77b4'),  # Matching tick color
+            tickformat=',',
+            tickfont=dict(size=10, color='#1f77b4'),
             tickmode='auto',
             nticks=6  # Fewer ticks to reduce overlap
         )
@@ -2273,16 +2269,15 @@ if (
     if 'selected_segments' in locals() and selected_segments:
         current_position -= right_side_spacing
         layout_dict['yaxis5'] = dict(
-            title="Segment Values" + (" (YoY % Change)" if show_growth_rates else " (In millions of USD)"),
+            title=dict(text="Segment Values" + (" (YoY % Change)" if show_growth_rates else " (In millions of USD)"), font=dict(size=11, color='#ff7f0e')),
             overlaying="y",
             side="right",
             anchor="free",
             position=current_position,
             showgrid=False,
             range=[-50, 50] if show_growth_rates else ([0, company_max * 1.1] if company_max > 0 else None),
-            tickformat=',',  # Use comma separator
-            title=dict(font=dict(size=11, color='#ff7f0e')),  # Orange color for segments
-            tickfont=dict(size=10, color='#ff7f0e'),  # Matching tick color
+            tickformat=',',
+            tickfont=dict(size=10, color='#ff7f0e'),
             tickmode='auto',
             nticks=6  # Fewer ticks to reduce overlap
         )
@@ -2444,15 +2439,14 @@ if (
             # Add a new y-axis for M2 Supply
             current_position -= right_side_spacing
             layout_dict['yaxis6'] = dict(
-                title=m2_axis_title,
+                title=dict(text=m2_axis_title, font=dict(color='#1f77b4', size=11)),
                 overlaying='y',
                 side='right',
                 anchor='free',
                 position=current_position,
                 showgrid=False,
-                range=[0, max_m2_value * 1.1],  # Scale based on max value from either dataset
+                range=[0, max_m2_value * 1.1],
                 tickformat=',',
-                title=dict(font=dict(color='#1f77b4', size=11)),
                 tickfont=dict(color='#1f77b4', size=10),
                 nticks=6  # Fewer ticks to reduce overlap
             )
@@ -2509,15 +2503,14 @@ if (
                 # Add the dedicated y7 axis for M2 growth rate
                 current_position -= right_side_spacing
                 layout_dict['yaxis7'] = dict(
-                    title="M2 Growth Rate (%)",
+                    title=dict(text="M2 Growth Rate (%)", font=dict(size=11, color='#9C27B0')),
                     overlaying='y',
                     side='right',
                     anchor='free',
                     position=current_position,
                     showgrid=False,
-                    range=[-5, 25],  # Fixed range for growth percentage
-                    tickformat='.1f',  # One decimal place
-                    title=dict(font=dict(size=11, color='#9C27B0')),  # Match color to the purple M2 growth line
+                    range=[-5, 25],
+                    tickformat='.1f',
                     tickfont=dict(size=10, color='#9C27B0'),
                     nticks=6  # Fewer ticks to reduce overlap
                 )
