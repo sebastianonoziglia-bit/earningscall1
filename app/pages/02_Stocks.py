@@ -667,16 +667,16 @@ st.markdown("""
         border-color: #d7e3ff;
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
     }
-    /* Clean pill buttons for white-background Stocks page —
-       high-specificity selectors override the global styles from styles.py */
-    div[data-testid="stVerticalBlock"] .stButton > button,
-    div[data-testid="stVerticalBlock"] .stButton > button:focus,
-    div[data-testid="stVerticalBlock"] .stButton > button:active,
-    div[data-testid="stVerticalBlock"] .stButton > button:visited,
-    div[data-testid="stVerticalBlock"] .stButton > button:focus-visible,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:focus,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:active {
+    /* Stocks page buttons — triple-specificity to beat global styles.py.
+       Uses body prefix + attribute selector + class to guarantee override. */
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:focus,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:active,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:visited,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:focus-visible,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:focus,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:active {
         background: #1e40af !important;
         background-color: #1e40af !important;
         background-image: none !important;
@@ -692,16 +692,16 @@ st.markdown("""
         transition: all 0.2s ease !important;
         cursor: pointer !important;
     }
-    div[data-testid="stVerticalBlock"] .stButton > button *,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button *,
-    div[data-testid="stVerticalBlock"] .stButton > button p,
-    div[data-testid="stVerticalBlock"] .stButton > button span,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button p,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button span {
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button *,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button p,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button span,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button *,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button p,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button span {
         color: #ffffff !important;
     }
-    div[data-testid="stVerticalBlock"] .stButton > button:hover,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:hover {
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:hover,
+    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:hover {
         background: #1d4ed8 !important;
         background-color: #1d4ed8 !important;
         background-image: none !important;
@@ -709,19 +709,6 @@ st.markdown("""
         border-color: #1e40af !important;
         box-shadow: 0 3px 8px rgba(30,64,175,0.35) !important;
         transform: translateY(-1px);
-    }
-    div[data-testid="stVerticalBlock"] .stButton > button:active,
-    div[data-testid="stVerticalBlock"] .stButton > button:focus,
-    div[data-testid="stVerticalBlock"] .stButton > button:focus-visible,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:active,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:focus,
-    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:focus-visible {
-        background: #1e40af !important;
-        background-color: #1e40af !important;
-        background-image: none !important;
-        color: #ffffff !important;
-        box-shadow: none !important;
-        outline: none !important;
     }
     .price-up {
         color: green;

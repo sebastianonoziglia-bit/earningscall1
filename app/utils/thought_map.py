@@ -58,8 +58,8 @@ def match_signal_category(text: str) -> tuple[str, str]:
 DEPTH_MODES = {
     "focused": {
         "label": "3-4 nodes",
-        "icon": "🎯",
-        "desc": "Tight causal chain",
+        "icon": "",
+        "desc": "",
         "prompt_insert": (
             "MODE: FOCUSED (3-4 nodes). Build a tight CAUSAL CHAIN. "
             "Each step must logically follow the previous one. "
@@ -69,8 +69,8 @@ DEPTH_MODES = {
     },
     "balanced": {
         "label": "5-7 nodes",
-        "icon": "🌿",
-        "desc": "Branching tree with loops",
+        "icon": "",
+        "desc": "",
         "prompt_insert": (
             "MODE: BALANCED (5-7 nodes). Build a BRANCHING TREE. "
             "Start with 2-3 sequential steps, then FORK into at least one [BRANCH]. "
@@ -81,8 +81,8 @@ DEPTH_MODES = {
     },
     "deep": {
         "label": "8-12 nodes",
-        "icon": "🕸️",
-        "desc": "Web with contrarian nodes",
+        "icon": "",
+        "desc": "",
         "prompt_insert": (
             "MODE: DEEP WEB (8-12 nodes). Build a complex WEB of reasoning. "
             "Include SECOND-ORDER effects (what happens because of what happens). "
@@ -114,62 +114,61 @@ def get_depth_prompt_insert() -> str:
 
 
 def render_depth_selector():
-    """Render depth selector as styled radio-style buttons with clear selected state."""
+    """Render depth selector as clean pill buttons with clear selected state."""
     current = st.session_state.get("thought_map_depth", "balanced")
 
-    # Inject CSS for the depth buttons
+    # CSS for the depth pills
     st.markdown("""<style>
-    .depth-selector { display: flex; gap: 12px; margin: 8px 0 16px 0; }
-    .depth-card {
-        flex: 1; border-radius: 14px; padding: 12px 16px; cursor: pointer;
-        border: 2px solid rgba(255,255,255,0.1); background: rgba(15,23,42,0.5);
-        text-align: center; transition: all 0.2s ease;
+    .depth-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 8px 0 16px 0; }
+    .depth-pills div[data-testid="stButton"] > button {
+        border-radius: 999px !important;
+        border: 1px solid #d9dde5 !important;
+        background: rgba(238,240,244,0.15) !important;
+        background-image: none !important;
+        color: #CBD5E1 !important;
+        font-size: 0.9rem !important;
+        font-weight: 500 !important;
+        padding: 10px 20px !important;
+        height: 44px !important;
+        transition: all 200ms ease !important;
     }
-    .depth-card:hover { border-color: rgba(255,91,31,0.4); background: rgba(15,23,42,0.7); }
-    .depth-card.active {
-        border-color: #ff5b1f !important; background: rgba(255,91,31,0.12) !important;
-        box-shadow: 0 0 16px rgba(255,91,31,0.15);
+    .depth-pills div[data-testid="stButton"] > button:hover {
+        border-color: #ff5b1f !important;
+        background: rgba(255,91,31,0.08) !important;
+        background-image: none !important;
+        color: #ff8c42 !important;
     }
-    .depth-icon { font-size: 1.4rem; margin-bottom: 4px; }
-    .depth-label { font-size: 0.85rem; font-weight: 700; color: #e6edf3; }
-    .depth-desc { font-size: 0.68rem; color: #64748B; margin-top: 2px; }
-    .depth-card.active .depth-label { color: #ff8c42; }
-    .depth-card.active .depth-desc { color: #94A3B8; }
-    /* Override dark overlay on depth st.button wrappers */
-    .depth-btn-wrap div[data-testid="stButton"] > button {
-        background: transparent !important; border: none !important;
-        padding: 0 !important; color: transparent !important; height: 0 !important;
-        min-height: 0 !important; overflow: hidden !important;
+    .depth-pills div[data-testid="stButton"] > button:active,
+    .depth-pills div[data-testid="stButton"] > button:focus,
+    .depth-pills div[data-testid="stButton"] > button:focus-visible {
+        background-image: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    .depth-pills div[data-testid="stButton"] > button[kind="primary"] {
+        border-color: #ff5b1f !important;
+        background: rgba(255,91,31,0.15) !important;
+        background-image: none !important;
+        color: #ff8c42 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 0 12px rgba(255,91,31,0.12) !important;
     }
     </style>""", unsafe_allow_html=True)
 
-    # Render depth cards as visual HTML
-    cards_html = '<div class="depth-selector">'
-    for key, mode in DEPTH_MODES.items():
-        active_cls = "active" if key == current else ""
-        cards_html += (
-            f'<div class="depth-card {active_cls}" id="depth-{key}">'
-            f'<div class="depth-icon">{mode["icon"]}</div>'
-            f'<div class="depth-label">{mode["label"]}</div>'
-            f'<div class="depth-desc">{mode["desc"]}</div>'
-            f'</div>'
-        )
-    cards_html += '</div>'
-    st.markdown(cards_html, unsafe_allow_html=True)
-
-    # Actual functional buttons (small, below)
+    st.markdown('<div class="depth-pills">', unsafe_allow_html=True)
     cols = st.columns(len(DEPTH_MODES))
     for i, (key, mode) in enumerate(DEPTH_MODES.items()):
         with cols[i]:
             is_active = key == current
             if st.button(
-                mode["icon"] + " " + mode["label"],
+                mode["label"],
                 key=f"depth_{key}",
                 type="primary" if is_active else "secondary",
                 use_container_width=True,
             ):
                 st.session_state["thought_map_depth"] = key
                 st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 STEP_PATTERN = re.compile(
