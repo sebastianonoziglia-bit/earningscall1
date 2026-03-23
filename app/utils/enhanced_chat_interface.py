@@ -19,6 +19,13 @@ from utils.thought_map import (
     promote_queued_nodes,
 )
 
+# Check fpdf availability once at module level
+try:
+    from fpdf import FPDF as _FPDF  # noqa: F401
+    _HAS_FPDF = True
+except ImportError:
+    _HAS_FPDF = False
+
 
 def _estimate_token_usage(history: list[dict]) -> int:
     total_chars = 0
@@ -30,7 +37,7 @@ def _estimate_token_usage(history: list[dict]) -> int:
 # ── PDF generation ──────────────────────────────────────────────────────────
 
 def _build_chat_pdf(history: list[dict]) -> bytes:
-    """Build a styled PDF of the Genie chat dialogue."""
+    """Build a styled PDF of the Genie chat dialogue. Requires fpdf2."""
     from fpdf import FPDF
 
     class _PDF(FPDF):
@@ -56,58 +63,44 @@ def _build_chat_pdf(history: list[dict]) -> bytes:
 
     page_w = pdf.w - pdf.l_margin - pdf.r_margin
     bubble_w = page_w * 0.78
-    gutter = 4  # space between edge and bubble
+    gutter = 4
 
     for msg in history:
         role = msg.get("role", "assistant")
         raw = msg.get("content", "")
         text = clean_thought_markers(raw) if role == "assistant" else raw
-        # Strip markdown bold
         text = text.replace("**", "").replace("__", "")
-
         is_user = role == "user"
 
-        # Role label
         pdf.set_font("Helvetica", "B", 8)
         if is_user:
-            pdf.set_text_color(99, 102, 241)  # indigo
+            pdf.set_text_color(99, 102, 241)
             pdf.set_x(pdf.w - pdf.r_margin - bubble_w - gutter)
             pdf.cell(bubble_w, 5, "You", align="R", new_x="LMARGIN", new_y="NEXT")
         else:
-            pdf.set_text_color(255, 91, 31)  # orange
+            pdf.set_text_color(255, 91, 31)
             pdf.set_x(pdf.l_margin + gutter)
             pdf.cell(bubble_w, 5, "Genie", align="L", new_x="LMARGIN", new_y="NEXT")
 
-        # Bubble background
         y_before = pdf.get_y()
-        if is_user:
-            x_start = pdf.w - pdf.r_margin - bubble_w - gutter
-        else:
-            x_start = pdf.l_margin + gutter
+        x_start = (pdf.w - pdf.r_margin - bubble_w - gutter) if is_user else (pdf.l_margin + gutter)
 
-        # Measure text height
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(30, 41, 59)
         pdf.set_x(x_start + 4)
-        # Use multi_cell to get the height
-        text_h = pdf.multi_cell(
-            bubble_w - 8, 4.5, text, align="L", dry_run=True, output="HEIGHT"
-        )
-        needed = text_h + 8  # padding
+        text_h = pdf.multi_cell(bubble_w - 8, 4.5, text, align="L", dry_run=True, output="HEIGHT")
+        needed = text_h + 8
 
-        # Page break if needed
         if pdf.get_y() + needed > pdf.h - 20:
             pdf.add_page()
             y_before = pdf.get_y()
 
-        # Draw rounded rect background
         if is_user:
-            pdf.set_fill_color(238, 242, 255)  # light indigo
+            pdf.set_fill_color(238, 242, 255)
         else:
-            pdf.set_fill_color(255, 247, 237)  # light orange
+            pdf.set_fill_color(255, 247, 237)
         pdf.rect(x_start, y_before, bubble_w, needed, style="F")
 
-        # Draw text inside bubble
         pdf.set_xy(x_start + 4, y_before + 4)
         pdf.multi_cell(bubble_w - 8, 4.5, text, align="L")
         pdf.ln(6)
@@ -135,9 +128,6 @@ def _build_chat_markdown(history: list[dict]) -> str:
 # ── Main render ─────────────────────────────────────────────────────────────
 
 def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response=None):
-    """
-    Full Genie chat interface with OpenAI streaming and thought-map integration.
-    """
     st.markdown("<div id='genie-chat-section'></div>", unsafe_allow_html=True)
     st.markdown(
         "<h3 style='margin-bottom:0.5rem;'>Ask the Genie</h3>"
@@ -150,6 +140,12 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
 
     if "genie_history" not in st.session_state:
         st.session_state["genie_history"] = []
+
+    # ── Handle prefill_message from other pages (e.g. Earnings) ──
+    _external_prefill = st.session_state.pop("prefill_message", None)
+    if _external_prefill:
+        from utils.thought_map import add_queued_node
+        add_queued_node(_external_prefill, source_type="cross-page")
 
     # ── Show queued items count ──
     queued = get_queued_nodes()
@@ -205,9 +201,13 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     with _export_col:
         history = st.session_state.get("genie_history", [])
         if history:
+            # Build format list — only include PDF if fpdf2 is available
+            _formats = ["Markdown", "JSON"]
+            if _HAS_FPDF:
+                _formats.insert(0, "PDF")
             _fmt = st.selectbox(
                 "Export format",
-                ["PDF", "Markdown", "JSON"],
+                _formats,
                 key="chat_export_format",
                 label_visibility="collapsed",
             )

@@ -277,15 +277,15 @@ def add_nodes_to_map(new_nodes: list[dict], parent_node_id: str = None):
     st.session_state["thought_map"] = tm
 
 
-def render_thought_map(height: int = 520):
-    """Render thought map with Cytoscape.js."""
+def render_thought_map(height: int = 620):
+    """Render thought map with Cytoscape.js — animated cascade, edge labels, Smart Focus."""
     tm = _get_map()
 
     if not tm["nodes"]:
         st.markdown(
             "<div style='padding:32px; text-align:center; color:#64748B; "
             "border:1px dashed rgba(100,116,139,0.3); border-radius:12px;'>"
-            "💭 <strong>Select questions and signals below — they'll appear here as nodes.</strong><br/>"
+            "<strong>Select questions and signals below — they'll appear here as nodes.</strong><br/>"
             "<span style='font-size:0.85rem;'>Then press <b style='color:#ff5b1f;'>Start Genie Thoughts</b> to let the AI reason through them.</span>"
             "</div>",
             unsafe_allow_html=True,
@@ -295,7 +295,6 @@ def render_thought_map(height: int = 520):
     cy_nodes = []
     for node in tm["nodes"].values():
         color = NODE_COLORS.get(node["type"], "#64748B")
-        # Signal category tagging — override color if node matches intelligence signals
         sig_cat, sig_color = match_signal_category(
             node.get("label", "") + " " + node.get("content", "")
         )
@@ -313,18 +312,50 @@ def render_thought_map(height: int = 520):
                     "color": color,
                     "depth": node["depth"],
                     "signalCategory": sig_cat,
+                    "sourceType": node.get("source_type", ""),
                 }
             }
         )
 
-    cy_edges = [
-        {"data": {"id": f"e_{edge['from']}_{edge['to']}", "source": edge["from"], "target": edge["to"]}}
-        for edge in tm["edges"]
-    ]
+    # Build edge labels from parent→child type transitions
+    cy_edges = []
+    for edge in tm["edges"]:
+        src = tm["nodes"].get(edge["from"], {})
+        tgt = tm["nodes"].get(edge["to"], {})
+        # Derive a short label for the edge
+        src_t = src.get("type", "")
+        tgt_t = tgt.get("type", "")
+        edge_label = ""
+        if tgt_t == "branch":
+            edge_label = "branches to"
+        elif tgt_t == "conclusion":
+            edge_label = "concludes"
+        elif src_t == "root" and tgt_t == "step":
+            edge_label = "leads to"
+        elif src_t == "step":
+            edge_label = "then"
+        cy_edges.append({
+            "data": {
+                "id": f"e_{edge['from']}_{edge['to']}",
+                "source": edge["from"],
+                "target": edge["to"],
+                "edgeLabel": edge_label,
+            }
+        })
 
     elements_json = json.dumps(cy_nodes + cy_edges)
+
+    # Compute badge counts
+    type_counts = {}
+    for n in tm["nodes"].values():
+        t = n["type"]
+        type_counts[t] = type_counts.get(t, 0) + 1
     node_count = len(tm["nodes"])
     edge_count = len(tm["edges"])
+    queued_count = type_counts.get("queued", 0)
+    step_count = type_counts.get("step", 0) + type_counts.get("root", 0)
+    branch_count = type_counts.get("branch", 0)
+    conclusion_count = type_counts.get("conclusion", 0)
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -337,26 +368,31 @@ def render_thought_map(height: int = 520):
   #cy {{ width: 100%; height: {height - 44}px; }}
   #bar {{
     height: 44px; background: #111827; border-bottom: 1px solid rgba(148,163,184,0.15);
-    display: flex; align-items: center; padding: 0 14px; gap: 8px;
+    display: flex; align-items: center; padding: 0 10px; gap: 6px; flex-wrap: nowrap;
   }}
   .btn {{
     background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
-    color: #CBD5E1; border-radius: 6px; padding: 4px 10px; cursor: pointer;
-    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em;
-    transition: background 0.15s;
+    color: #CBD5E1; border-radius: 6px; padding: 4px 8px; cursor: pointer;
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
+    transition: all 0.15s; white-space: nowrap;
   }}
   .btn:hover {{ background: rgba(0,115,255,0.25); border-color: #0073FF; color:#fff; }}
-  #meta {{ margin-left: auto; font-size: 0.72rem; color: #475569; font-weight: 600; }}
+  .btn.active {{ background: rgba(0,115,255,0.35); border-color: #0073FF; color:#fff; }}
+  .badge {{ background: rgba(255,255,255,0.15); border-radius: 8px; padding: 1px 5px; font-size: 0.6rem; margin-left: 3px; }}
+  #meta {{ margin-left: auto; font-size: 0.68rem; color: #475569; font-weight: 600; white-space: nowrap; }}
+  .sep {{ width: 1px; height: 20px; background: rgba(255,255,255,0.1); }}
   #tooltip {{
     position: fixed; display: none; pointer-events: none; z-index: 1000;
     background: #1E293B; border: 1px solid rgba(148,163,184,0.25);
-    border-radius: 10px; padding: 12px 14px; max-width: 300px;
+    border-radius: 10px; padding: 12px 14px; max-width: 320px;
     font-size: 0.82rem; color: #E2E8F0;
     box-shadow: 0 8px 28px rgba(0,0,0,0.45);
   }}
-  #tooltip .tt-label {{ font-weight: 800; color: #60A5FA; margin-bottom: 6px; font-size: 0.88rem; }}
-  #tooltip .tt-type {{ font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 8px; }}
-  #tooltip .tt-content {{ line-height: 1.5; color: #CBD5E1; }}
+  #tooltip .tt-label {{ font-weight: 800; color: #60A5FA; margin-bottom: 4px; font-size: 0.88rem; }}
+  #tooltip .tt-type {{ font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 6px; }}
+  #tooltip .tt-content {{ line-height: 1.45; color: #CBD5E1; }}
+  #tooltip .tt-badge {{ display: inline-block; font-size: 0.6rem; background: rgba(99,102,241,0.3); color: #a5b4fc;
+    border-radius: 4px; padding: 1px 6px; margin-top: 6px; }}
   #detail-panel {{
     display: none; position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
     background: #0F172A; border-top: 2px solid #0073FF;
@@ -364,125 +400,201 @@ def render_thought_map(height: int = 520):
     animation: slideUp 0.2s ease;
   }}
   @keyframes slideUp {{ from {{ transform: translateY(100%); opacity:0; }} to {{ transform: translateY(0); opacity:1; }} }}
-  #dp-close {{
-    float: right; background: none; border: none; color: #64748B;
-    cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px;
-    transition: color 0.15s;
-  }}
+  @keyframes nodeIn {{ from {{ opacity: 0; transform: scale(0.3); }} to {{ opacity: 1; transform: scale(1); }} }}
+  @keyframes pulseQueued {{ 0%,100% {{ border-color: rgba(255,91,31,0.5); }} 50% {{ border-color: rgba(255,91,31,1); }} }}
+  #dp-close {{ float: right; background: none; border: none; color: #64748B; cursor: pointer; font-size: 1.1rem; }}
   #dp-close:hover {{ color: #E2E8F0; }}
   #dp-label {{ font-weight: 800; color: #60A5FA; font-size: 0.92rem; margin-bottom: 4px; }}
-  #dp-type {{
-    display: inline-block; font-size: 0.65rem; text-transform: uppercase;
+  #dp-type {{ display: inline-block; font-size: 0.65rem; text-transform: uppercase;
     letter-spacing: 0.1em; color: #0F172A; font-weight: 700;
-    background: #60A5FA; border-radius: 4px; padding: 1px 7px; margin-bottom: 10px;
-  }}
+    background: #60A5FA; border-radius: 4px; padding: 1px 7px; margin-bottom: 10px; }}
   #dp-content {{ line-height: 1.6; color: #CBD5E1; font-size: 0.84rem; white-space: pre-wrap; }}
-  .legend {{ display: flex; gap: 14px; align-items: center; }}
-  .leg-dot {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }}
-  .leg-item {{ font-size: 0.7rem; color: #64748B; display: flex; align-items: center; }}
 </style>
 </head>
 <body>
 <div id="bar">
-  <button class="btn" onclick="cy.fit(cy.nodes(), 30)">⊡ Fit all</button>
-  <button class="btn" onclick="cy.zoom(Math.min(cy.zoom()*1.3, 3))">＋</button>
-  <button class="btn" onclick="cy.zoom(Math.max(cy.zoom()*0.75, 0.2))">－</button>
-  <button class="btn" onclick="relayout()">⟳ Re-layout</button>
-  <div class="legend">
-    <span class="leg-item"><span class="leg-dot" style="background:#0073FF"></span>Step</span>
-    <span class="leg-item"><span class="leg-dot" style="background:#F59E0B"></span>Branch</span>
-    <span class="leg-item"><span class="leg-dot" style="background:#10B981"></span>Conclusion</span>
-    <span class="leg-item"><span class="leg-dot" style="background:#8B5CF6"></span>Your note</span>
-    <span class="leg-item"><span class="leg-dot" style="background:#ff5b1f;border:2px dashed #ff5b1f;background:rgba(255,91,31,0.3)"></span>Queued</span>
-  </div>
-  <div id="meta">{node_count} nodes · {edge_count} connections</div>
+  <button class="btn" onclick="cy.fit(cy.nodes(),30)">Fit</button>
+  <button class="btn" onclick="cy.zoom(Math.min(cy.zoom()*1.3,3))">+</button>
+  <button class="btn" onclick="cy.zoom(Math.max(cy.zoom()*0.75,0.2))">-</button>
+  <button class="btn" onclick="relayout()">Re-layout</button>
+  <span class="sep"></span>
+  <button class="btn" id="focusBtn" onclick="toggleFocus()">Smart Focus</button>
+  <button class="btn" onclick="filterType('all')">All<span class="badge">{node_count}</span></button>
+  <button class="btn" onclick="filterType('step')">Steps<span class="badge">{step_count}</span></button>
+  <button class="btn" onclick="filterType('branch')">Branches<span class="badge">{branch_count}</span></button>
+  <button class="btn" onclick="filterType('conclusion')">End<span class="badge">{conclusion_count}</span></button>
+  {f'<button class="btn" onclick="filterType(\'queued\')">Queued<span class="badge">{queued_count}</span></button>' if queued_count else ''}
+  <div id="meta">{node_count} nodes &middot; {edge_count} links</div>
 </div>
 <div id="cy"></div>
-<div id="tooltip"><div class="tt-label" id="tt-label"></div><div class="tt-type" id="tt-type"></div><div class="tt-content" id="tt-content"></div></div>
+<div id="tooltip">
+  <div class="tt-label" id="tt-label"></div>
+  <div class="tt-type" id="tt-type"></div>
+  <div class="tt-content" id="tt-content"></div>
+  <div class="tt-badge" id="tt-badge" style="display:none"></div>
+</div>
 <div id="detail-panel">
-  <button id="dp-close" onclick="document.getElementById('detail-panel').style.display='none'">✕</button>
-  <div id="dp-label"></div>
-  <div id="dp-type"></div>
-  <div id="dp-content"></div>
+  <button id="dp-close" onclick="document.getElementById('detail-panel').style.display='none'">&times;</button>
+  <div id="dp-label"></div><div id="dp-type"></div><div id="dp-content"></div>
 </div>
 
 <script>
 const elements = {elements_json};
-
 const cy = cytoscape({{
   container: document.getElementById('cy'),
-  elements: elements,
+  elements: [],
   style: [
-    {{
-      selector: 'node',
-      style: {{
-        'background-color': 'data(color)',
-        'label': 'data(label)',
-        'color': '#F8FAFC',
-        'font-size': '11px',
-        'font-weight': '700',
-        'text-valign': 'center',
-        'text-halign': 'center',
-        'text-wrap': 'wrap',
-        'text-max-width': '80px',
-        'width': '80px',
-        'height': '80px',
-        'border-width': 2,
-        'border-color': 'rgba(255,255,255,0.18)',
-        'transition-property': 'background-color, border-color, width, height',
-        'transition-duration': '0.18s',
-        'overlay-padding': 8,
-      }}
-    }},
+    {{ selector: 'node', style: {{
+        'background-color': 'data(color)', 'label': 'data(label)',
+        'color': '#F8FAFC', 'font-size': '11px', 'font-weight': '700',
+        'text-valign': 'center', 'text-halign': 'center',
+        'text-wrap': 'wrap', 'text-max-width': '80px',
+        'width': '80px', 'height': '80px',
+        'border-width': 2, 'border-color': 'rgba(255,255,255,0.18)',
+        'opacity': 1,
+        'transition-property': 'opacity, background-color, border-color, width, height',
+        'transition-duration': '0.3s',
+    }} }},
     {{ selector: 'node[type="branch"]', style: {{ 'shape': 'diamond', 'width': '72px', 'height': '72px' }} }},
     {{ selector: 'node[type="conclusion"]', style: {{ 'shape': 'round-rectangle', 'width': '100px', 'height': '56px' }} }},
-    {{
-      selector: 'node[type="human"]',
-      style: {{
+    {{ selector: 'node[type="human"]', style: {{
         'border-width': 3, 'border-color': '#8B5CF6', 'border-style': 'dashed',
         'shape': 'round-rectangle', 'width': '90px',
-      }}
-    }},
-    {{
-      selector: 'node[type="queued"]',
-      style: {{
+    }} }},
+    {{ selector: 'node[type="queued"]', style: {{
         'border-width': 3, 'border-color': '#ff5b1f', 'border-style': 'dashed',
         'shape': 'round-rectangle', 'width': '90px', 'height': '60px',
-        'background-color': 'rgba(255,91,31,0.15)', 'font-size': '10px',
-        'color': '#ff8c42',
-      }}
-    }},
+        'background-color': 'rgba(255,91,31,0.18)', 'font-size': '10px', 'color': '#ff8c42',
+    }} }},
     {{ selector: 'node[type="root"]', style: {{ 'width': '90px', 'height': '90px', 'font-size': '12px' }} }},
-    {{ selector: 'node:selected', style: {{ 'border-width': 4, 'border-color': '#00C2FF', 'width': '92px', 'height': '92px' }} }},
-    {{
-      selector: 'edge',
-      style: {{
-        'width': 2,
-        'line-color': 'rgba(100,116,139,0.4)',
+    {{ selector: 'node:selected', style: {{ 'border-width': 4, 'border-color': '#00C2FF' }} }},
+    {{ selector: '.dimmed', style: {{ 'opacity': 0.15 }} }},
+    {{ selector: '.focused', style: {{ 'border-width': 4, 'border-color': '#00C2FF' }} }},
+    {{ selector: 'edge', style: {{
+        'width': 2, 'line-color': 'rgba(100,116,139,0.4)',
         'target-arrow-color': 'rgba(100,116,139,0.6)',
-        'target-arrow-shape': 'triangle',
-        'curve-style': 'bezier',
-        'arrow-scale': 0.9,
-      }}
-    }},
+        'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 0.9,
+        'label': '', 'font-size': '8px', 'color': '#94A3B8',
+        'text-rotation': 'autorotate', 'text-margin-y': -8,
+        'opacity': 1,
+        'transition-property': 'opacity, line-color',
+        'transition-duration': '0.3s',
+    }} }},
+    {{ selector: 'edge.dimmed', style: {{ 'opacity': 0.08 }} }},
+    {{ selector: 'edge.focused', style: {{ 'width': 3, 'line-color': '#0073FF', 'target-arrow-color': '#0073FF' }} }},
   ],
   layout: {{ name: 'breadthfirst', directed: true, spacingFactor: 1.65, padding: 28 }},
-  userZoomingEnabled: true,
-  userPanningEnabled: true,
-  minZoom: 0.15,
-  maxZoom: 3,
+  userZoomingEnabled: true, userPanningEnabled: true,
+  minZoom: 0.15, maxZoom: 3,
 }});
 
+/* ── Animated cascade: add nodes one by one ── */
+(function() {{
+  const nodes = elements.filter(e => e.data && !e.data.source);
+  const edges = elements.filter(e => e.data && e.data.source);
+  let delay = 0;
+  nodes.forEach((n, i) => {{
+    setTimeout(() => {{
+      cy.add(n);
+      // Add edges whose both endpoints exist
+      edges.forEach(edge => {{
+        if (cy.getElementById(edge.data.id).length === 0 &&
+            cy.getElementById(edge.data.source).length > 0 &&
+            cy.getElementById(edge.data.target).length > 0) {{
+          cy.add(edge);
+        }}
+      }});
+      cy.layout({{ name: 'breadthfirst', directed: true, spacingFactor: 1.65, padding: 28, animate: true, animationDuration: 200 }}).run();
+    }}, delay);
+    delay += 120;
+  }});
+  // Final fit after all nodes are in
+  setTimeout(() => cy.fit(cy.nodes(), 30), delay + 200);
+}})();
+
 function relayout() {{
-  cy.layout({{ name: 'breadthfirst', directed: true, spacingFactor: 1.65, padding: 28 }}).run();
+  cy.layout({{ name: 'breadthfirst', directed: true, spacingFactor: 1.65, padding: 28, animate: true, animationDuration: 300 }}).run();
 }}
 
+/* ── Smart Focus: highlight conclusion path ── */
+let focusActive = false;
+function toggleFocus() {{
+  focusActive = !focusActive;
+  document.getElementById('focusBtn').classList.toggle('active', focusActive);
+  if (!focusActive) {{
+    cy.elements().removeClass('dimmed focused');
+    return;
+  }}
+  // Find conclusion nodes, trace back to roots
+  const conclusions = cy.nodes('[type="conclusion"]');
+  if (conclusions.length === 0) {{
+    // No conclusions — highlight roots + queued
+    const important = cy.nodes('[type="root"], [type="queued"]');
+    cy.elements().addClass('dimmed');
+    important.removeClass('dimmed').addClass('focused');
+    important.connectedEdges().removeClass('dimmed').addClass('focused');
+    return;
+  }}
+  const pathNodes = cy.collection();
+  const pathEdges = cy.collection();
+  conclusions.forEach(c => {{
+    let cur = c;
+    pathNodes.merge(cur);
+    while (true) {{
+      const incoming = cur.incomers('edge');
+      if (incoming.length === 0) break;
+      const edge = incoming[0];
+      pathEdges.merge(edge);
+      cur = edge.source();
+      pathNodes.merge(cur);
+    }}
+  }});
+  cy.elements().addClass('dimmed');
+  pathNodes.removeClass('dimmed').addClass('focused');
+  pathEdges.removeClass('dimmed').addClass('focused');
+}}
+
+/* ── Filter by type ── */
+function filterType(type) {{
+  if (type === 'all') {{
+    cy.nodes().style('display', 'element');
+    cy.edges().style('display', 'element');
+  }} else {{
+    cy.nodes().style('display', 'none');
+    cy.edges().style('display', 'none');
+    const matched = cy.nodes('[type="' + type + '"]');
+    // Also show root for context
+    if (type !== 'root') cy.nodes('[type="root"]').style('display', 'element');
+    matched.style('display', 'element');
+    matched.connectedEdges().style('display', 'element');
+    matched.connectedEdges().connectedNodes().style('display', 'element');
+  }}
+  cy.fit(cy.nodes(':visible'), 30);
+}}
+
+/* ── Edge labels on hover ── */
+cy.on('mouseover', 'edge', (evt) => {{
+  const e = evt.target;
+  const label = e.data('edgeLabel');
+  if (label) e.style('label', label);
+}});
+cy.on('mouseout', 'edge', (evt) => {{
+  evt.target.style('label', '');
+}});
+
+/* ── Node tooltip ── */
 const tooltip = document.getElementById('tooltip');
 cy.on('mouseover', 'node', (evt) => {{
   const n = evt.target;
   document.getElementById('tt-label').textContent = n.data('fullLabel');
-  document.getElementById('tt-type').textContent = n.data('type').toUpperCase();
+  const typeStr = n.data('type').toUpperCase();
+  const cat = n.data('signalCategory');
+  document.getElementById('tt-type').textContent = typeStr + (cat ? ' · ' + cat : '');
   document.getElementById('tt-content').textContent = n.data('content');
+  const badge = document.getElementById('tt-badge');
+  const children = n.outgoers('node').length;
+  if (children > 0) {{ badge.textContent = children + ' connected'; badge.style.display = 'inline-block'; }}
+  else {{ badge.style.display = 'none'; }}
   tooltip.style.display = 'block';
 }});
 cy.on('mousemove', (evt) => {{
@@ -494,11 +606,10 @@ cy.on('mousemove', (evt) => {{
 cy.on('mouseout', 'node', () => tooltip.style.display = 'none');
 cy.on('tap', 'node', (evt) => {{
   const n = evt.target;
-  const panel = document.getElementById('detail-panel');
   document.getElementById('dp-label').textContent = n.data('fullLabel');
   document.getElementById('dp-type').textContent = n.data('type').toUpperCase();
   document.getElementById('dp-content').textContent = n.data('fullContent') || n.data('content');
-  panel.style.display = 'block';
+  document.getElementById('detail-panel').style.display = 'block';
   tooltip.style.display = 'none';
 }});
 cy.on('tap', (evt) => {{
@@ -512,6 +623,90 @@ cy.on('tap', (evt) => {{
 </html>"""
 
     components.html(html, height=height, scrolling=False)
+
+
+def render_thought_map_dashboard():
+    """Render a status dashboard below the thought map showing current state."""
+    tm = _get_map()
+    if not tm["nodes"]:
+        return
+
+    type_counts = {}
+    for n in tm["nodes"].values():
+        t = n["type"]
+        type_counts[t] = type_counts.get(t, 0) + 1
+
+    queued = type_counts.get("queued", 0)
+    steps = type_counts.get("step", 0) + type_counts.get("root", 0)
+    branches = type_counts.get("branch", 0)
+    conclusions = type_counts.get("conclusion", 0)
+    human = type_counts.get("human", 0)
+    total = len(tm["nodes"])
+    edges = len(tm["edges"])
+
+    # Build status cards as HTML
+    cards = []
+    if queued:
+        cards.append(f"<div class='tm-stat' style='border-color:#ff5b1f'>"
+                     f"<span class='tm-stat-n' style='color:#ff5b1f'>{queued}</span>"
+                     f"<span class='tm-stat-l'>Queued</span></div>")
+    if steps:
+        cards.append(f"<div class='tm-stat' style='border-color:#0073FF'>"
+                     f"<span class='tm-stat-n' style='color:#0073FF'>{steps}</span>"
+                     f"<span class='tm-stat-l'>Steps</span></div>")
+    if branches:
+        cards.append(f"<div class='tm-stat' style='border-color:#F59E0B'>"
+                     f"<span class='tm-stat-n' style='color:#F59E0B'>{branches}</span>"
+                     f"<span class='tm-stat-l'>Branches</span></div>")
+    if conclusions:
+        cards.append(f"<div class='tm-stat' style='border-color:#10B981'>"
+                     f"<span class='tm-stat-n' style='color:#10B981'>{conclusions}</span>"
+                     f"<span class='tm-stat-l'>Conclusions</span></div>")
+    if human:
+        cards.append(f"<div class='tm-stat' style='border-color:#8B5CF6'>"
+                     f"<span class='tm-stat-n' style='color:#8B5CF6'>{human}</span>"
+                     f"<span class='tm-stat-l'>Notes</span></div>")
+    cards.append(f"<div class='tm-stat' style='border-color:#475569'>"
+                 f"<span class='tm-stat-n' style='color:#94A3B8'>{edges}</span>"
+                 f"<span class='tm-stat-l'>Links</span></div>")
+
+    # Latest activity
+    latest_nodes = sorted(tm["nodes"].values(), key=lambda n: n.get("created_at", ""), reverse=True)[:3]
+    activity_html = ""
+    for n in latest_nodes:
+        icon = {"root": "&#x1F535;", "step": "&#x27A1;", "branch": "&#x1F500;", "conclusion": "&#x2705;",
+                "human": "&#x1F4AC;", "queued": "&#x1F7E0;"}.get(n["type"], "&#x2022;")
+        activity_html += (
+            f"<div class='tm-activity'>"
+            f"<span>{icon}</span>"
+            f"<span class='tm-act-label'>{n['label'][:40]}</span>"
+            f"<span class='tm-act-type'>{n['type']}</span>"
+            f"</div>"
+        )
+
+    st.markdown(f"""<style>
+    .tm-dashboard {{ display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; }}
+    .tm-stats {{ display: flex; gap: 8px; flex-wrap: wrap; }}
+    .tm-stat {{
+        background: rgba(15,23,42,0.6); border-left: 3px solid; border-radius: 6px;
+        padding: 6px 12px; min-width: 60px; text-align: center;
+    }}
+    .tm-stat-n {{ display: block; font-size: 1.3rem; font-weight: 800; }}
+    .tm-stat-l {{ display: block; font-size: 0.65rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.06em; }}
+    .tm-recent {{ flex: 1; background: rgba(15,23,42,0.6); border-radius: 6px; padding: 8px 12px; }}
+    .tm-recent-title {{ font-size: 0.7rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }}
+    .tm-activity {{ display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 0.8rem; color: #CBD5E1; }}
+    .tm-act-label {{ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+    .tm-act-type {{ font-size: 0.6rem; color: #475569; text-transform: uppercase; background: rgba(255,255,255,0.06);
+        border-radius: 4px; padding: 1px 5px; }}
+    </style>
+    <div class="tm-dashboard">
+        <div class="tm-stats">{"".join(cards)}</div>
+        <div class="tm-recent">
+            <div class="tm-recent-title">Latest Activity</div>
+            {activity_html}
+        </div>
+    </div>""", unsafe_allow_html=True)
 
 
 def render_thought_map_controls():
