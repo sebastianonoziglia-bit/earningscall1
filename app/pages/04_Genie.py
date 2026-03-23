@@ -500,7 +500,7 @@ def _get_active_overview_auto_insights(excel_path: str) -> list[dict]:
     return cleaned_rows
 
 @st.cache_data(ttl=3600)
-def _extract_forward_signals(excel_path: str, company: str = "", max_signals: int = 80) -> list:
+def _extract_forward_signals(excel_path: str, company: str = "", max_signals: int = 200) -> list:
     FORWARD_TRIGGERS = [
         "we expect","we anticipate","we are targeting","we plan to","we intend to",
         "our outlook","looking ahead","heading into","next quarter","full year guidance",
@@ -619,19 +619,22 @@ def _extract_forward_signals(excel_path: str, company: str = "", max_signals: in
         sentences = re.split(r'(?<=[.!?])\s+', text)
         for sentence in sentences:
             sentence = sentence.strip()
-            if len(sentence) < 30 or len(sentence) > 400:
+            if len(sentence) < 20 or len(sentence) > 500:
                 continue
             s_lower = sentence.lower()
             if not any(trigger in s_lower for trigger in FORWARD_TRIGGERS):
                 continue
-            category = "Revenue & Growth"
+            # Score all categories — pick highest match count for richer tagging
+            best_cat = "Revenue & Growth"
+            best_score = 0
             for cat, keywords in CATEGORY_KEYWORDS.items():
-                if any(kw in s_lower for kw in keywords):
-                    category = cat
-                    break
+                score = sum(1 for kw in keywords if kw in s_lower)
+                if score > best_score:
+                    best_score = score
+                    best_cat = cat
             signals.append({"company": comp, "year": int(year), "quarter": quarter,
-                             "signal": sentence, "category": category})
-            if len(signals) >= max_signals * 5:
+                             "signal": sentence, "category": best_cat})
+            if len(signals) >= max_signals * 10:
                 break
     seen = set()
     deduped = []
@@ -640,7 +643,7 @@ def _extract_forward_signals(excel_path: str, company: str = "", max_signals: in
         if key not in seen:
             seen.add(key)
             deduped.append(s)
-    return deduped[:max_signals]
+    return deduped[:max_signals * 3]
 
 
 # Update the mapping of macro categories to their detailed metrics
@@ -884,13 +887,12 @@ with col1:
     st.markdown("<div class='section-container'>", unsafe_allow_html=True)
     st.subheader("📊 Company Analysis")
 
-    # Company selection (up to 3)
+    # Company selection
     companies = data_processor.get_companies()
     selected_companies = st.multiselect(
-        "Select Companies (up to 3)",
+        "Select Companies",
         options=companies,
         default=[companies[0]] if companies else None,
-        max_selections=3,
         key="company_selector"
     )
 
@@ -1252,9 +1254,39 @@ st.markdown(
         min-width: 120px !important;
     }
 
-    /* Help tooltips inside the expander */
+    /* Help tooltips — remove extra border box, integrate into parent */
     div[data-testid="stExpander"] [data-testid="stTooltipIcon"] {
         color: rgba(255, 255, 255, 0.4) !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        vertical-align: middle !important;
+        padding: 0 !important;
+        margin-left: 4px !important;
+    }
+    [data-testid="stTooltipIcon"] {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        display: inline-flex !important;
+        padding: 0 !important;
+    }
+    [data-testid="stTooltipIcon"] svg {
+        color: rgba(255,255,255,0.35) !important;
+        width: 14px !important;
+        height: 14px !important;
+    }
+
+    /* Checkbox label text — ensure high contrast in all states */
+    div[data-testid="stExpander"] div[data-testid="stCheckbox"] label p,
+    div[data-testid="stExpander"] div[data-testid="stCheckbox"] label span {
+        color: #e6edf3 !important;
+        font-size: 0.88rem !important;
+        font-weight: 500 !important;
     }
 
     /* Selectbox / multiselect inside expander */
@@ -1265,6 +1297,22 @@ st.markdown(
     }
     div[data-testid="stExpander"] div[data-baseweb="select"] * {
         color: #e6edf3 !important;
+    }
+
+    /* ── Global checkbox readability on dark pages ─────────── */
+    div[data-testid="stCheckbox"] label p,
+    div[data-testid="stCheckbox"] label span,
+    div[data-testid="stCheckbox"] label > div:last-child,
+    div[data-testid="stCheckbox"] label > div:last-child * {
+        color: #e6edf3 !important;
+    }
+
+    /* ── Button borders — unified component look ─────────── */
+    div[data-testid="stCheckbox"] label {
+        border: none !important;
+    }
+    div[data-testid="stCheckbox"] label > div:first-child {
+        border: none !important;
     }
     </style>
     """,
@@ -2975,6 +3023,15 @@ if "suggestion_category" not in st.session_state:
     st.session_state["suggestion_category"] = "All"
 
 st.markdown("""<style>
+/* ── GLOBAL: kill Streamlit's dark overlay on button active/focus ── */
+div[data-testid="stButton"] > button:active,
+div[data-testid="stButton"] > button:focus,
+div[data-testid="stButton"] > button:focus-visible,
+div[data-testid="stButton"] > button:focus:not(:focus-visible) {
+    background-image: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
 /* ── Suggestion area (clean minimal dark cards) ── */
 .genie-suggest-area { margin-bottom: 1rem; }
 .genie-suggest-area div[data-testid="stButton"] > button {
@@ -2992,6 +3049,7 @@ st.markdown("""<style>
     line-height: 1.4 !important;
     backdrop-filter: blur(8px) !important;
     transition: all 0.2s cubic-bezier(.4,0,.2,1) !important;
+    background-image: none !important;
 }
 .genie-suggest-area div[data-testid="stButton"] > button:hover {
     background: rgba(255,91,31,0.08) !important;
@@ -2999,6 +3057,13 @@ st.markdown("""<style>
     color: #ff8c42 !important;
     transform: translateY(-1px) !important;
     box-shadow: 0 4px 20px rgba(0,0,0,0.25) !important;
+    background-image: none !important;
+}
+.genie-suggest-area div[data-testid="stButton"] > button:active,
+.genie-suggest-area div[data-testid="stButton"] > button:focus {
+    background: rgba(255,91,31,0.12) !important;
+    background-image: none !important;
+    box-shadow: none !important;
 }
 /* Category pills */
 .genie-cat-pills { margin: 0.4rem 0 0.7rem 0; }
@@ -3014,11 +3079,19 @@ st.markdown("""<style>
     height: auto !important;
     letter-spacing: 0.02em !important;
     transition: all 0.15s ease !important;
+    background-image: none !important;
 }
 .genie-cat-pills div[data-testid="stButton"] > button:hover {
     background: rgba(255,255,255,0.06) !important;
     border-color: rgba(255,91,31,0.4) !important;
     color: #ff8c42 !important;
+    background-image: none !important;
+}
+.genie-cat-pills div[data-testid="stButton"] > button:active,
+.genie-cat-pills div[data-testid="stButton"] > button:focus {
+    background: rgba(255,255,255,0.08) !important;
+    background-image: none !important;
+    box-shadow: none !important;
 }
 /* Shuffle button */
 .genie-shuffle div[data-testid="stButton"] > button {
@@ -3033,10 +3106,24 @@ st.markdown("""<style>
     height: auto !important;
     transition: all 0.15s ease !important;
     box-shadow: 0 2px 8px rgba(255,91,31,0.2) !important;
+    background-image: none !important;
 }
 .genie-shuffle div[data-testid="stButton"] > button:hover {
     transform: scale(1.05) !important;
     box-shadow: 0 4px 16px rgba(255,91,31,0.35) !important;
+    background-image: none !important;
+}
+.genie-shuffle div[data-testid="stButton"] > button:active,
+.genie-shuffle div[data-testid="stButton"] > button:focus {
+    background: linear-gradient(135deg, #ff5b1f 0%, #ff8c42 100%) !important;
+    background-image: none !important;
+}
+/* Guidance signal buttons — kill dark overlay */
+.guidance-signals-wrap div[data-testid="stButton"] > button:active,
+.guidance-signals-wrap div[data-testid="stButton"] > button:focus {
+    background: #fff7f4 !important;
+    background-image: none !important;
+    box-shadow: none !important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -3086,9 +3173,7 @@ for _si, _sq in enumerate(_visible_suggestions):
             key=f"suggest_q_{st.session_state['suggestion_seed']}_{_si}",
             use_container_width=True,
         ):
-            st.session_state.setdefault("genie_history", []).append(
-                {"role": "user", "content": _sq}
-            )
+            st.session_state["prefill_message"] = _sq
             st.session_state["suggestion_seed"] = _rng.randint(0, 999999)
             st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
@@ -3097,13 +3182,28 @@ st.markdown('</div>', unsafe_allow_html=True)
 st.markdown("<hr style='margin: 2rem 0 1rem 0;'>", unsafe_allow_html=True)
 st.markdown("### Management Outlook & Guidance Signals")
 st.markdown(
-    "<p style='color:#6b7280;font-size:0.9rem;margin-bottom:1rem;'>"
+    "<p style='color:#6b7280;font-size:0.9rem;margin-bottom:0.5rem;'>"
     "Forward-looking statements extracted from earnings call transcripts. "
     "Click any signal to ask Genie about it.</p>",
     unsafe_allow_html=True
 )
+
+# Separate company selector for signals / suggestions — decoupled from top Company Analysis
+_all_tracked = [
+    "Alphabet", "Amazon", "Apple", "Meta Platforms", "Microsoft", "Netflix",
+    "Disney", "Comcast", "Spotify", "Roku", "Warner Bros. Discovery", "Paramount",
+]
+_signal_default = selected_companies[:3] if ("selected_companies" in dir() and selected_companies) else (_all_tracked[:1])
+_signal_companies = st.multiselect(
+    "Companies for signals & suggestions",
+    options=_all_tracked,
+    default=_signal_default,
+    key="signal_company_selector",
+    help="Choose which companies drive suggested questions, management outlook, and guidance signals below. Independent from Company Analysis above.",
+)
+
 st.markdown("""<style>
-/* Guidance signal buttons — readable text on white */
+/* Guidance signal buttons — readable text, light card */
 .guidance-signals-wrap div[data-testid="stButton"] > button {
     background: #f8fafc !important;
     color: #1e293b !important;
@@ -3117,19 +3217,64 @@ st.markdown("""<style>
     padding: 0.4rem 0.7rem !important;
     font-weight: 400 !important;
     line-height: 1.4 !important;
+    background-image: none !important;
 }
 .guidance-signals-wrap div[data-testid="stButton"] > button:hover {
     background: #fff7f4 !important;
     border-color: #ff5b1f !important;
     color: #0f172a !important;
+    background-image: none !important;
+}
+.guidance-signals-wrap div[data-testid="stButton"] > button:active,
+.guidance-signals-wrap div[data-testid="stButton"] > button:focus {
+    background: #fff7f4 !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+/* Category expander bars — high contrast readable labels */
+.guidance-signals-wrap div[data-testid="stExpander"] {
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 10px !important;
+    margin-bottom: 0.5rem !important;
+}
+.guidance-signals-wrap div[data-testid="stExpander"] summary {
+    background: rgba(255,91,31,0.06) !important;
+    color: #e6edf3 !important;
+    font-weight: 600 !important;
+    padding: 10px 14px !important;
+    border-radius: 10px !important;
+}
+.guidance-signals-wrap div[data-testid="stExpander"] summary:hover {
+    background: rgba(255,91,31,0.12) !important;
+}
+.guidance-signals-wrap div[data-testid="stExpander"] summary p,
+.guidance-signals-wrap div[data-testid="stExpander"] summary span {
+    color: #e6edf3 !important;
+    font-size: 0.9rem !important;
+}
+.guidance-signals-wrap div[data-testid="stExpander"] summary strong {
+    color: #ff8c42 !important;
+}
+.guidance-signals-wrap div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {
+    padding: 8px 12px 12px !important;
+}
+/* Quarter radio pills — readable on dark */
+.guidance-signals-wrap div[data-testid="stRadio"] label {
+    color: #e6edf3 !important;
+}
+.guidance-signals-wrap div[data-testid="stRadio"] label p,
+.guidance-signals-wrap div[data-testid="stRadio"] label span {
+    color: #e6edf3 !important;
+    font-size: 0.82rem !important;
 }
 </style>""", unsafe_allow_html=True)
 st.markdown('<div class="guidance-signals-wrap">', unsafe_allow_html=True)
-_fs_companies = selected_companies if "selected_companies" in dir() and selected_companies else []
+_fs_companies = _signal_companies if _signal_companies else []
 _fs_excel = str(excel_path) if "excel_path" in dir() and excel_path else ""
 _all_signals = []
-for _fs_co in _fs_companies[:3]:
-    _co_signals = _extract_forward_signals(_fs_excel, company=_fs_co, max_signals=60)
+for _fs_co in _fs_companies:
+    _co_signals = _extract_forward_signals(_fs_excel, company=_fs_co, max_signals=200)
     _all_signals.extend(_co_signals)
 if _all_signals:
     # Build sorted period list (year + quarter, chronological)
@@ -3175,7 +3320,7 @@ if _all_signals:
                 f"**{_cat}** \u2014 {len(_cats[_cat])} signal{'s' if len(_cats[_cat])>1 else ''}",
                 expanded=(_cat == _cats_present[0])
             ):
-                for sig in _cats[_cat][:8]:
+                for sig in _cats[_cat][:15]:
                     col_chip, col_text = st.columns([0.22, 0.78])
                     with col_chip:
                         st.markdown(
@@ -3196,9 +3341,7 @@ if _all_signals:
                             key=f"sig_{hash(sig['signal'][:60])}_{_sel_period_fs}",
                             use_container_width=True
                         ):
-                            st.session_state.setdefault("genie_history", []).append(
-                                {"role": "user", "content": _prompt}
-                            )
+                            st.session_state["prefill_message"] = _prompt
                             st.rerun()
 else:
     if not _fs_companies:
@@ -3689,302 +3832,20 @@ with _tm_col:
     st.markdown(
         """
     <div style='display:flex; align-items:center; gap:12px; margin-bottom:6px;'>
-      <span style='font-size:1.15rem; font-weight:900; color:#0F172A;'>💭 Thought Map</span>
+      <span style='font-size:1.15rem; font-weight:900; color:#e6edf3;'>💭 Thought Map</span>
       <span style='background:rgba(0,115,255,0.1); border:1px solid rgba(0,115,255,0.25);
         border-radius:999px; padding:2px 10px; font-size:0.7rem; font-weight:700;
         color:#0073FF; letter-spacing:0.06em; text-transform:uppercase;'>Beta</span>
     </div>
-    <p style='color:#64748B; font-size:0.85rem; margin-bottom:1rem;'>
-      Visual map of Genie's reasoning — grows with every response.
+    <p style='color:#8b949e; font-size:0.85rem; margin-bottom:1rem;'>
+      Visual map of Genie's reasoning — grows with every response. Persists across questions.
     </p>
     """,
         unsafe_allow_html=True,
     )
-    # ── D3 THOUGHT MAP ────────────────────────────────────────────────────────
-    _tm_history = st.session_state.get("genie_history", [])
-    _tm_nodes = []
-    _tm_edges = []
-
-    for _i, _msg in enumerate(_tm_history):
-        if _msg.get("role") not in {"user", "assistant"}:
-            continue
-        _content = str(_msg.get("content", ""))[:120]
-        _role = _msg.get("role", "")
-        try:
-            _intent = _extract_node_intent(_content)
-            _co = _intent.get("primary_company", "")
-            _ntype = _intent.get("node_type", "default")
-            _color = (COMPANY_BRAND_COLORS.get(_co.lower(), "") or
-                      TOPIC_NODE_COLORS.get(_ntype, "#94A3B8"))
-            _logo = ""
-            try:
-                _logos_dict = st.session_state.get("_cached_logos") or {}
-                if not _logos_dict:
-                    from utils.logos import load_company_logos
-                    _logos_dict = load_company_logos()
-                    st.session_state["_cached_logos"] = _logos_dict
-                for _k in _logos_dict:
-                    if _co and _k.lower() == _co.lower():
-                        _logo = _logos_dict[_k]
-                        break
-            except Exception:
-                pass
-        except Exception:
-            _color = "#60A5FA" if _role == "user" else "#94A3B8"
-            _co = ""
-            _logo = ""
-
-        _full_content = str(_msg.get("content", ""))
-        # Signal category tagging from intelligence layer
-        _sig_cat, _sig_border = match_signal_category(_full_content[:500])
-        if _sig_border and _role == "assistant":
-            _color = _sig_border  # Override node color with signal category
-        _tm_nodes.append({
-            "id": _i,
-            "label": _content[:60] + ("..." if len(_content) > 60 else ""),
-            "full": _full_content[:800] + ("..." if len(_full_content) > 800 else ""),
-            "color": _color,
-            "role": _role,
-            "company": _co,
-            "logo": _logo,
-            "signal": _sig_cat,
-        })
-        if _i > 0:
-            _tm_edges.append({"from": _i - 1, "to": _i, "color": _color})
-
-    import json as _tm_json
-    _nodes_json = _tm_json.dumps(_tm_nodes)
-    _edges_json = _tm_json.dumps(_tm_edges)
-
-    _tm_html = (
-        """<!DOCTYPE html><html><head><style>
-    html,body{margin:0;padding:0;background:#fafbfc;overflow:hidden;font-family:'DM Sans',sans-serif;}
-    #tm-root{width:100%;height:480px;position:relative;}
-    svg{width:100%;height:100%;}
-    .node-card{cursor:pointer;}
-    #tm-tooltip{position:absolute;display:none;background:rgba(10,14,26,0.97);
-    border:1px solid rgba(99,179,237,0.4);color:#e6edf3;padding:10px 14px;
-    border-radius:8px;font-size:12px;pointer-events:none;z-index:100;max-width:280px;line-height:1.5;}
-    #tm-detail{display:none;position:absolute;bottom:0;left:0;right:0;z-index:200;
-    background:#0f172a;border-top:2px solid #0073FF;padding:12px 16px 14px;
-    max-height:190px;overflow-y:auto;animation:tmslide 0.18s ease;}
-    @keyframes tmslide{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
-    #tm-detail-close{float:right;background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem;padding:0 4px;}
-    #tm-detail-close:hover{color:#e2e8f0;}
-    #tm-detail-role{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;
-    font-weight:700;color:#0f172a;background:#60a5fa;border-radius:4px;
-    padding:1px 7px;display:inline-block;margin-bottom:7px;}
-    #tm-detail-text{color:#cbd5e1;font-size:0.83rem;line-height:1.6;white-space:pre-wrap;}
-    </style></head><body>
-    <div id="tm-root"><div id="tm-tooltip"></div>
-    <div id="tm-detail">
-      <button id="tm-detail-close" onclick="document.getElementById('tm-detail').style.display='none'">✕</button>
-      <div id="tm-detail-role"></div>
-      <div id="tm-detail-text"></div>
-    </div>
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    <script>
-    var nodes="""
-        + _nodes_json
-        + """;
-    var edges="""
-        + _edges_json
-        + """;
-    if(!nodes.length){
-        d3.select('#tm-root').append('div')
-            .style('display','flex').style('align-items','center')
-            .style('justify-content','center').style('height','100%')
-            .style('color','#9ca3af').style('font-size','14px')
-            .text('Ask Genie something to see your thought map grow here.');
-    } else {
-    var W=document.getElementById('tm-root').clientWidth||900;
-    var H=480;
-    var tooltip=document.getElementById('tm-tooltip');
-    var svg=d3.select('#tm-root').append('svg');
-    var simulation=d3.forceSimulation(nodes)
-        .force('link',d3.forceLink(edges).id(function(d){return d.id;}).distance(120).strength(0.8))
-        .force('charge',d3.forceManyBody().strength(-300))
-        .force('center',d3.forceCenter(W/2,H/2))
-        .force('collision',d3.forceCollide(60));
-    svg.append('defs').append('marker')
-        .attr('id','arrowhead').attr('viewBox','0 0 10 10')
-        .attr('refX',28).attr('refY',5)
-        .attr('markerWidth',6).attr('markerHeight',6)
-        .attr('orient','auto-start-reverse')
-        .append('path').attr('d','M2 1L8 5L2 9')
-        .attr('fill','none').attr('stroke','#cbd5e1').attr('stroke-width',1.5);
-    var edgeG=svg.append('g');
-    var edgeLines=edgeG.selectAll('path').data(edges).enter().append('path')
-        .attr('fill','none').attr('stroke-opacity',0.4).attr('stroke-width',1.5)
-        .attr('stroke-dasharray','4 2')
-        .attr('stroke',function(d){return d.color||'#4b5563';})
-        .attr('marker-end','url(#arrowhead)');
-    var nodeG=svg.append('g');
-    var drag=d3.drag()
-        .on('start',function(event,d){if(!event.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
-        .on('drag',function(event,d){d.fx=event.x;d.fy=event.y;})
-        .on('end',function(event,d){if(!event.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;});
-    var nodeGroups=nodeG.selectAll('g').data(nodes).enter().append('g')
-        .attr('class','node-card').call(drag)
-        .on('mouseover',function(event,d){
-            tooltip.style.display='block';
-            tooltip.style.left=(event.offsetX+12)+'px';
-            tooltip.style.top=(event.offsetY-10)+'px';
-            var sigHtml=d.signal?'<span style="display:inline-block;font-size:9px;background:'+d.color+'22;color:'+d.color+';border:1px solid '+d.color+'44;border-radius:4px;padding:1px 6px;margin-bottom:4px;">'+d.signal+'</span><br>':'';
-                tooltip.innerHTML=sigHtml+(d.company?'<strong style="color:'+d.color+'">'+d.company+'</strong><br>':'')+
-                '<span style="color:#9ca3af;font-size:10px;text-transform:uppercase">'+d.role+'</span><br>'+d.label;
-        })
-        .on('mouseout',function(){tooltip.style.display='none';})
-        .on('click',function(event,d){
-            var det=document.getElementById('tm-detail');
-            var role=d.role==='user'?'Question':'Answer';
-            document.getElementById('tm-detail-role').textContent=role+(d.company?' — '+d.company:'');
-            document.getElementById('tm-detail-text').textContent=d.full||d.label;
-            det.style.display='block';
-            tooltip.style.display='none';
-            event.stopPropagation();
-        });
-    nodeGroups.append('circle')
-        .attr('r',function(d){return d.role==='user'?24:20;})
-        .attr('fill',function(d){return d.color+'22';})
-        .attr('stroke',function(d){return d.color;})
-        .attr('stroke-width',function(d){return d.role==='user'?2:1.5;});
-    nodeGroups.each(function(d){
-        var g=d3.select(this);
-        var r=d.role==='user'?14:12;
-        if(d.logo){
-            var clipId='clip-tm-'+d.id;
-            svg.select('defs').append('clipPath').attr('id',clipId)
-                .append('circle').attr('r',r);
-            g.append('image')
-                .attr('href','data:image/png;base64,'+d.logo)
-                .attr('x',-r).attr('y',-r).attr('width',r*2).attr('height',r*2)
-                .attr('clip-path','url(#'+clipId+')');
-        } else {
-            g.append('text')
-                .attr('text-anchor','middle').attr('dominant-baseline','central')
-                .attr('font-size',d.role==='user'?'13px':'11px')
-                .attr('font-weight','700').attr('fill',d.color)
-                .text(d.company?d.company[0]:(d.role==='user'?'Q':'A'));
-        }
-    });
-    nodeGroups.append('circle')
-        .attr('cx',16).attr('cy',-16).attr('r',6)
-        .attr('fill',function(d){return d.role==='user'?'#3b82f6':'#8b5cf6';})
-        .attr('stroke','#fafbfc').attr('stroke-width',1.5);
-    nodeGroups.append('text')
-        .attr('x',16).attr('y',-16).attr('text-anchor','middle')
-        .attr('dominant-baseline','central').attr('font-size','7px')
-        .attr('fill','white').attr('font-weight','700')
-        .text(function(d){return d.role==='user'?'Q':'A';});
-    simulation.on('tick',function(){
-        edgeLines.attr('d',function(d){
-            var dx=d.target.x-d.source.x;
-            var dy=d.target.y-d.source.y;
-            var dr=Math.sqrt(dx*dx+dy*dy)*1.2;
-            return 'M'+d.source.x+','+d.source.y+'A'+dr+','+dr+' 0 0,1 '+d.target.x+','+d.target.y;
-        });
-        nodeGroups.attr('transform',function(d){
-            return 'translate('+Math.max(30,Math.min(W-30,d.x))+','+Math.max(30,Math.min(H-30,d.y))+')';
-        });
-    });
-    }
-    svg.on('click',function(){document.getElementById('tm-detail').style.display='none';});
-    </script></body></html>"""
-    )
-    st.components.v1.html(_tm_html, height=500, scrolling=False)
-
-# ── EARNINGS REACTION HEATMAP ────────────────────────────────────────────────
-st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
-st.markdown(
-    "<h3 style='margin-bottom:0.25rem;'>📡 Earnings Reaction Map</h3>"
-    "<p style='color:#64748B;font-size:0.88rem;margin-bottom:1rem;'>"
-    "Annual stock performance per company (year-over-year %). "
-    "Color = market signal. Click any cell to ask Genie about it.</p>",
-    unsafe_allow_html=True,
-)
-try:
-    _hm_df = None
-    for _sn in ["Stocks & Crypto", "Stocks_Crypto", "Stocks", "Stock Data", "StocksCrypto"]:
-        try:
-            _hm_df = pd.read_excel(excel_path, sheet_name=_sn)
-            break
-        except Exception:
-            continue
-    if _hm_df is None:
-        raise ValueError("No stock sheet found")
-    # Normalise columns
-    _hm_df.columns = [str(c).strip().lower() for c in _hm_df.columns]
-    # Identify date + close columns
-    _date_col = next((c for c in _hm_df.columns if "date" in c), None)
-    _close_col = next((c for c in _hm_df.columns if c in ("close", "price", "adj close", "adj_close")), None)
-    _asset_col = next((c for c in _hm_df.columns if c in ("asset", "name", "company")), None)
-    _tag_col = next((c for c in _hm_df.columns if c in ("tag", "ticker", "symbol")), None)
-
-    if _date_col and _close_col and (_asset_col or _tag_col):
-        _hm_df[_date_col] = pd.to_datetime(_hm_df[_date_col], errors="coerce")
-        _hm_df = _hm_df.dropna(subset=[_date_col, _close_col])
-        _hm_df["_year"] = _hm_df[_date_col].dt.year
-        _label_col = _asset_col or _tag_col
-        # Compute first & last close per company per year → annual return
-        _grp = _hm_df.sort_values(_date_col).groupby([_label_col, "_year"])[_close_col]
-        _first = _grp.first().rename("first")
-        _last = _grp.last().rename("last")
-        _ret = ((_last - _first) / _first.replace(0, float("nan")) * 100).rename("pct").reset_index()
-        # Pivot: rows = companies, cols = years
-        _pivot = _ret.pivot(index=_label_col, columns="_year", values="pct")
-        # Keep only companies that are in the selected set OR top 10 by coverage
-        _keep_cos = selected_companies if selected_companies else list(_pivot.index[:10])
-        _pivot_filtered = _pivot.loc[[c for c in _keep_cos if c in _pivot.index]]
-        if _pivot_filtered.empty:
-            _pivot_filtered = _pivot.head(10)
-        # Keep years 2015 onward
-        _pivot_filtered = _pivot_filtered[[c for c in _pivot_filtered.columns if int(c) >= 2015]]
-
-        if not _pivot_filtered.empty:
-            _hm_z = _pivot_filtered.values.tolist()
-            _hm_x = [str(c) for c in _pivot_filtered.columns]
-            _hm_y = list(_pivot_filtered.index)
-            _hm_text = [[
-                f"{_hm_y[r]}<br>{_hm_x[c]}<br>{v:+.1f}%" if v == v else f"{_hm_y[r]}<br>{_hm_x[c]}<br>n/a"
-                for c, v in enumerate(row)
-            ] for r, row in enumerate(_hm_z)]
-            _hm_fig = go.Figure(go.Heatmap(
-                z=_hm_z, x=_hm_x, y=_hm_y,
-                text=_hm_text, hovertemplate="%{text}<extra></extra>",
-                colorscale=[[0,"#ef4444"],[0.5,"#1e293b"],[1,"#22c55e"]],
-                zmid=0, zmin=-60, zmax=60,
-                showscale=True,
-                colorbar=dict(title="YoY %", tickfont=dict(color="#94a3b8"), titlefont=dict(color="#94a3b8")),
-            ))
-            _hm_fig.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                margin=dict(l=10, r=10, t=10, b=10),
-                xaxis=dict(tickfont=dict(color="#94a3b8"), gridcolor="rgba(0,0,0,0)"),
-                yaxis=dict(tickfont=dict(color="#94a3b8"), gridcolor="rgba(0,0,0,0)"),
-                height=max(200, len(_hm_y) * 44 + 60),
-            )
-            _hm_event = st.plotly_chart(_hm_fig, use_container_width=True, on_select="rerun", key="earnings_heatmap", config={"displayModeBar": False})
-            # Handle cell click → prefill Genie
-            if _hm_event and hasattr(_hm_event, "selection") and _hm_event.selection:
-                _pts = getattr(_hm_event.selection, "points", [])
-                if _pts:
-                    _pt = _pts[0]
-                    _click_co = _pt.get("y") or ""
-                    _click_yr = _pt.get("x") or ""
-                    if _click_co and _click_yr:
-                        st.session_state["prefill_message"] = (
-                            f"What drove {_click_co}'s stock performance in {_click_yr}? "
-                            f"Include earnings highlights, key segment data, and any guidance signals."
-                        )
-                        st.rerun()
-        else:
-            st.caption("No annual stock data available for selected companies.")
-    else:
-        st.caption("Stock data format not recognised — heatmap unavailable.")
-except Exception as _hm_err:
-    st.caption(f"Earnings Reaction Map unavailable: {_hm_err}")
+    # Render persistent Cytoscape thought map (session-state backed, survives reruns)
+    render_thought_map(height=520)
+    render_thought_map_controls()
 
 st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
 

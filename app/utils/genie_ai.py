@@ -14,22 +14,23 @@ except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
 
 
+def _safe_secret(key: str) -> str:
+    """Read a Streamlit secret silently — never raise or log warnings."""
+    try:
+        val = st.secrets.get(key, "")
+        return str(val).strip() if val else ""
+    except Exception:
+        return ""
+
+
 def get_openai_client() -> Optional["OpenAI"]:
     """Return an AI client (DeepSeek preferred, else OpenAI) using secrets or session key."""
     if OpenAI is None:
         return None
 
-    try:
-        secrets = st.secrets
-        deepseek_key = secrets.get("DEEPSEEK_API_KEY", "")
-        openai_key = secrets.get("OPENAI_API_KEY", "")
-    except Exception:
-        deepseek_key = ""
-        openai_key = ""
-
-    deepseek_key = deepseek_key or os.environ.get("DEEPSEEK_API_KEY", "")
+    deepseek_key = _safe_secret("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_API_KEY", "")
     openai_key = (
-        openai_key
+        _safe_secret("OPENAI_API_KEY")
         or os.environ.get("OPENAI_API_KEY", "")
         or st.session_state.get("openai_api_key", "")
     )
@@ -43,12 +44,9 @@ def get_openai_client() -> Optional["OpenAI"]:
 
 def _default_model() -> str:
     """Return the right default model based on which key is configured."""
-    try:
-        has_deepseek = bool(
-            st.secrets.get("DEEPSEEK_API_KEY", "") or os.environ.get("DEEPSEEK_API_KEY", "")
-        )
-    except Exception:
-        has_deepseek = bool(os.environ.get("DEEPSEEK_API_KEY", ""))
+    has_deepseek = bool(
+        _safe_secret("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_API_KEY", "")
+    )
     return "deepseek-chat" if has_deepseek else "gpt-4o"
 
 

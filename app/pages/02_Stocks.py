@@ -700,10 +700,22 @@ st.markdown("""
     .stButton > button:hover,
     div[data-testid="stButton"] > button:hover {
         background-color: #1d4ed8 !important;
+        background-image: none !important;
         color: #ffffff !important;
         border-color: #1e40af !important;
         box-shadow: 0 3px 8px rgba(30,64,175,0.35) !important;
         transform: translateY(-1px);
+    }
+    .stButton > button:active,
+    .stButton > button:focus,
+    div[data-testid="stButton"] > button:active,
+    div[data-testid="stButton"] > button:focus,
+    div[data-testid="stButton"] > button:focus-visible {
+        background-color: #1e40af !important;
+        background-image: none !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
+        outline: none !important;
     }
     .price-up {
         color: green;

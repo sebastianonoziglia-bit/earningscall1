@@ -2728,6 +2728,38 @@ st.components.v1.html(
     height=560,
 )
 
+# ── Helper: numeric ISO → alpha-3 mapping for D3 choropleth globe ──
+def _build_numeric_iso_map() -> dict:
+    """Maps D3/TopoJSON numeric country IDs to ISO 3166-1 alpha-3 codes."""
+    return {
+        "356": "IND", "360": "IDN", "076": "BRA", "566": "NGA", "050": "BGD",
+        "586": "PAK", "231": "ETH", "180": "COD", "834": "TZA", "404": "KEN",
+        "288": "GHA", "800": "UGA", "508": "MOZ", "450": "MDG", "120": "CMR",
+        "384": "CIV", "024": "AGO", "894": "ZMB", "716": "ZWE", "646": "RWA",
+        "608": "PHL", "704": "VNM", "764": "THA", "104": "MMR", "116": "KHM",
+        "418": "LAO", "524": "NPL", "144": "LKA", "484": "MEX", "170": "COL",
+        "032": "ARG", "604": "PER", "152": "CHL", "862": "VEN", "218": "ECU",
+        "068": "BOL", "320": "GTM", "340": "HND", "222": "SLV", "558": "NIC",
+        "188": "CRI", "591": "PAN", "214": "DOM", "192": "CUB", "840": "USA",
+        "826": "GBR", "276": "DEU", "250": "FRA", "380": "ITA", "724": "ESP",
+        "792": "TUR", "364": "IRN", "682": "SAU", "784": "ARE", "818": "EGY",
+        "504": "MAR", "012": "DZA", "788": "TUN", "434": "LBY", "729": "SDN",
+        "368": "IRQ", "760": "SYR", "400": "JOR", "422": "LBN", "414": "KWT",
+        "634": "QAT", "048": "BHR", "512": "OMN", "710": "ZAF", "516": "NAM",
+        "072": "BWA", "454": "MWI", "426": "LSO", "748": "SWZ",
+        "528": "NLD", "056": "BEL", "756": "CHE", "040": "AUT", "620": "PRT",
+        "616": "POL", "203": "CZE", "348": "HUN", "703": "SVK", "191": "HRV",
+        "688": "SRB", "100": "BGR", "642": "ROU", "300": "GRC", "752": "SWE",
+        "578": "NOR", "208": "DNK", "246": "FIN", "352": "ISL", "233": "EST",
+        "428": "LVA", "440": "LTU", "124": "CAN", "036": "AUS", "554": "NZL",
+        "372": "IRL", "702": "SGP", "458": "MYS", "344": "HKG", "158": "TWN",
+        "392": "JPN", "410": "KOR", "858": "URY", "600": "PRY",
+        "084": "BLZ", "398": "KAZ", "860": "UZB", "795": "TKM",
+        "762": "TJK", "417": "KGZ", "004": "AFG", "496": "MNG",
+        "388": "JAM", "442": "LUX", "705": "SVN", "332": "HTI",
+    }
+
+
 # Beat 1 — Map
 map_body = (
     "The map below shows how global advertising spend is distributed across countries — "
@@ -3202,37 +3234,6 @@ setTimeout(function(){ countUp(document.getElementById('wa-attn-counter'), ytHou
 </script>
 </body></html>"""
     )
-
-def _build_numeric_iso_map() -> dict:
-    """Maps D3/TopoJSON numeric country IDs to ISO 3166-1 alpha-3 codes for platform globe."""
-    return {
-        "356": "IND", "360": "IDN", "076": "BRA", "566": "NGA", "050": "BGD",
-        "586": "PAK", "231": "ETH", "180": "COD", "834": "TZA", "404": "KEN",
-        "288": "GHA", "800": "UGA", "508": "MOZ", "450": "MDG", "120": "CMR",
-        "384": "CIV", "024": "AGO", "894": "ZMB", "716": "ZWE", "646": "RWA",
-        "608": "PHL", "704": "VNM", "764": "THA", "104": "MMR", "116": "KHM",
-        "418": "LAO", "524": "NPL", "144": "LKA", "484": "MEX", "170": "COL",
-        "032": "ARG", "604": "PER", "152": "CHL", "862": "VEN", "218": "ECU",
-        "068": "BOL", "320": "GTM", "340": "HND", "222": "SLV", "558": "NIC",
-        "188": "CRI", "591": "PAN", "214": "DOM", "192": "CUB", "840": "USA",
-        "826": "GBR", "276": "DEU", "250": "FRA", "380": "ITA", "724": "ESP",
-        "792": "TUR", "364": "IRN", "682": "SAU", "784": "ARE", "818": "EGY",
-        "504": "MAR", "012": "DZA", "788": "TUN", "434": "LBY", "729": "SDN",
-        "368": "IRQ", "760": "SYR", "400": "JOR", "422": "LBN", "414": "KWT",
-        "634": "QAT", "048": "BHR", "512": "OMN", "710": "ZAF", "516": "NAM",
-        "072": "BWA", "454": "MWI", "426": "LSO", "748": "SWZ",
-        "528": "NLD", "056": "BEL", "756": "CHE", "040": "AUT", "620": "PRT",
-        "616": "POL", "203": "CZE", "348": "HUN", "703": "SVK", "191": "HRV",
-        "688": "SRB", "100": "BGR", "642": "ROU", "300": "GRC", "752": "SWE",
-        "578": "NOR", "208": "DNK", "246": "FIN", "352": "ISL", "233": "EST",
-        "428": "LVA", "440": "LTU", "124": "CAN", "036": "AUS", "554": "NZL",
-        "372": "IRL", "702": "SGP", "458": "MYS", "344": "HKG", "158": "TWN",
-        "392": "JPN", "410": "KOR", "858": "URY", "600": "PRY",
-        "084": "BLZ", "398": "KAZ", "860": "UZB", "795": "TKM",
-        "762": "TJK", "417": "KGZ", "004": "AFG", "496": "MNG",
-        "388": "JAM", "442": "LUX", "705": "SVN", "332": "HTI",
-    }
-
 
 def _safe_float(v) -> float:
     import math
