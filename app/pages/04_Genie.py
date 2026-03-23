@@ -28,7 +28,7 @@ from utils.data_loader import load_advertising_data, get_available_filters, read
 from utils.components import render_ai_assistant
 from utils.styles import load_common_styles, load_genie_specific_styles
 from utils.enhanced_chat_interface import render_enhanced_chat_interface
-from utils.thought_map import render_thought_map, render_thought_map_controls, match_signal_category
+from utils.thought_map import render_thought_map, render_thought_map_controls, match_signal_category, add_queued_node, get_queued_nodes
 from utils.m2_supply_data import get_m2_monthly_data, get_m2_annual_data, create_m2_visualization
 from utils.fed_funds_data import get_fed_funds_annual_data
 from utils.bitcoin_analysis import get_bitcoin_monthly_returns, create_bitcoin_monthly_returns_chart, render_bitcoin_analysis_section
@@ -3173,7 +3173,7 @@ for _si, _sq in enumerate(_visible_suggestions):
             key=f"suggest_q_{st.session_state['suggestion_seed']}_{_si}",
             use_container_width=True,
         ):
-            st.session_state["prefill_message"] = _sq
+            add_queued_node(_sq, source_type="suggestion")
             st.session_state["suggestion_seed"] = _rng.randint(0, 999999)
             st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
@@ -3341,7 +3341,11 @@ if _all_signals:
                             key=f"sig_{hash(sig['signal'][:60])}_{_sel_period_fs}",
                             use_container_width=True
                         ):
-                            st.session_state["prefill_message"] = _prompt
+                            add_queued_node(
+                                _prompt,
+                                source_type="signal",
+                                meta={"company": sig["company"], "year": sig["year"], "quarter": sig["quarter"]},
+                            )
                             st.rerun()
 else:
     if not _fs_companies:

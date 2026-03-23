@@ -8,7 +8,7 @@ from utils.genie_ai import (
     clean_thought_markers,
     stream_genie_response,
 )
-from utils.thought_map import add_nodes_to_map, parse_response_to_nodes
+from utils.thought_map import add_nodes_to_map, get_queued_nodes, parse_response_to_nodes, promote_queued_nodes
 
 
 def _estimate_token_usage(history: list[dict]) -> int:
@@ -30,23 +30,26 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     st.markdown(
         "<h3 style='margin-bottom:0.5rem;'>🧞 Ask the Genie</h3>"
         "<p style='color:#64748B; font-size:0.9rem; margin-bottom:1rem;'>"
-        "Ask anything about the data — company performance, advertising trends, "
-        "transcript quotes, macro context, or competitive analysis.</p>",
+        "Select questions & signals above to queue them on the map, "
+        "then press <b style='color:#ff5b1f;'>Start Genie Thoughts</b> — "
+        "or type your own question below.</p>",
         unsafe_allow_html=True,
     )
 
     if "genie_history" not in st.session_state:
         st.session_state["genie_history"] = []
 
-    # ── Primary CTA: Start Genie Thoughts ──
-    _pending_q = st.session_state.get("prefill_message", "")
-    if _pending_q:
+    # ── Show queued items count ──
+    queued = get_queued_nodes()
+    if queued:
+        _items_preview = " · ".join(q["content"][:60] for q in queued[:3])
+        _more = f" (+{len(queued) - 3} more)" if len(queued) > 3 else ""
         st.markdown(
             f"<div style='background:rgba(255,91,31,0.08);border:1px solid rgba(255,91,31,0.3);"
-            f"border-radius:10px;padding:0.6rem 1rem;margin-bottom:0.8rem;font-size:0.88rem;"
+            f"border-radius:10px;padding:0.6rem 1rem;margin-bottom:0.8rem;font-size:0.85rem;"
             f"color:#e6edf3;'>"
-            f"<strong style='color:#ff8c42;'>Queued:</strong> {_pending_q[:200]}"
-            f"{'...' if len(_pending_q) > 200 else ''}</div>",
+            f"<strong style='color:#ff8c42;'>{len(queued)} queued on map:</strong> "
+            f"{_items_preview}{_more}</div>",
             unsafe_allow_html=True,
         )
 
@@ -79,8 +82,9 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     _cta_col, _export_col = st.columns([3, 1])
     with _cta_col:
         st.markdown('<div class="genie-start-btn">', unsafe_allow_html=True)
+        _btn_label = f"🧞 Start Genie Thoughts ({len(queued)})" if queued else "🧞 Start Genie Thoughts"
         _start_clicked = st.button(
-            "🧞 Start Genie Thoughts",
+            _btn_label,
             key="start_genie_thoughts_btn",
             use_container_width=True,
         )
@@ -109,17 +113,22 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
         with st.chat_message(role, avatar=avatar):
             st.markdown(clean_thought_markers(content) if role == "assistant" else content)
 
-    prefill = st.session_state.pop("prefill_message", None)
     user_input = st.chat_input(
         "Ask about revenue trends, ad market share, transcript quotes...",
         key="genie_chat_input",
     )
 
-    # Start Genie Thoughts button triggers the prefilled message
-    if _start_clicked and prefill:
-        user_input = prefill
-    elif prefill and not user_input:
-        user_input = prefill
+    # "Start Genie Thoughts" collects queued map nodes into a combined prompt
+    if _start_clicked and queued:
+        queued_texts = promote_queued_nodes()
+        if len(queued_texts) == 1:
+            user_input = queued_texts[0]
+        else:
+            user_input = (
+                "I've selected these topics to reason about together:\n\n"
+                + "\n".join(f"• {t}" for t in queued_texts)
+                + "\n\nPlease analyze each point and connect them where relevant."
+            )
 
     if user_input:
         with st.chat_message("user", avatar="👤"):

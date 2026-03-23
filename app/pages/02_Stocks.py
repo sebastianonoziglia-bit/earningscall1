@@ -667,14 +667,17 @@ st.markdown("""
         border-color: #d7e3ff;
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
     }
-    /* Clean pill buttons for white-background Stocks page */
-    .stButton > button,
-    .stButton > button:focus,
-    .stButton > button:active,
-    .stButton > button:visited,
-    div[data-testid="stButton"] > button,
-    div[data-testid="stButton"] > button:focus,
-    div[data-testid="stButton"] > button:active {
+    /* Clean pill buttons for white-background Stocks page —
+       high-specificity selectors override the global styles from styles.py */
+    div[data-testid="stVerticalBlock"] .stButton > button,
+    div[data-testid="stVerticalBlock"] .stButton > button:focus,
+    div[data-testid="stVerticalBlock"] .stButton > button:active,
+    div[data-testid="stVerticalBlock"] .stButton > button:visited,
+    div[data-testid="stVerticalBlock"] .stButton > button:focus-visible,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:focus,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:active {
+        background: #1e40af !important;
         background-color: #1e40af !important;
         background-image: none !important;
         border: 1px solid #1e3a8a !important;
@@ -689,16 +692,17 @@ st.markdown("""
         transition: all 0.2s ease !important;
         cursor: pointer !important;
     }
-    .stButton > button *,
-    div[data-testid="stButton"] > button *,
-    .stButton > button p,
-    .stButton > button span,
-    div[data-testid="stButton"] > button p,
-    div[data-testid="stButton"] > button span {
+    div[data-testid="stVerticalBlock"] .stButton > button *,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button *,
+    div[data-testid="stVerticalBlock"] .stButton > button p,
+    div[data-testid="stVerticalBlock"] .stButton > button span,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button p,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button span {
         color: #ffffff !important;
     }
-    .stButton > button:hover,
-    div[data-testid="stButton"] > button:hover {
+    div[data-testid="stVerticalBlock"] .stButton > button:hover,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:hover {
+        background: #1d4ed8 !important;
         background-color: #1d4ed8 !important;
         background-image: none !important;
         color: #ffffff !important;
@@ -706,11 +710,13 @@ st.markdown("""
         box-shadow: 0 3px 8px rgba(30,64,175,0.35) !important;
         transform: translateY(-1px);
     }
-    .stButton > button:active,
-    .stButton > button:focus,
-    div[data-testid="stButton"] > button:active,
-    div[data-testid="stButton"] > button:focus,
-    div[data-testid="stButton"] > button:focus-visible {
+    div[data-testid="stVerticalBlock"] .stButton > button:active,
+    div[data-testid="stVerticalBlock"] .stButton > button:focus,
+    div[data-testid="stVerticalBlock"] .stButton > button:focus-visible,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:active,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:focus,
+    div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:focus-visible {
+        background: #1e40af !important;
         background-color: #1e40af !important;
         background-image: none !important;
         color: #ffffff !important;

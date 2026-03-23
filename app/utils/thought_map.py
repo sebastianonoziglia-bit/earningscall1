@@ -126,7 +126,6 @@ def render_depth_selector():
                 key=f"depth_{key}",
                 type=style,
                 use_container_width=True,
-                help=mode["desc"],
             ):
                 st.session_state["thought_map_depth"] = key
                 st.rerun()
@@ -154,7 +153,50 @@ NODE_COLORS = {
     "branch": "#F59E0B",
     "conclusion": "#10B981",
     "human": "#8B5CF6",
+    "queued": "#ff5b1f",
 }
+
+
+def add_queued_node(text: str, source_type: str = "suggestion", meta: dict = None):
+    """Add a queued (pending) node to the thought map. Not yet reasoned about."""
+    tm = _get_map()
+    node_id = str(uuid.uuid4())[:8]
+    label = text[:60] + ("…" if len(text) > 60 else "")
+    node = {
+        "id": node_id,
+        "type": "queued",
+        "label": label,
+        "content": text,
+        "parent_id": None,
+        "children": [],
+        "depth": 0,
+        "collapsed": False,
+        "created_at": datetime.now().isoformat(),
+        "source_type": source_type,
+        "meta": meta or {},
+    }
+    tm["nodes"][node_id] = node
+    tm["root_ids"].append(node_id)
+    st.session_state["thought_map"] = tm
+    return node_id
+
+
+def get_queued_nodes() -> list[dict]:
+    """Return all queued (pending) nodes from the thought map."""
+    tm = _get_map()
+    return [n for n in tm["nodes"].values() if n.get("type") == "queued"]
+
+
+def promote_queued_nodes():
+    """Mark all queued nodes as 'root' after AI reasoning starts. Returns the combined prompt text."""
+    tm = _get_map()
+    queued = [n for n in tm["nodes"].values() if n.get("type") == "queued"]
+    texts = []
+    for node in queued:
+        node["type"] = "root"
+        texts.append(node["content"])
+    st.session_state["thought_map"] = tm
+    return texts
 
 
 def parse_response_to_nodes(response_text: str, message_index: int) -> list[dict]:
@@ -243,8 +285,8 @@ def render_thought_map(height: int = 520):
         st.markdown(
             "<div style='padding:32px; text-align:center; color:#64748B; "
             "border:1px dashed rgba(100,116,139,0.3); border-radius:12px;'>"
-            "💭 <strong>The thought map will grow here as Genie reasons through your questions.</strong><br/>"
-            "<span style='font-size:0.85rem;'>Ask Genie something complex to see the first nodes appear.</span>"
+            "💭 <strong>Select questions and signals below — they'll appear here as nodes.</strong><br/>"
+            "<span style='font-size:0.85rem;'>Then press <b style='color:#ff5b1f;'>Start Genie Thoughts</b> to let the AI reason through them.</span>"
             "</div>",
             unsafe_allow_html=True,
         )
@@ -351,6 +393,7 @@ def render_thought_map(height: int = 520):
     <span class="leg-item"><span class="leg-dot" style="background:#F59E0B"></span>Branch</span>
     <span class="leg-item"><span class="leg-dot" style="background:#10B981"></span>Conclusion</span>
     <span class="leg-item"><span class="leg-dot" style="background:#8B5CF6"></span>Your note</span>
+    <span class="leg-item"><span class="leg-dot" style="background:#ff5b1f;border:2px dashed #ff5b1f;background:rgba(255,91,31,0.3)"></span>Queued</span>
   </div>
   <div id="meta">{node_count} nodes · {edge_count} connections</div>
 </div>
@@ -398,6 +441,15 @@ const cy = cytoscape({{
       style: {{
         'border-width': 3, 'border-color': '#8B5CF6', 'border-style': 'dashed',
         'shape': 'round-rectangle', 'width': '90px',
+      }}
+    }},
+    {{
+      selector: 'node[type="queued"]',
+      style: {{
+        'border-width': 3, 'border-color': '#ff5b1f', 'border-style': 'dashed',
+        'shape': 'round-rectangle', 'width': '90px', 'height': '60px',
+        'background-color': 'rgba(255,91,31,0.15)', 'font-size': '10px',
+        'color': '#ff8c42',
       }}
     }},
     {{ selector: 'node[type="root"]', style: {{ 'width': '90px', 'height': '90px', 'font-size': '12px' }} }},
