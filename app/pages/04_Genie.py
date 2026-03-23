@@ -28,7 +28,7 @@ from utils.data_loader import load_advertising_data, get_available_filters, read
 from utils.components import render_ai_assistant
 from utils.styles import load_common_styles, load_genie_specific_styles
 from utils.enhanced_chat_interface import render_enhanced_chat_interface
-from utils.thought_map import render_thought_map, render_thought_map_controls, render_thought_map_dashboard, match_signal_category, add_queued_node, get_queued_nodes
+from utils.thought_map import render_thought_map, render_thought_map_controls, match_signal_category, add_queued_node, get_queued_nodes
 from utils.m2_supply_data import get_m2_monthly_data, get_m2_annual_data, create_m2_visualization
 from utils.fed_funds_data import get_fed_funds_annual_data
 from utils.bitcoin_analysis import get_bitcoin_monthly_returns, create_bitcoin_monthly_returns_chart, render_bitcoin_analysis_section
@@ -3382,8 +3382,84 @@ st.markdown(
 )
 render_depth_selector()
 
+# ── Thought map layout controls ──
+if "genie_thought_map_view" not in st.session_state:
+    st.session_state["genie_thought_map_view"] = "classic"
+if "genie_thought_map_fullscreen" not in st.session_state:
+    st.session_state["genie_thought_map_fullscreen"] = False
+
+st.markdown("""<style>
+.tm-layout-pills { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin: 0.35rem 0 1.25rem; }
+.tm-layout-pills div[data-testid="stButton"] > button {
+    border-radius: 999px !important;
+    border: 1px solid rgba(0,115,255,0.24) !important;
+    background: rgba(15,23,42,0.52) !important;
+    background-image: none !important;
+    color: #cbd5e1 !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    height: 42px !important;
+    transition: all 180ms ease !important;
+}
+.tm-layout-pills div[data-testid="stButton"] > button:hover {
+    border-color: rgba(56,189,248,0.7) !important;
+    color: #ffffff !important;
+    background: rgba(0,115,255,0.18) !important;
+    background-image: none !important;
+}
+.tm-layout-pills div[data-testid="stButton"] > button[kind="primary"] {
+    border-color: #38bdf8 !important;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, rgba(14,165,233,0.92), rgba(2,132,199,0.92)) !important;
+    box-shadow: 0 0 18px rgba(14,165,233,0.24) !important;
+    background-image: none !important;
+}
+.tm-layout-pills div[data-testid="stButton"] > button[kind="secondary"] {
+    box-shadow: none !important;
+}
+</style>""", unsafe_allow_html=True)
+st.markdown(
+    "<div style='display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0.2rem 0 0.35rem;'>"
+    "<span style='font-size:0.75rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;'>"
+    "Thought map view</span>"
+    "<span style='font-size:0.75rem;color:#64748b;'>Classic keeps the current feel, Studio adds an inspector, Focus is cleaner for presentation.</span>"
+    "</div>",
+    unsafe_allow_html=True,
+)
+st.markdown('<div class="tm-layout-pills">', unsafe_allow_html=True)
+_tm_view_cols = st.columns(4)
+_tm_current_view = st.session_state.get("genie_thought_map_view", "classic")
+_tm_is_fullscreen = bool(st.session_state.get("genie_thought_map_fullscreen", False))
+with _tm_view_cols[0]:
+    if st.button("Classic", key="tm_view_classic", type="primary" if _tm_current_view == "classic" else "secondary", use_container_width=True):
+        st.session_state["genie_thought_map_view"] = "classic"
+        st.rerun()
+with _tm_view_cols[1]:
+    if st.button("Studio", key="tm_view_studio", type="primary" if _tm_current_view == "studio" else "secondary", use_container_width=True):
+        st.session_state["genie_thought_map_view"] = "studio"
+        st.rerun()
+with _tm_view_cols[2]:
+    if st.button("Focus", key="tm_view_focus", type="primary" if _tm_current_view == "focus" else "secondary", use_container_width=True):
+        st.session_state["genie_thought_map_view"] = "focus"
+        st.rerun()
+with _tm_view_cols[3]:
+    _tm_expand_label = "Exit Full Screen" if _tm_is_fullscreen else "Full Screen"
+    if st.button(_tm_expand_label, key="tm_toggle_fullscreen", type="primary" if _tm_is_fullscreen else "secondary", use_container_width=True):
+        st.session_state["genie_thought_map_fullscreen"] = not _tm_is_fullscreen
+        st.rerun()
+st.markdown("</div>", unsafe_allow_html=True)
+
+_tm_current_view = st.session_state.get("genie_thought_map_view", "classic")
+_tm_is_fullscreen = bool(st.session_state.get("genie_thought_map_fullscreen", False))
+_tm_height = 920 if _tm_is_fullscreen else (760 if _tm_current_view == "studio" else 700 if _tm_current_view == "focus" else 650)
+
 # ── Side-by-side: Chat (right) + Thought Map (left) ──
-_tm_col, _chat_col = st.columns([1.8, 1], gap="medium")
+if _tm_is_fullscreen:
+    _tm_col = st.container()
+    _chat_col = st.container()
+else:
+    _tm_ratio = 2.0 if _tm_current_view == "studio" else 1.85 if _tm_current_view == "focus" else 1.8
+    _tm_col, _chat_col = st.columns([_tm_ratio, 1], gap="medium")
 
 with _chat_col:
     render_enhanced_chat_interface(dashboard_state=dashboard_state, on_new_response=_store_last_genie_response)
@@ -3861,8 +3937,7 @@ with _tm_col:
         unsafe_allow_html=True,
     )
     # Render persistent Cytoscape thought map (session-state backed, survives reruns)
-    render_thought_map(height=620)
-    render_thought_map_dashboard()
+    render_thought_map(height=_tm_height, view_mode=_tm_current_view)
     render_thought_map_controls()
 
 st.markdown("<hr style='margin: 2.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)

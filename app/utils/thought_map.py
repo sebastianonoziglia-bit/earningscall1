@@ -360,8 +360,8 @@ def add_nodes_to_map(new_nodes: list[dict], parent_node_id: str = None):
     st.session_state["thought_map"] = tm
 
 
-def render_thought_map(height: int = 620):
-    """Render thought map with Cytoscape.js — animated cascade, edge labels, Smart Focus."""
+def render_thought_map(height: int = 620, view_mode: str = "classic"):
+    """Render the Genie thought map with selectable Genie-only views."""
     tm = _get_map()
 
     if not tm["nodes"]:
@@ -403,7 +403,6 @@ def render_thought_map(height: int = 620):
             }
         )
 
-    # Build edge labels from parent->child type transitions
     cy_edges = []
     for edge in tm["edges"]:
         src = tm["nodes"].get(edge["from"], {})
@@ -419,303 +418,1011 @@ def render_thought_map(height: int = 620):
             edge_label = "leads to"
         elif src_t == "step":
             edge_label = "then"
-        cy_edges.append({
-            "data": {
-                "id": "e_" + edge["from"] + "_" + edge["to"],
-                "source": edge["from"],
-                "target": edge["to"],
-                "edgeLabel": edge_label,
+        cy_edges.append(
+            {
+                "data": {
+                    "id": "e_" + edge["from"] + "_" + edge["to"],
+                    "source": edge["from"],
+                    "target": edge["to"],
+                    "edgeLabel": edge_label,
+                }
             }
-        })
+        )
 
     elements_json = json.dumps(cy_nodes + cy_edges)
 
-    # Compute badge counts
     type_counts = {}
-    for n in tm["nodes"].values():
-        t = n["type"]
-        type_counts[t] = type_counts.get(t, 0) + 1
-    node_count = len(tm["nodes"])
-    edge_count = len(tm["edges"])
-    queued_count = type_counts.get("queued", 0)
-    step_count = type_counts.get("step", 0) + type_counts.get("root", 0)
-    branch_count = type_counts.get("branch", 0)
-    conclusion_count = type_counts.get("conclusion", 0)
+    for node in tm["nodes"].values():
+        node_type = node["type"]
+        type_counts[node_type] = type_counts.get(node_type, 0) + 1
 
-    # Build queued button separately to avoid backslash-in-fstring issue
-    queued_btn = ""
-    if queued_count:
-        queued_btn = (
-            '<button class="btn" onclick="filterType(' + "'queued'" + ')">'
-            'Queued<span class="badge">' + str(queued_count) + '</span></button>'
-        )
+    depth_mode = st.session_state.get("thought_map_depth", "balanced")
+    context_company = str(st.session_state.get("genie_context_company", "") or "").strip() or "Cross-company"
+    context_year = st.session_state.get("genie_context_year")
+    context_quarter = str(st.session_state.get("genie_context_quarter", "") or "").strip() or "All quarters"
 
-    cy_height = height - 44
+    meta_json = json.dumps(
+        {
+            "nodeCount": len(tm["nodes"]),
+            "edgeCount": len(tm["edges"]),
+            "counts": {
+                "all": len(tm["nodes"]),
+                "step": type_counts.get("step", 0) + type_counts.get("root", 0),
+                "branch": type_counts.get("branch", 0),
+                "conclusion": type_counts.get("conclusion", 0),
+                "queued": type_counts.get("queued", 0),
+                "human": type_counts.get("human", 0),
+            },
+            "context": {
+                "company": context_company,
+                "year": context_year if context_year is not None else "Latest year",
+                "quarter": context_quarter,
+                "depth": DEPTH_MODES.get(depth_mode, DEPTH_MODES["balanced"])["label"],
+            },
+        },
+        default=str,
+    )
 
-    # Use regular string concatenation for the HTML template to avoid f-string backslash issues
+    html_template = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #08101d;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    #tm-app {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1fr;
+      background: linear-gradient(135deg, #0a1220 0%, #101c31 52%, #0a1220 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    #tm-app.view-studio {
+      grid-template-columns: minmax(0, 1fr) 320px;
+    }
+    #tm-app.view-classic #studio-sidebar,
+    #tm-app.view-focus #studio-sidebar {
+      display: none;
+    }
+    #tm-app.view-studio #classic-toolbar,
+    #tm-app.view-studio #focus-dock {
+      display: none;
+    }
+    #tm-app.view-focus #classic-toolbar,
+    #tm-app.view-focus #map-status {
+      display: none;
+    }
+    #tm-app.view-focus #focus-dock {
+      display: flex;
+    }
+    #map-stage {
+      position: relative;
+      min-width: 0;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(135deg, #0a1220 0%, #111d34 52%, #0a1220 100%);
+    }
+    #map-stage::before,
+    #map-stage::after,
+    #map-stage .aurora {
+      content: "";
+      position: absolute;
+      inset: -22%;
+      pointer-events: none;
+      filter: blur(64px);
+      opacity: 0.42;
+      mix-blend-mode: screen;
+    }
+    #map-stage::before {
+      background: radial-gradient(circle at 24% 24%, rgba(0, 115, 255, 0.42), transparent 30%);
+      animation: auroraDrift 18s ease-in-out infinite alternate;
+    }
+    #map-stage::after {
+      background: radial-gradient(circle at 78% 22%, rgba(255, 91, 31, 0.28), transparent 28%);
+      animation: auroraDrift 24s ease-in-out infinite alternate-reverse;
+    }
+    #map-stage .aurora {
+      background: radial-gradient(circle at 56% 78%, rgba(139, 92, 246, 0.28), transparent 32%);
+      animation: auroraPulse 20s ease-in-out infinite;
+    }
+    @keyframes auroraDrift {
+      0% { transform: translate3d(-8%, -4%, 0) scale(1); }
+      50% { transform: translate3d(8%, 7%, 0) scale(1.08); }
+      100% { transform: translate3d(-2%, 10%, 0) scale(0.96); }
+    }
+    @keyframes auroraPulse {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.26; }
+      50% { transform: translate3d(4%, -6%, 0) scale(1.14); opacity: 0.46; }
+    }
+    #cy {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .glass {
+      backdrop-filter: blur(14px);
+      background: linear-gradient(180deg, rgba(8, 15, 28, 0.82), rgba(17, 28, 48, 0.62));
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 40px rgba(2, 6, 23, 0.36);
+    }
+    #classic-toolbar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 8;
+      border-radius: 18px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .toolbar-meta {
+      color: #8ea2bf;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .toolbar-btn,
+    .side-btn,
+    .dock-btn {
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 12px;
+      padding: 9px 12px;
+      background: linear-gradient(135deg, rgba(100, 116, 139, 0.12), rgba(30, 41, 59, 0.18));
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 180ms ease;
+    }
+    .toolbar-btn:hover,
+    .side-btn:hover,
+    .dock-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(59, 130, 246, 0.55);
+      color: #ffffff;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.24), rgba(37, 99, 235, 0.16));
+    }
+    .toolbar-btn.active,
+    .side-btn.active,
+    .dock-btn.active {
+      border-color: rgba(56, 189, 248, 0.85);
+      color: #ffffff;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.72), rgba(14, 116, 144, 0.82));
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.15), 0 0 18px rgba(34, 211, 238, 0.28);
+    }
+    .toolbar-btn.danger,
+    .side-btn.danger,
+    .dock-btn.danger {
+      border-color: rgba(239, 68, 68, 0.34);
+      color: #fca5a5;
+      background: linear-gradient(135deg, rgba(127, 29, 29, 0.28), rgba(127, 29, 29, 0.18));
+    }
+    .toolbar-btn.danger:hover,
+    .side-btn.danger:hover,
+    .dock-btn.danger:hover {
+      border-color: rgba(248, 113, 113, 0.8);
+      color: #fff;
+      background: linear-gradient(135deg, rgba(220, 38, 38, 0.6), rgba(153, 27, 27, 0.48));
+    }
+    .count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      color: inherit;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    #map-status {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 7;
+      width: min(360px, calc(100% - 28px));
+      border-radius: 18px;
+      padding: 14px;
+    }
+    .status-title,
+    .section-title,
+    .sidebar-kicker {
+      margin: 0 0 10px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #7f93ae;
+    }
+    .status-row,
+    .context-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .status-chip,
+    .context-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(15, 23, 42, 0.55);
+      color: #d8e3f0;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .selection-card {
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(11, 18, 32, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      color: #b9c6d8;
+      min-height: 118px;
+    }
+    .selection-card strong {
+      display: block;
+      color: #f1f5f9;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .selection-card .selection-type {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.14);
+      color: #7dd3fc;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .selection-card .selection-text {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #cbd5e1;
+    }
+    #focus-dock {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 8;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+    }
+    #studio-sidebar {
+      position: relative;
+      z-index: 9;
+      height: 100%;
+      min-width: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid rgba(148, 163, 184, 0.08);
+      background: linear-gradient(180deg, rgba(9, 16, 30, 0.95), rgba(14, 26, 46, 0.9));
+    }
+    .sidebar-header {
+      padding: 18px 16px 14px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    }
+    .sidebar-header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+      color: #f1f5f9;
+    }
+    .sidebar-header p {
+      margin: 6px 0 0;
+      color: #93a5bd;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .sidebar-content::-webkit-scrollbar {
+      width: 7px;
+    }
+    .sidebar-content::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.28);
+      border-radius: 999px;
+    }
+    .sidebar-card {
+      border-radius: 16px;
+      padding: 14px;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.5));
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    .side-btn {
+      width: 100%;
+      text-align: left;
+      margin-bottom: 8px;
+    }
+    .side-btn:last-child {
+      margin-bottom: 0;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .stat-card {
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(8, 15, 28, 0.68);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    .stat-card .value {
+      display: block;
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 6px;
+      color: #f8fafc;
+    }
+    .stat-card .label {
+      color: #8ea2bf;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    #tooltip {
+      position: fixed;
+      display: none;
+      pointer-events: none;
+      z-index: 20;
+      max-width: 340px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(10, 16, 28, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      color: #e2e8f0;
+      box-shadow: 0 18px 44px rgba(2, 6, 23, 0.54);
+    }
+    #tooltip .tt-label {
+      font-size: 14px;
+      font-weight: 800;
+      color: #7dd3fc;
+      margin-bottom: 5px;
+    }
+    #tooltip .tt-type {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8ea2bf;
+      margin-bottom: 8px;
+    }
+    #tooltip .tt-content {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #dbe4ef;
+    }
+    #tooltip .tt-badge {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 8px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.16);
+      color: #93c5fd;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    #detail-panel {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      z-index: 12;
+      display: none;
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+    #tm-app.view-studio #detail-panel {
+      right: 348px;
+    }
+    #dp-close {
+      float: right;
+      border: none;
+      background: none;
+      color: #8ea2bf;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+    }
+    #dp-close:hover {
+      color: #ffffff;
+    }
+    #dp-label {
+      color: #f8fafc;
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    #dp-type {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.16);
+      color: #67e8f9;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    #dp-content {
+      color: #dce7f5;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 860px) {
+      #tm-app.view-studio {
+        grid-template-columns: 1fr;
+      }
+      #studio-sidebar {
+        display: none;
+      }
+      #tm-app.view-studio #classic-toolbar {
+        display: flex;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="tm-app" class="view-__INITIAL_VIEW__">
+    <div id="map-stage">
+      <div class="aurora"></div>
+
+      <div id="classic-toolbar" class="glass">
+        <div class="toolbar-group">
+          <button class="toolbar-btn" type="button" onclick="fitMap()">Fit</button>
+          <button class="toolbar-btn" type="button" onclick="zoomIn()">+</button>
+          <button class="toolbar-btn" type="button" onclick="zoomOut()">-</button>
+          <button class="toolbar-btn" type="button" onclick="relayout()">Re-layout</button>
+          <button class="toolbar-btn" id="focusBtn" type="button" onclick="toggleFocus()">Smart Focus</button>
+          <button class="toolbar-btn danger" type="button" onclick="refreshMap()">Refresh</button>
+        </div>
+        <div class="toolbar-group">
+          <button class="toolbar-btn active" type="button" data-filter="all" onclick="setFilter('all')">All <span class="count-badge" data-count="all"></span></button>
+          <button class="toolbar-btn" type="button" data-filter="step" onclick="setFilter('step')">Steps <span class="count-badge" data-count="step"></span></button>
+          <button class="toolbar-btn" type="button" data-filter="branch" onclick="setFilter('branch')">Branches <span class="count-badge" data-count="branch"></span></button>
+          <button class="toolbar-btn" type="button" data-filter="conclusion" onclick="setFilter('conclusion')">End <span class="count-badge" data-count="conclusion"></span></button>
+          <button class="toolbar-btn" type="button" data-filter="queued" onclick="setFilter('queued')">Queued <span class="count-badge" data-count="queued"></span></button>
+          <button class="toolbar-btn" type="button" data-filter="human" onclick="setFilter('human')">Notes <span class="count-badge" data-count="human"></span></button>
+        </div>
+        <div class="toolbar-meta" id="toolbar-meta"></div>
+      </div>
+
+      <div id="focus-dock" class="glass">
+        <button class="dock-btn" type="button" onclick="fitMap()">Fit</button>
+        <button class="dock-btn" type="button" onclick="relayout()">Re-layout</button>
+        <button class="dock-btn" id="focusDockBtn" type="button" onclick="toggleFocus()">Focus</button>
+        <button class="dock-btn danger" type="button" onclick="refreshMap()">Refresh</button>
+      </div>
+
+      <div id="map-status" class="glass">
+        <div class="status-title">Current Selection</div>
+        <div class="status-row" id="context-row"></div>
+        <div class="selection-card" id="selection-card">
+          <strong>Nothing selected</strong>
+          <div class="selection-type">Map state</div>
+          <div class="selection-text">Tap a node to pin it. The active node will stay highlighted until you tap the canvas background or hit Refresh.</div>
+        </div>
+      </div>
+
+      <div id="cy"></div>
+
+      <div id="tooltip">
+        <div class="tt-label" id="tt-label"></div>
+        <div class="tt-type" id="tt-type"></div>
+        <div class="tt-content" id="tt-content"></div>
+        <div class="tt-badge" id="tt-badge" style="display:none"></div>
+      </div>
+
+      <div id="detail-panel" class="glass">
+        <button id="dp-close" type="button" onclick="closeDetailPanel()">&times;</button>
+        <div id="dp-label"></div>
+        <div id="dp-type"></div>
+        <div id="dp-content"></div>
+      </div>
+    </div>
+
+    <aside id="studio-sidebar">
+      <div class="sidebar-header">
+        <h1>Financial Genie</h1>
+        <p>Thought-map studio view with live status, filters, and pinned-node detail.</p>
+      </div>
+      <div class="sidebar-content">
+        <div class="sidebar-card">
+          <div class="section-title">Actions</div>
+          <button class="side-btn" type="button" onclick="fitMap()">Fit to canvas</button>
+          <button class="side-btn" type="button" onclick="relayout()">Re-layout graph</button>
+          <button class="side-btn" id="focusSideBtn" type="button" onclick="toggleFocus()">Smart Focus</button>
+          <button class="side-btn danger" type="button" onclick="refreshMap()">Refresh view</button>
+        </div>
+
+        <div class="sidebar-card">
+          <div class="section-title">Layers</div>
+          <button class="side-btn active" type="button" data-filter="all" onclick="setFilter('all')">All nodes <span class="count-badge" data-count="all"></span></button>
+          <button class="side-btn" type="button" data-filter="step" onclick="setFilter('step')">Reasoning steps <span class="count-badge" data-count="step"></span></button>
+          <button class="side-btn" type="button" data-filter="branch" onclick="setFilter('branch')">Branches <span class="count-badge" data-count="branch"></span></button>
+          <button class="side-btn" type="button" data-filter="conclusion" onclick="setFilter('conclusion')">Conclusions <span class="count-badge" data-count="conclusion"></span></button>
+          <button class="side-btn" type="button" data-filter="queued" onclick="setFilter('queued')">Queued prompts <span class="count-badge" data-count="queued"></span></button>
+          <button class="side-btn" type="button" data-filter="human" onclick="setFilter('human')">Your notes <span class="count-badge" data-count="human"></span></button>
+        </div>
+
+        <div class="sidebar-card">
+          <div class="section-title">Map State</div>
+          <div class="stat-grid">
+            <div class="stat-card"><span class="value" id="stat-nodes"></span><span class="label">Nodes</span></div>
+            <div class="stat-card"><span class="value" id="stat-links"></span><span class="label">Links</span></div>
+            <div class="stat-card"><span class="value" id="stat-depth"></span><span class="label">Depth</span></div>
+            <div class="stat-card"><span class="value" id="stat-filter"></span><span class="label">Active Lens</span></div>
+          </div>
+        </div>
+
+        <div class="sidebar-card">
+          <div class="section-title">Current Selection</div>
+          <div class="selection-card" id="selection-card-side">
+            <strong>Nothing selected</strong>
+            <div class="selection-type">Map state</div>
+            <div class="selection-text">Tap a node to lock it in. Selection stays highlighted until you clear it.</div>
+          </div>
+        </div>
+
+        <div class="sidebar-card">
+          <div class="section-title">Context</div>
+          <div class="context-row" id="context-row-side"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const elements = __ELEMENTS_JSON__;
+    const meta = __META_JSON__;
+    const initialView = "__INITIAL_VIEW__";
+    const root = document.getElementById("tm-app");
+    const filterLabels = {
+      all: "All nodes",
+      step: "Steps",
+      branch: "Branches",
+      conclusion: "Conclusions",
+      queued: "Queued",
+      human: "Notes",
+    };
+    let currentFilter = "all";
+    let focusActive = false;
+    let activeNode = null;
+
+    const cy = cytoscape({
+      container: document.getElementById("cy"),
+      elements: [],
+      style: [
+        {
+          selector: "node",
+          style: {
+            "background-color": "data(color)",
+            "label": "data(label)",
+            "color": "#f8fafc",
+            "font-size": "11px",
+            "font-weight": "700",
+            "text-valign": "center",
+            "text-halign": "center",
+            "text-wrap": "wrap",
+            "text-max-width": "88px",
+            "width": "82px",
+            "height": "82px",
+            "border-width": 2,
+            "border-color": "rgba(255,255,255,0.18)",
+            "overlay-opacity": 0,
+            "transition-property": "opacity, background-color, border-color, width, height, underlay-opacity",
+            "transition-duration": "0.22s"
+          }
+        },
+        { selector: "node[type='branch']", style: { "shape": "diamond", "width": "74px", "height": "74px" } },
+        { selector: "node[type='conclusion']", style: { "shape": "round-rectangle", "width": "102px", "height": "58px" } },
+        {
+          selector: "node[type='human']",
+          style: {
+            "shape": "round-rectangle",
+            "width": "92px",
+            "border-width": 3,
+            "border-style": "dashed",
+            "border-color": "#8b5cf6"
+          }
+        },
+        {
+          selector: "node[type='queued']",
+          style: {
+            "shape": "round-rectangle",
+            "width": "92px",
+            "height": "60px",
+            "border-width": 3,
+            "border-style": "dashed",
+            "border-color": "#ff5b1f",
+            "background-color": "rgba(255,91,31,0.18)",
+            "font-size": "10px",
+            "color": "#ffb38f"
+          }
+        },
+        { selector: "node[type='root']", style: { "width": "92px", "height": "92px", "font-size": "12px" } },
+        {
+          selector: "node:selected",
+          style: {
+            "border-width": 5,
+            "border-color": "#38bdf8",
+            "underlay-color": "#38bdf8",
+            "underlay-opacity": 0.2,
+            "underlay-padding": 16
+          }
+        },
+        { selector: ".dimmed", style: { "opacity": 0.12 } },
+        {
+          selector: ".focused",
+          style: {
+            "border-width": 4,
+            "border-color": "#22d3ee",
+            "underlay-color": "#22d3ee",
+            "underlay-opacity": 0.12,
+            "underlay-padding": 10
+          }
+        },
+        {
+          selector: "edge",
+          style: {
+            "width": 2,
+            "line-color": "rgba(148,163,184,0.34)",
+            "target-arrow-color": "rgba(148,163,184,0.48)",
+            "target-arrow-shape": "triangle",
+            "curve-style": "bezier",
+            "arrow-scale": 0.9,
+            "label": "",
+            "font-size": "8px",
+            "color": "#8ea2bf",
+            "text-rotation": "autorotate",
+            "text-margin-y": -8,
+            "opacity": 1,
+            "transition-property": "opacity, line-color",
+            "transition-duration": "0.22s"
+          }
+        },
+        { selector: "edge.dimmed", style: { "opacity": 0.06 } },
+        { selector: "edge.focused", style: { "width": 3, "line-color": "#22d3ee", "target-arrow-color": "#22d3ee" } }
+      ],
+      layout: { name: "breadthfirst", directed: true, spacingFactor: 1.68, padding: 32 },
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
+      minZoom: 0.15,
+      maxZoom: 3
+    });
+
+    function relayout() {
+      cy.layout({
+        name: "breadthfirst",
+        directed: true,
+        spacingFactor: root.classList.contains("view-focus") ? 1.82 : 1.68,
+        padding: 32,
+        animate: true,
+        animationDuration: 320
+      }).run();
+    }
+
+    function fitMap() {
+      const visibleNodes = cy.nodes(":visible");
+      if (visibleNodes.length) {
+        cy.fit(visibleNodes, 28);
+      }
+    }
+
+    function zoomIn() {
+      cy.zoom(Math.min(cy.zoom() * 1.24, 3));
+    }
+
+    function zoomOut() {
+      cy.zoom(Math.max(cy.zoom() * 0.78, 0.2));
+    }
+
+    function closeDetailPanel() {
+      document.getElementById("detail-panel").style.display = "none";
+    }
+
+    function renderContext() {
+      const chips = [
+        meta.context.company,
+        meta.context.year,
+        meta.context.quarter,
+        meta.context.depth
+      ].map(value => `<span class="context-chip">${value}</span>`).join("");
+      document.getElementById("context-row").innerHTML = chips;
+      document.getElementById("context-row-side").innerHTML = chips;
+      document.getElementById("toolbar-meta").textContent = `${meta.nodeCount} nodes · ${meta.edgeCount} links`;
+      document.getElementById("stat-nodes").textContent = meta.nodeCount;
+      document.getElementById("stat-links").textContent = meta.edgeCount;
+      document.getElementById("stat-depth").textContent = meta.context.depth;
+      document.getElementById("stat-filter").textContent = filterLabels[currentFilter];
+    }
+
+    function updateCountBadges() {
+      document.querySelectorAll("[data-count]").forEach((el) => {
+        const key = el.dataset.count;
+        el.textContent = meta.counts[key] || 0;
+      });
+    }
+
+    function updateFilterButtons() {
+      document.querySelectorAll("[data-filter]").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.filter === currentFilter);
+      });
+      document.getElementById("stat-filter").textContent = filterLabels[currentFilter];
+    }
+
+    function updateFocusButtons() {
+      ["focusBtn", "focusSideBtn", "focusDockBtn"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.toggle("active", focusActive);
+        }
+      });
+    }
+
+    function renderSelection(targetData) {
+      const defaultHtml = `
+        <strong>Nothing selected</strong>
+        <div class="selection-type">Map state</div>
+        <div class="selection-text">Tap a node to pin it. The active node will stay highlighted until you tap the canvas background or hit Refresh.</div>
+      `;
+
+      if (!targetData) {
+        document.getElementById("selection-card").innerHTML = defaultHtml;
+        document.getElementById("selection-card-side").innerHTML = defaultHtml;
+        return;
+      }
+
+      const typeLabel = `${String(targetData.type || "").toUpperCase()}${targetData.signalCategory ? " · " + targetData.signalCategory : ""}`;
+      const bodyHtml = `
+        <strong>${targetData.fullLabel || targetData.label || "Node"}</strong>
+        <div class="selection-type">${typeLabel}</div>
+        <div class="selection-text">${targetData.fullContent || targetData.content || ""}</div>
+      `;
+      document.getElementById("selection-card").innerHTML = bodyHtml;
+      document.getElementById("selection-card-side").innerHTML = bodyHtml;
+    }
+
+    function clearSelection() {
+      activeNode = null;
+      cy.nodes().unselect();
+      renderSelection(null);
+      closeDetailPanel();
+    }
+
+    function setFilter(type) {
+      currentFilter = type;
+      cy.elements().removeClass("dimmed focused");
+      focusActive = false;
+      updateFocusButtons();
+      if (type === "all") {
+        cy.nodes().style("display", "element");
+        cy.edges().style("display", "element");
+      } else if (type === "step") {
+        cy.nodes().style("display", "none");
+        cy.edges().style("display", "none");
+        const matched = cy.nodes("[type='step'], [type='root']");
+        matched.style("display", "element");
+        matched.connectedEdges().style("display", "element");
+        matched.connectedEdges().connectedNodes().style("display", "element");
+      } else {
+        cy.nodes().style("display", "none");
+        cy.edges().style("display", "none");
+        const matched = cy.nodes(`[type='${type}']`);
+        if (type !== "root") {
+          cy.nodes("[type='root']").style("display", "element");
+        }
+        matched.style("display", "element");
+        matched.connectedEdges().style("display", "element");
+        matched.connectedEdges().connectedNodes().style("display", "element");
+      }
+      updateFilterButtons();
+      fitMap();
+      if (activeNode && activeNode.style("display") === "none") {
+        clearSelection();
+      }
+    }
+
+    function refreshMap() {
+      currentFilter = "all";
+      focusActive = false;
+      updateFocusButtons();
+      cy.elements().removeClass("dimmed focused");
+      cy.nodes().style("display", "element");
+      cy.edges().style("display", "element");
+      clearSelection();
+      document.getElementById("tooltip").style.display = "none";
+      relayout();
+      updateFilterButtons();
+      setTimeout(() => fitMap(), 340);
+    }
+
+    function toggleFocus() {
+      focusActive = !focusActive;
+      updateFocusButtons();
+      cy.elements().removeClass("dimmed focused");
+      if (!focusActive) {
+        return;
+      }
+
+      const conclusions = cy.nodes("[type='conclusion']:visible");
+      if (conclusions.length === 0) {
+        const important = cy.nodes("[type='root']:visible, [type='queued']:visible");
+        cy.elements(":visible").addClass("dimmed");
+        important.removeClass("dimmed").addClass("focused");
+        important.connectedEdges(":visible").removeClass("dimmed").addClass("focused");
+        return;
+      }
+
+      let pathNodes = cy.collection();
+      let pathEdges = cy.collection();
+      conclusions.forEach((conclusion) => {
+        let current = conclusion;
+        pathNodes = pathNodes.union(current);
+        while (true) {
+          const incoming = current.incomers("edge:visible");
+          if (incoming.length === 0) break;
+          const edge = incoming[0];
+          pathEdges = pathEdges.union(edge);
+          current = edge.source();
+          pathNodes = pathNodes.union(current);
+        }
+      });
+      cy.elements(":visible").addClass("dimmed");
+      pathNodes.removeClass("dimmed").addClass("focused");
+      pathEdges.removeClass("dimmed").addClass("focused");
+    }
+
+    function showDetailPanel(targetData) {
+      document.getElementById("dp-label").textContent = targetData.fullLabel || targetData.label || "Node";
+      document.getElementById("dp-type").textContent = `${String(targetData.type || "").toUpperCase()}${targetData.signalCategory ? " · " + targetData.signalCategory : ""}`;
+      document.getElementById("dp-content").textContent = targetData.fullContent || targetData.content || "";
+      document.getElementById("detail-panel").style.display = "block";
+    }
+
+    root.classList.remove("view-classic", "view-studio", "view-focus");
+    root.classList.add(`view-${initialView}`);
+    cy.add(elements);
+    relayout();
+    const allNodes = cy.nodes();
+    const allEdges = cy.edges();
+    allNodes.style("opacity", 0);
+    allEdges.style("opacity", 0);
+    allNodes.forEach((node, index) => {
+      setTimeout(() => {
+        node.animate({ style: { opacity: 1 } }, { duration: 460, easing: "ease-out-cubic" });
+        const originalBorder = node.style("border-color");
+        node.style({ "border-width": 5, "border-color": node.data("color") || "#38bdf8" });
+        setTimeout(() => {
+          node.animate({ style: { "border-width": 2, "border-color": originalBorder } }, { duration: 720 });
+        }, 360);
+        node.connectedEdges().forEach((edge) => {
+          const sourceVisible = parseFloat(edge.source().style("opacity")) > 0.5;
+          const targetVisible = parseFloat(edge.target().style("opacity")) > 0.5;
+          if (sourceVisible && targetVisible) {
+            edge.animate({ style: { opacity: 1 } }, { duration: 320 });
+          }
+        });
+      }, 220 + index * 220);
+    });
+    setTimeout(() => fitMap(), 280 + allNodes.length * 220 + 180);
+
+    cy.on("mouseover", "edge", (evt) => {
+      const edge = evt.target;
+      const label = edge.data("edgeLabel");
+      if (label) {
+        edge.style("label", label);
+      }
+    });
+    cy.on("mouseout", "edge", (evt) => {
+      evt.target.style("label", "");
+    });
+
+    const tooltip = document.getElementById("tooltip");
+    cy.on("mouseover", "node", (evt) => {
+      const node = evt.target;
+      const targetData = node.data();
+      document.getElementById("tt-label").textContent = targetData.fullLabel || targetData.label || "";
+      document.getElementById("tt-type").textContent = `${String(targetData.type || "").toUpperCase()}${targetData.signalCategory ? " · " + targetData.signalCategory : ""}`;
+      document.getElementById("tt-content").textContent = targetData.content || "";
+      const badge = document.getElementById("tt-badge");
+      const children = node.outgoers("node").length;
+      if (children > 0) {
+        badge.textContent = `${children} connected`;
+        badge.style.display = "inline-flex";
+      } else {
+        badge.style.display = "none";
+      }
+      tooltip.style.display = "block";
+    });
+    cy.on("mousemove", (evt) => {
+      if (tooltip.style.display === "block") {
+        tooltip.style.left = `${evt.originalEvent.clientX + 16}px`;
+        tooltip.style.top = `${evt.originalEvent.clientY - 10}px`;
+      }
+    });
+    cy.on("mouseout", "node", () => {
+      tooltip.style.display = "none";
+    });
+    cy.on("tap", "node", (evt) => {
+      activeNode = evt.target;
+      activeNode.select();
+      const targetData = activeNode.data();
+      renderSelection(targetData);
+      showDetailPanel(targetData);
+      tooltip.style.display = "none";
+    });
+    cy.on("tap", (evt) => {
+      if (evt.target === cy) {
+        tooltip.style.display = "none";
+        clearSelection();
+      }
+    });
+
+    updateCountBadges();
+    updateFilterButtons();
+    updateFocusButtons();
+    renderContext();
+    renderSelection(null);
+  </script>
+</body>
+</html>
+"""
+
     html = (
-        '<!DOCTYPE html><html><head><meta charset="utf-8">'
-        '<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>'
-        '<style>'
-        '* { box-sizing: border-box; margin: 0; padding: 0; }'
-        'body { background: #0B1220; font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; overflow: hidden; }'
-        '#cy { width: 100%; height: ' + str(cy_height) + 'px; '
-        '  background: radial-gradient(circle at 20% 20%, rgba(255,107,44,0.06), transparent 28%),'
-        '             radial-gradient(circle at 80% 24%, rgba(56,189,248,0.06), transparent 26%),'
-        '             radial-gradient(circle at 50% 100%, rgba(139,92,246,0.04), transparent 34%),'
-        '             #0B1220; }'
-        '#bar { height: 44px; background: #111827; border-bottom: 1px solid rgba(148,163,184,0.15);'
-        '  display: flex; align-items: center; padding: 0 10px; gap: 6px; flex-wrap: nowrap; }'
-        '.btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);'
-        '  color: #CBD5E1; border-radius: 6px; padding: 4px 8px; cursor: pointer;'
-        '  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;'
-        '  transition: all 0.15s; white-space: nowrap; }'
-        '.btn:hover { background: rgba(0,115,255,0.25); border-color: #0073FF; color:#fff; }'
-        '.btn.active { background: rgba(0,115,255,0.35); border-color: #0073FF; color:#fff; }'
-        '.btn-refresh { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.45); color: #fca5a5; }'
-        '.btn-refresh:hover { background: rgba(239,68,68,0.26); border-color: #ef4444; color: #fff; }'
-        '.badge { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 1px 5px; font-size: 0.6rem; margin-left: 3px; }'
-        '#meta { margin-left: auto; font-size: 0.68rem; color: #475569; font-weight: 600; white-space: nowrap; }'
-        '.sep { width: 1px; height: 20px; background: rgba(255,255,255,0.1); }'
-        '#tooltip { position: fixed; display: none; pointer-events: none; z-index: 1000;'
-        '  background: rgba(15,23,42,0.95); border: 1px solid rgba(148,163,184,0.25);'
-        '  border-radius: 12px; padding: 14px 16px; max-width: 340px;'
-        '  font-size: 0.82rem; color: #E2E8F0;'
-        '  box-shadow: 0 12px 36px rgba(0,0,0,0.5); backdrop-filter: blur(12px); }'
-        '#tooltip .tt-label { font-weight: 800; color: #60A5FA; margin-bottom: 4px; font-size: 0.9rem; }'
-        '#tooltip .tt-type { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 6px; }'
-        '#tooltip .tt-content { line-height: 1.5; color: #CBD5E1; }'
-        '#tooltip .tt-badge { display: inline-block; font-size: 0.6rem; background: rgba(99,102,241,0.3); color: #a5b4fc;'
-        '  border-radius: 4px; padding: 1px 6px; margin-top: 6px; }'
-        '#detail-panel { display: none; position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;'
-        '  background: rgba(15,23,42,0.95); border-top: 2px solid #0073FF;'
-        '  padding: 14px 18px 16px; max-height: 200px; overflow-y: auto;'
-        '  backdrop-filter: blur(12px); animation: slideUp 0.2s ease; }'
-        '@keyframes slideUp { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1; } }'
-        '#dp-close { float: right; background: none; border: none; color: #64748B; cursor: pointer; font-size: 1.1rem; }'
-        '#dp-close:hover { color: #E2E8F0; }'
-        '#dp-label { font-weight: 800; color: #60A5FA; font-size: 0.92rem; margin-bottom: 4px; }'
-        '#dp-type { display: inline-block; font-size: 0.65rem; text-transform: uppercase;'
-        '  letter-spacing: 0.1em; color: #0F172A; font-weight: 700;'
-        '  background: #60A5FA; border-radius: 4px; padding: 1px 7px; margin-bottom: 10px; }'
-        '#dp-content { line-height: 1.6; color: #CBD5E1; font-size: 0.84rem; white-space: pre-wrap; }'
-        '</style></head><body>'
-        '<div id="bar">'
-        '  <button class="btn" onclick="cy.fit(cy.nodes(),30)">Fit</button>'
-        '  <button class="btn" onclick="cy.zoom(Math.min(cy.zoom()*1.3,3))">+</button>'
-        '  <button class="btn" onclick="cy.zoom(Math.max(cy.zoom()*0.75,0.2))">-</button>'
-        '  <button class="btn" onclick="relayout()">Re-layout</button>'
-        '  <span class="sep"></span>'
-        '  <button class="btn" id="focusBtn" onclick="toggleFocus()">Smart Focus</button>'
-        '  <button class="btn" onclick="filterType(' + "'all'" + ')">All<span class="badge">' + str(node_count) + '</span></button>'
-        '  <button class="btn" onclick="filterType(' + "'step'" + ')">Steps<span class="badge">' + str(step_count) + '</span></button>'
-        '  <button class="btn" onclick="filterType(' + "'branch'" + ')">Branches<span class="badge">' + str(branch_count) + '</span></button>'
-        '  <button class="btn" onclick="filterType(' + "'conclusion'" + ')">End<span class="badge">' + str(conclusion_count) + '</span></button>'
-        '  <button class="btn btn-refresh" onclick="refreshMap()">Refresh</button>'
-        '  ' + queued_btn +
-        '  <div id="meta">' + str(node_count) + ' nodes &middot; ' + str(edge_count) + ' links</div>'
-        '</div>'
-        '<div id="cy"></div>'
-        '<div id="tooltip">'
-        '  <div class="tt-label" id="tt-label"></div>'
-        '  <div class="tt-type" id="tt-type"></div>'
-        '  <div class="tt-content" id="tt-content"></div>'
-        '  <div class="tt-badge" id="tt-badge" style="display:none"></div>'
-        '</div>'
-        '<div id="detail-panel">'
-        '  <button id="dp-close" onclick="document.getElementById(' + "'detail-panel'" + ').style.display=' + "'none'" + '">&times;</button>'
-        '  <div id="dp-label"></div><div id="dp-type"></div><div id="dp-content"></div>'
-        '</div>'
-        '<script>'
-        'const elements = ' + elements_json + ';'
-        'const cy = cytoscape({'
-        '  container: document.getElementById("cy"),'
-        '  elements: [],'
-        '  style: ['
-        '    { selector: "node", style: {'
-        '        "background-color": "data(color)", "label": "data(label)",'
-        '        "color": "#F8FAFC", "font-size": "11px", "font-weight": "700",'
-        '        "text-valign": "center", "text-halign": "center",'
-        '        "text-wrap": "wrap", "text-max-width": "80px",'
-        '        "width": "80px", "height": "80px",'
-        '        "border-width": 2, "border-color": "rgba(255,255,255,0.18)",'
-        '        "opacity": 1,'
-        '        "transition-property": "opacity, background-color, border-color, width, height",'
-        '        "transition-duration": "0.3s",'
-        '    } },'
-        '    { selector: "node[type=\\"branch\\"]", style: { "shape": "diamond", "width": "72px", "height": "72px" } },'
-        '    { selector: "node[type=\\"conclusion\\"]", style: { "shape": "round-rectangle", "width": "100px", "height": "56px" } },'
-        '    { selector: "node[type=\\"human\\"]", style: {'
-        '        "border-width": 3, "border-color": "#8B5CF6", "border-style": "dashed",'
-        '        "shape": "round-rectangle", "width": "90px",'
-        '    } },'
-        '    { selector: "node[type=\\"queued\\"]", style: {'
-        '        "border-width": 3, "border-color": "#ff5b1f", "border-style": "dashed",'
-        '        "shape": "round-rectangle", "width": "90px", "height": "60px",'
-        '        "background-color": "rgba(255,91,31,0.18)", "font-size": "10px", "color": "#ff8c42",'
-        '    } },'
-        '    { selector: "node[type=\\"root\\"]", style: { "width": "90px", "height": "90px", "font-size": "12px" } },'
-        '    { selector: "node:selected", style: { "border-width": 4, "border-color": "#00C2FF" } },'
-        '    { selector: ".dimmed", style: { "opacity": 0.15 } },'
-        '    { selector: ".focused", style: { "border-width": 4, "border-color": "#00C2FF" } },'
-        '    { selector: "edge", style: {'
-        '        "width": 2, "line-color": "rgba(100,116,139,0.4)",'
-        '        "target-arrow-color": "rgba(100,116,139,0.6)",'
-        '        "target-arrow-shape": "triangle", "curve-style": "bezier", "arrow-scale": 0.9,'
-        '        "label": "", "font-size": "8px", "color": "#94A3B8",'
-        '        "text-rotation": "autorotate", "text-margin-y": -8,'
-        '        "opacity": 1,'
-        '        "transition-property": "opacity, line-color",'
-        '        "transition-duration": "0.3s",'
-        '    } },'
-        '    { selector: "edge.dimmed", style: { "opacity": 0.08 } },'
-        '    { selector: "edge.focused", style: { "width": 3, "line-color": "#0073FF", "target-arrow-color": "#0073FF" } },'
-        '  ],'
-        '  layout: { name: "breadthfirst", directed: true, spacingFactor: 1.65, padding: 28 },'
-        '  userZoomingEnabled: true, userPanningEnabled: true,'
-        '  minZoom: 0.15, maxZoom: 3,'
-        '});'
-        # Animated cascade — add all elements, hide nodes, reveal one by one with glow
-        '(function() {'
-        '  cy.add(elements);'
-        '  cy.layout({ name: "breadthfirst", directed: true, spacingFactor: 1.65, padding: 28 }).run();'
-        '  var allNodes = cy.nodes();'
-        '  var allEdges = cy.edges();'
-        # Start everything hidden
-        '  allNodes.style("opacity", 0);'
-        '  allEdges.style("opacity", 0);'
-        # Cascade reveal: 400ms between each node, 600ms fade-in
-        '  allNodes.forEach(function(n, i) {'
-        '    setTimeout(function() {'
-        '      n.animate({ style: { "opacity": 1 } }, { duration: 500, easing: "ease-out-cubic" });'
-        # Flash the border with the node color for a glow effect
-        '      var origBorder = n.style("border-color");'
-        '      n.style({ "border-width": 5, "border-color": n.data("color") || "#0073FF" });'
-        '      setTimeout(function() {'
-        '        n.animate({ style: { "border-width": 2, "border-color": origBorder } }, { duration: 800 });'
-        '      }, 400);'
-        # Show connected edges as source/target appears
-        '      n.connectedEdges().forEach(function(e) {'
-        '        var src = e.source(); var tgt = e.target();'
-        '        if (parseFloat(src.style("opacity")) > 0.5 && parseFloat(tgt.style("opacity")) > 0.5) {'
-        '          e.animate({ style: { "opacity": 1 } }, { duration: 350 });'
-        '        }'
-        '      });'
-        '    }, 300 + i * 400);'
-        '  });'
-        # Final fit after all nodes revealed
-        '  setTimeout(function(){ cy.fit(cy.nodes(), 30); }, 300 + allNodes.length * 400 + 200);'
-        '})();'
-        # Relayout
-        'function relayout() {'
-        '  cy.layout({ name: "breadthfirst", directed: true, spacingFactor: 1.65, padding: 28, animate: true, animationDuration: 300 }).run();'
-        '}'
-        'function refreshMap() {'
-        '  focusActive = false;'
-        '  document.getElementById("focusBtn").classList.remove("active");'
-        '  cy.elements().removeClass("dimmed focused");'
-        '  cy.nodes().unselect();'
-        '  cy.nodes().style("display", "element");'
-        '  cy.edges().style("display", "element");'
-        '  var tooltipEl = document.getElementById("tooltip");'
-        '  var panelEl = document.getElementById("detail-panel");'
-        '  if (tooltipEl) tooltipEl.style.display = "none";'
-        '  if (panelEl) panelEl.style.display = "none";'
-        '  relayout();'
-        '  setTimeout(function(){ cy.fit(cy.nodes(), 30); }, 320);'
-        '}'
-        # Smart Focus
-        'var focusActive = false;'
-        'function toggleFocus() {'
-        '  focusActive = !focusActive;'
-        '  document.getElementById("focusBtn").classList.toggle("active", focusActive);'
-        '  if (!focusActive) { cy.elements().removeClass("dimmed focused"); return; }'
-        '  var conclusions = cy.nodes("[type=\\"conclusion\\"]");'
-        '  if (conclusions.length === 0) {'
-        '    var important = cy.nodes("[type=\\"root\\"], [type=\\"queued\\"]");'
-        '    cy.elements().addClass("dimmed");'
-        '    important.removeClass("dimmed").addClass("focused");'
-        '    important.connectedEdges().removeClass("dimmed").addClass("focused");'
-        '    return;'
-        '  }'
-        '  var pathNodes = cy.collection();'
-        '  var pathEdges = cy.collection();'
-        '  conclusions.forEach(function(c) {'
-        '    var cur = c;'
-        '    pathNodes = pathNodes.union(cur);'
-        '    while (true) {'
-        '      var incoming = cur.incomers("edge");'
-        '      if (incoming.length === 0) break;'
-        '      var edge = incoming[0];'
-        '      pathEdges = pathEdges.union(edge);'
-        '      cur = edge.source();'
-        '      pathNodes = pathNodes.union(cur);'
-        '    }'
-        '  });'
-        '  cy.elements().addClass("dimmed");'
-        '  pathNodes.removeClass("dimmed").addClass("focused");'
-        '  pathEdges.removeClass("dimmed").addClass("focused");'
-        '}'
-        # Filter by type
-        'function filterType(type) {'
-        '  if (type === "all") {'
-        '    cy.nodes().style("display", "element");'
-        '    cy.edges().style("display", "element");'
-        '  } else {'
-        '    cy.nodes().style("display", "none");'
-        '    cy.edges().style("display", "none");'
-        '    var matched = cy.nodes("[type=\\"" + type + "\\"]");'
-        '    if (type !== "root") cy.nodes("[type=\\"root\\"]").style("display", "element");'
-        '    matched.style("display", "element");'
-        '    matched.connectedEdges().style("display", "element");'
-        '    matched.connectedEdges().connectedNodes().style("display", "element");'
-        '  }'
-        '  cy.fit(cy.nodes(":visible"), 30);'
-        '}'
-        # Edge labels on hover
-        'cy.on("mouseover", "edge", function(evt) {'
-        '  var e = evt.target;'
-        '  var label = e.data("edgeLabel");'
-        '  if (label) e.style("label", label);'
-        '});'
-        'cy.on("mouseout", "edge", function(evt) { evt.target.style("label", ""); });'
-        # Node tooltip
-        'var tooltip = document.getElementById("tooltip");'
-        'cy.on("mouseover", "node", function(evt) {'
-        '  var n = evt.target;'
-        '  document.getElementById("tt-label").textContent = n.data("fullLabel");'
-        '  var typeStr = n.data("type").toUpperCase();'
-        '  var cat = n.data("signalCategory");'
-        '  document.getElementById("tt-type").textContent = typeStr + (cat ? " . " + cat : "");'
-        '  document.getElementById("tt-content").textContent = n.data("content");'
-        '  var badge = document.getElementById("tt-badge");'
-        '  var children = n.outgoers("node").length;'
-        '  if (children > 0) { badge.textContent = children + " connected"; badge.style.display = "inline-block"; }'
-        '  else { badge.style.display = "none"; }'
-        '  tooltip.style.display = "block";'
-        '});'
-        'cy.on("mousemove", function(evt) {'
-        '  if (tooltip.style.display === "block") {'
-        '    tooltip.style.left = (evt.originalEvent.clientX + 16) + "px";'
-        '    tooltip.style.top = (evt.originalEvent.clientY - 10) + "px";'
-        '  }'
-        '});'
-        'cy.on("mouseout", "node", function() { tooltip.style.display = "none"; });'
-        'cy.on("tap", "node", function(evt) {'
-        '  var n = evt.target;'
-        '  document.getElementById("dp-label").textContent = n.data("fullLabel");'
-        '  document.getElementById("dp-type").textContent = n.data("type").toUpperCase();'
-        '  document.getElementById("dp-content").textContent = n.data("fullContent") || n.data("content");'
-        '  document.getElementById("detail-panel").style.display = "block";'
-        '  tooltip.style.display = "none";'
-        '});'
-        'cy.on("tap", function(evt) {'
-        '  if (evt.target === cy) {'
-        '    tooltip.style.display = "none";'
-        '    document.getElementById("detail-panel").style.display = "none";'
-        '  }'
-        '});'
-        '</script></body></html>'
+        html_template
+        .replace("__ELEMENTS_JSON__", elements_json)
+        .replace("__META_JSON__", meta_json)
+        .replace("__INITIAL_VIEW__", view_mode if view_mode in {"classic", "studio", "focus"} else "classic")
     )
 
     components.html(html, height=height, scrolling=False)
