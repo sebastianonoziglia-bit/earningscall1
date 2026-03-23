@@ -2203,7 +2203,7 @@ if (
             showgrid=False,
             range=[-50, 50] if show_growth_rates else ([0, global_max * 1.1] if global_max > 0 else None),
             tickformat=',',  # Use comma separator
-            titlefont=dict(size=11, color='#2ca02c'),  # Slightly smaller font with color
+            title=dict(font=dict(size=11, color='#2ca02c')),  # Slightly smaller font with color
             tickfont=dict(size=10, color='#2ca02c'),  # Smaller tick font with matching color
             tickmode='auto',
             nticks=6  # Fewer ticks to reduce overlap
@@ -2221,7 +2221,7 @@ if (
             showgrid=False,
             range=[0, 15],  # Fixed range for inflation percentage
             tickformat='.1f',  # One decimal place
-            titlefont=dict(size=11, color='rgba(255, 0, 0, 0.6)'),  # Red-themed for inflation
+            title=dict(font=dict(size=11, color='rgba(255, 0, 0, 0.6)')),  # Red-themed for inflation
             tickfont=dict(size=10, color='rgba(255, 0, 0, 0.6)')   # Matching tick color
         )
 
@@ -2245,7 +2245,7 @@ if (
             showgrid=False,
             range=fed_range,
             tickformat='.2f',
-            titlefont=dict(size=11, color='rgba(245, 158, 11, 0.95)'),
+            title=dict(font=dict(size=11, color='rgba(245, 158, 11, 0.95)')),
             tickfont=dict(size=10, color='rgba(245, 158, 11, 0.95)'),
             tickmode='auto',
             nticks=6
@@ -2263,7 +2263,7 @@ if (
             showgrid=False,
             range=[-50, 50] if show_growth_rates else ([0, company_max * 1.1] if company_max > 0 else None),
             tickformat=',',  # Use comma separator
-            titlefont=dict(size=11, color='#1f77b4'),  # Blue color for company metrics
+            title=dict(font=dict(size=11, color='#1f77b4')),  # Blue color for company metrics
             tickfont=dict(size=10, color='#1f77b4'),  # Matching tick color
             tickmode='auto',
             nticks=6  # Fewer ticks to reduce overlap
@@ -2281,7 +2281,7 @@ if (
             showgrid=False,
             range=[-50, 50] if show_growth_rates else ([0, company_max * 1.1] if company_max > 0 else None),
             tickformat=',',  # Use comma separator
-            titlefont=dict(size=11, color='#ff7f0e'),  # Orange color for segments
+            title=dict(font=dict(size=11, color='#ff7f0e')),  # Orange color for segments
             tickfont=dict(size=10, color='#ff7f0e'),  # Matching tick color
             tickmode='auto',
             nticks=6  # Fewer ticks to reduce overlap
@@ -2452,7 +2452,7 @@ if (
                 showgrid=False,
                 range=[0, max_m2_value * 1.1],  # Scale based on max value from either dataset
                 tickformat=',',
-                titlefont=dict(color='#1f77b4', size=11),
+                title=dict(font=dict(color='#1f77b4', size=11)),
                 tickfont=dict(color='#1f77b4', size=10),
                 nticks=6  # Fewer ticks to reduce overlap
             )
@@ -2517,7 +2517,7 @@ if (
                     showgrid=False,
                     range=[-5, 25],  # Fixed range for growth percentage
                     tickformat='.1f',  # One decimal place
-                    titlefont=dict(size=11, color='#9C27B0'),  # Match color to the purple M2 growth line
+                    title=dict(font=dict(size=11, color='#9C27B0')),  # Match color to the purple M2 growth line
                     tickfont=dict(size=10, color='#9C27B0'),
                     nticks=6  # Fewer ticks to reduce overlap
                 )
