@@ -150,14 +150,21 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     # ── Show queued items count ──
     queued = get_queued_nodes()
     if queued:
-        _items_preview = " · ".join(q["content"][:60] for q in queued[:3])
-        _more = f" (+{len(queued) - 3} more)" if len(queued) > 3 else ""
+        _items_html = ""
+        for q in queued[:4]:
+            _txt = q["content"][:120]
+            _items_html += (
+                f"<div style='background:rgba(255,255,255,0.06);border:1px solid rgba(255,91,31,0.2);"
+                f"border-radius:8px;padding:6px 10px;margin-top:6px;font-size:0.82rem;"
+                f"color:#CBD5E1;line-height:1.4;'>{_txt}</div>"
+            )
+        _more = f"<div style='color:#64748B;font-size:0.75rem;margin-top:4px;'>+{len(queued) - 4} more queued</div>" if len(queued) > 4 else ""
         st.markdown(
-            f"<div style='background:rgba(255,91,31,0.08);border:1px solid rgba(255,91,31,0.3);"
-            f"border-radius:10px;padding:0.6rem 1rem;margin-bottom:0.8rem;font-size:0.85rem;"
-            f"color:#e6edf3;'>"
-            f"<strong style='color:#ff8c42;'>{len(queued)} queued on map:</strong> "
-            f"{_items_preview}{_more}</div>",
+            f"<div style='background:rgba(255,91,31,0.06);border:1px solid rgba(255,91,31,0.25);"
+            f"border-radius:12px;padding:10px 14px;margin-bottom:0.8rem;'>"
+            f"<strong style='color:#ff8c42;font-size:0.9rem;'>"
+            f"&#x1F7E0; {len(queued)} queued on map</strong>"
+            f"{_items_html}{_more}</div>",
             unsafe_allow_html=True,
         )
 

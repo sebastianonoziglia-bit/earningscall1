@@ -114,17 +114,58 @@ def get_depth_prompt_insert() -> str:
 
 
 def render_depth_selector():
-    """Render compact depth selector as horizontal buttons."""
+    """Render depth selector as styled radio-style buttons with clear selected state."""
     current = st.session_state.get("thought_map_depth", "balanced")
+
+    # Inject CSS for the depth buttons
+    st.markdown("""<style>
+    .depth-selector { display: flex; gap: 12px; margin: 8px 0 16px 0; }
+    .depth-card {
+        flex: 1; border-radius: 14px; padding: 12px 16px; cursor: pointer;
+        border: 2px solid rgba(255,255,255,0.1); background: rgba(15,23,42,0.5);
+        text-align: center; transition: all 0.2s ease;
+    }
+    .depth-card:hover { border-color: rgba(255,91,31,0.4); background: rgba(15,23,42,0.7); }
+    .depth-card.active {
+        border-color: #ff5b1f !important; background: rgba(255,91,31,0.12) !important;
+        box-shadow: 0 0 16px rgba(255,91,31,0.15);
+    }
+    .depth-icon { font-size: 1.4rem; margin-bottom: 4px; }
+    .depth-label { font-size: 0.85rem; font-weight: 700; color: #e6edf3; }
+    .depth-desc { font-size: 0.68rem; color: #64748B; margin-top: 2px; }
+    .depth-card.active .depth-label { color: #ff8c42; }
+    .depth-card.active .depth-desc { color: #94A3B8; }
+    /* Override dark overlay on depth st.button wrappers */
+    .depth-btn-wrap div[data-testid="stButton"] > button {
+        background: transparent !important; border: none !important;
+        padding: 0 !important; color: transparent !important; height: 0 !important;
+        min-height: 0 !important; overflow: hidden !important;
+    }
+    </style>""", unsafe_allow_html=True)
+
+    # Render depth cards as visual HTML
+    cards_html = '<div class="depth-selector">'
+    for key, mode in DEPTH_MODES.items():
+        active_cls = "active" if key == current else ""
+        cards_html += (
+            f'<div class="depth-card {active_cls}" id="depth-{key}">'
+            f'<div class="depth-icon">{mode["icon"]}</div>'
+            f'<div class="depth-label">{mode["label"]}</div>'
+            f'<div class="depth-desc">{mode["desc"]}</div>'
+            f'</div>'
+        )
+    cards_html += '</div>'
+    st.markdown(cards_html, unsafe_allow_html=True)
+
+    # Actual functional buttons (small, below)
     cols = st.columns(len(DEPTH_MODES))
     for i, (key, mode) in enumerate(DEPTH_MODES.items()):
         with cols[i]:
             is_active = key == current
-            style = "primary" if is_active else "secondary"
             if st.button(
-                f"{mode['icon']} {mode['label']}",
+                mode["icon"] + " " + mode["label"],
                 key=f"depth_{key}",
-                type=style,
+                type="primary" if is_active else "secondary",
                 use_container_width=True,
             ):
                 st.session_state["thought_map_depth"] = key
@@ -283,10 +324,13 @@ def render_thought_map(height: int = 620):
 
     if not tm["nodes"]:
         st.markdown(
-            "<div style='padding:32px; text-align:center; color:#64748B; "
-            "border:1px dashed rgba(100,116,139,0.3); border-radius:12px;'>"
-            "<strong>Select questions and signals below — they'll appear here as nodes.</strong><br/>"
-            "<span style='font-size:0.85rem;'>Then press <b style='color:#ff5b1f;'>Start Genie Thoughts</b> to let the AI reason through them.</span>"
+            "<div style='padding:40px; text-align:center; color:#64748B; "
+            "border:1px dashed rgba(100,116,139,0.3); border-radius:16px; "
+            "background: radial-gradient(circle at 50% 50%, rgba(255,91,31,0.04), transparent 60%);'>"
+            "<div style='font-size:2.5rem; margin-bottom:12px;'>&#x1f9e0;</div>"
+            "<strong style='font-size:1rem; color:#94A3B8;'>Thought Map</strong><br/>"
+            "<span style='font-size:0.85rem;'>Select questions and signals below to queue them as nodes.<br/>"
+            "Then press <b style='color:#ff5b1f;'>Start Genie Thoughts</b> to let the AI reason through them.</span>"
             "</div>",
             unsafe_allow_html=True,
         )
@@ -304,9 +348,9 @@ def render_thought_map(height: int = 620):
             {
                 "data": {
                     "id": node["id"],
-                    "label": node["label"][:30] + ("…" if len(node["label"]) > 30 else ""),
+                    "label": node["label"][:30] + ("..." if len(node["label"]) > 30 else ""),
                     "fullLabel": node["label"],
-                    "content": node["content"][:150] + ("…" if len(node["content"]) > 150 else ""),
+                    "content": node["content"][:150] + ("..." if len(node["content"]) > 150 else ""),
                     "fullContent": node["content"],
                     "type": node["type"],
                     "color": color,
@@ -317,12 +361,11 @@ def render_thought_map(height: int = 620):
             }
         )
 
-    # Build edge labels from parent→child type transitions
+    # Build edge labels from parent->child type transitions
     cy_edges = []
     for edge in tm["edges"]:
         src = tm["nodes"].get(edge["from"], {})
         tgt = tm["nodes"].get(edge["to"], {})
-        # Derive a short label for the edge
         src_t = src.get("type", "")
         tgt_t = tgt.get("type", "")
         edge_label = ""
@@ -336,7 +379,7 @@ def render_thought_map(height: int = 620):
             edge_label = "then"
         cy_edges.append({
             "data": {
-                "id": f"e_{edge['from']}_{edge['to']}",
+                "id": "e_" + edge["from"] + "_" + edge["to"],
                 "source": edge["from"],
                 "target": edge["to"],
                 "edgeLabel": edge_label,
@@ -357,270 +400,254 @@ def render_thought_map(height: int = 620):
     branch_count = type_counts.get("branch", 0)
     conclusion_count = type_counts.get("conclusion", 0)
 
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
-<style>
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ background: #0B1220; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; overflow: hidden; }}
-  #cy {{ width: 100%; height: {height - 44}px; }}
-  #bar {{
-    height: 44px; background: #111827; border-bottom: 1px solid rgba(148,163,184,0.15);
-    display: flex; align-items: center; padding: 0 10px; gap: 6px; flex-wrap: nowrap;
-  }}
-  .btn {{
-    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
-    color: #CBD5E1; border-radius: 6px; padding: 4px 8px; cursor: pointer;
-    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
-    transition: all 0.15s; white-space: nowrap;
-  }}
-  .btn:hover {{ background: rgba(0,115,255,0.25); border-color: #0073FF; color:#fff; }}
-  .btn.active {{ background: rgba(0,115,255,0.35); border-color: #0073FF; color:#fff; }}
-  .badge {{ background: rgba(255,255,255,0.15); border-radius: 8px; padding: 1px 5px; font-size: 0.6rem; margin-left: 3px; }}
-  #meta {{ margin-left: auto; font-size: 0.68rem; color: #475569; font-weight: 600; white-space: nowrap; }}
-  .sep {{ width: 1px; height: 20px; background: rgba(255,255,255,0.1); }}
-  #tooltip {{
-    position: fixed; display: none; pointer-events: none; z-index: 1000;
-    background: #1E293B; border: 1px solid rgba(148,163,184,0.25);
-    border-radius: 10px; padding: 12px 14px; max-width: 320px;
-    font-size: 0.82rem; color: #E2E8F0;
-    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
-  }}
-  #tooltip .tt-label {{ font-weight: 800; color: #60A5FA; margin-bottom: 4px; font-size: 0.88rem; }}
-  #tooltip .tt-type {{ font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 6px; }}
-  #tooltip .tt-content {{ line-height: 1.45; color: #CBD5E1; }}
-  #tooltip .tt-badge {{ display: inline-block; font-size: 0.6rem; background: rgba(99,102,241,0.3); color: #a5b4fc;
-    border-radius: 4px; padding: 1px 6px; margin-top: 6px; }}
-  #detail-panel {{
-    display: none; position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
-    background: #0F172A; border-top: 2px solid #0073FF;
-    padding: 14px 18px 16px; max-height: 200px; overflow-y: auto;
-    animation: slideUp 0.2s ease;
-  }}
-  @keyframes slideUp {{ from {{ transform: translateY(100%); opacity:0; }} to {{ transform: translateY(0); opacity:1; }} }}
-  @keyframes nodeIn {{ from {{ opacity: 0; transform: scale(0.3); }} to {{ opacity: 1; transform: scale(1); }} }}
-  @keyframes pulseQueued {{ 0%,100% {{ border-color: rgba(255,91,31,0.5); }} 50% {{ border-color: rgba(255,91,31,1); }} }}
-  #dp-close {{ float: right; background: none; border: none; color: #64748B; cursor: pointer; font-size: 1.1rem; }}
-  #dp-close:hover {{ color: #E2E8F0; }}
-  #dp-label {{ font-weight: 800; color: #60A5FA; font-size: 0.92rem; margin-bottom: 4px; }}
-  #dp-type {{ display: inline-block; font-size: 0.65rem; text-transform: uppercase;
-    letter-spacing: 0.1em; color: #0F172A; font-weight: 700;
-    background: #60A5FA; border-radius: 4px; padding: 1px 7px; margin-bottom: 10px; }}
-  #dp-content {{ line-height: 1.6; color: #CBD5E1; font-size: 0.84rem; white-space: pre-wrap; }}
-</style>
-</head>
-<body>
-<div id="bar">
-  <button class="btn" onclick="cy.fit(cy.nodes(),30)">Fit</button>
-  <button class="btn" onclick="cy.zoom(Math.min(cy.zoom()*1.3,3))">+</button>
-  <button class="btn" onclick="cy.zoom(Math.max(cy.zoom()*0.75,0.2))">-</button>
-  <button class="btn" onclick="relayout()">Re-layout</button>
-  <span class="sep"></span>
-  <button class="btn" id="focusBtn" onclick="toggleFocus()">Smart Focus</button>
-  <button class="btn" onclick="filterType('all')">All<span class="badge">{node_count}</span></button>
-  <button class="btn" onclick="filterType('step')">Steps<span class="badge">{step_count}</span></button>
-  <button class="btn" onclick="filterType('branch')">Branches<span class="badge">{branch_count}</span></button>
-  <button class="btn" onclick="filterType('conclusion')">End<span class="badge">{conclusion_count}</span></button>
-  {f'<button class="btn" onclick="filterType(\'queued\')">Queued<span class="badge">{queued_count}</span></button>' if queued_count else ''}
-  <div id="meta">{node_count} nodes &middot; {edge_count} links</div>
-</div>
-<div id="cy"></div>
-<div id="tooltip">
-  <div class="tt-label" id="tt-label"></div>
-  <div class="tt-type" id="tt-type"></div>
-  <div class="tt-content" id="tt-content"></div>
-  <div class="tt-badge" id="tt-badge" style="display:none"></div>
-</div>
-<div id="detail-panel">
-  <button id="dp-close" onclick="document.getElementById('detail-panel').style.display='none'">&times;</button>
-  <div id="dp-label"></div><div id="dp-type"></div><div id="dp-content"></div>
-</div>
+    # Build queued button separately to avoid backslash-in-fstring issue
+    queued_btn = ""
+    if queued_count:
+        queued_btn = (
+            '<button class="btn" onclick="filterType(' + "'queued'" + ')">'
+            'Queued<span class="badge">' + str(queued_count) + '</span></button>'
+        )
 
-<script>
-const elements = {elements_json};
-const cy = cytoscape({{
-  container: document.getElementById('cy'),
-  elements: [],
-  style: [
-    {{ selector: 'node', style: {{
-        'background-color': 'data(color)', 'label': 'data(label)',
-        'color': '#F8FAFC', 'font-size': '11px', 'font-weight': '700',
-        'text-valign': 'center', 'text-halign': 'center',
-        'text-wrap': 'wrap', 'text-max-width': '80px',
-        'width': '80px', 'height': '80px',
-        'border-width': 2, 'border-color': 'rgba(255,255,255,0.18)',
-        'opacity': 1,
-        'transition-property': 'opacity, background-color, border-color, width, height',
-        'transition-duration': '0.3s',
-    }} }},
-    {{ selector: 'node[type="branch"]', style: {{ 'shape': 'diamond', 'width': '72px', 'height': '72px' }} }},
-    {{ selector: 'node[type="conclusion"]', style: {{ 'shape': 'round-rectangle', 'width': '100px', 'height': '56px' }} }},
-    {{ selector: 'node[type="human"]', style: {{
-        'border-width': 3, 'border-color': '#8B5CF6', 'border-style': 'dashed',
-        'shape': 'round-rectangle', 'width': '90px',
-    }} }},
-    {{ selector: 'node[type="queued"]', style: {{
-        'border-width': 3, 'border-color': '#ff5b1f', 'border-style': 'dashed',
-        'shape': 'round-rectangle', 'width': '90px', 'height': '60px',
-        'background-color': 'rgba(255,91,31,0.18)', 'font-size': '10px', 'color': '#ff8c42',
-    }} }},
-    {{ selector: 'node[type="root"]', style: {{ 'width': '90px', 'height': '90px', 'font-size': '12px' }} }},
-    {{ selector: 'node:selected', style: {{ 'border-width': 4, 'border-color': '#00C2FF' }} }},
-    {{ selector: '.dimmed', style: {{ 'opacity': 0.15 }} }},
-    {{ selector: '.focused', style: {{ 'border-width': 4, 'border-color': '#00C2FF' }} }},
-    {{ selector: 'edge', style: {{
-        'width': 2, 'line-color': 'rgba(100,116,139,0.4)',
-        'target-arrow-color': 'rgba(100,116,139,0.6)',
-        'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 0.9,
-        'label': '', 'font-size': '8px', 'color': '#94A3B8',
-        'text-rotation': 'autorotate', 'text-margin-y': -8,
-        'opacity': 1,
-        'transition-property': 'opacity, line-color',
-        'transition-duration': '0.3s',
-    }} }},
-    {{ selector: 'edge.dimmed', style: {{ 'opacity': 0.08 }} }},
-    {{ selector: 'edge.focused', style: {{ 'width': 3, 'line-color': '#0073FF', 'target-arrow-color': '#0073FF' }} }},
-  ],
-  layout: {{ name: 'breadthfirst', directed: true, spacingFactor: 1.65, padding: 28 }},
-  userZoomingEnabled: true, userPanningEnabled: true,
-  minZoom: 0.15, maxZoom: 3,
-}});
+    cy_height = height - 44
 
-/* ── Animated cascade: add nodes one by one ── */
-(function() {{
-  const nodes = elements.filter(e => e.data && !e.data.source);
-  const edges = elements.filter(e => e.data && e.data.source);
-  let delay = 0;
-  nodes.forEach((n, i) => {{
-    setTimeout(() => {{
-      cy.add(n);
-      // Add edges whose both endpoints exist
-      edges.forEach(edge => {{
-        if (cy.getElementById(edge.data.id).length === 0 &&
-            cy.getElementById(edge.data.source).length > 0 &&
-            cy.getElementById(edge.data.target).length > 0) {{
-          cy.add(edge);
-        }}
-      }});
-      cy.layout({{ name: 'breadthfirst', directed: true, spacingFactor: 1.65, padding: 28, animate: true, animationDuration: 200 }}).run();
-    }}, delay);
-    delay += 120;
-  }});
-  // Final fit after all nodes are in
-  setTimeout(() => cy.fit(cy.nodes(), 30), delay + 200);
-}})();
-
-function relayout() {{
-  cy.layout({{ name: 'breadthfirst', directed: true, spacingFactor: 1.65, padding: 28, animate: true, animationDuration: 300 }}).run();
-}}
-
-/* ── Smart Focus: highlight conclusion path ── */
-let focusActive = false;
-function toggleFocus() {{
-  focusActive = !focusActive;
-  document.getElementById('focusBtn').classList.toggle('active', focusActive);
-  if (!focusActive) {{
-    cy.elements().removeClass('dimmed focused');
-    return;
-  }}
-  // Find conclusion nodes, trace back to roots
-  const conclusions = cy.nodes('[type="conclusion"]');
-  if (conclusions.length === 0) {{
-    // No conclusions — highlight roots + queued
-    const important = cy.nodes('[type="root"], [type="queued"]');
-    cy.elements().addClass('dimmed');
-    important.removeClass('dimmed').addClass('focused');
-    important.connectedEdges().removeClass('dimmed').addClass('focused');
-    return;
-  }}
-  const pathNodes = cy.collection();
-  const pathEdges = cy.collection();
-  conclusions.forEach(c => {{
-    let cur = c;
-    pathNodes.merge(cur);
-    while (true) {{
-      const incoming = cur.incomers('edge');
-      if (incoming.length === 0) break;
-      const edge = incoming[0];
-      pathEdges.merge(edge);
-      cur = edge.source();
-      pathNodes.merge(cur);
-    }}
-  }});
-  cy.elements().addClass('dimmed');
-  pathNodes.removeClass('dimmed').addClass('focused');
-  pathEdges.removeClass('dimmed').addClass('focused');
-}}
-
-/* ── Filter by type ── */
-function filterType(type) {{
-  if (type === 'all') {{
-    cy.nodes().style('display', 'element');
-    cy.edges().style('display', 'element');
-  }} else {{
-    cy.nodes().style('display', 'none');
-    cy.edges().style('display', 'none');
-    const matched = cy.nodes('[type="' + type + '"]');
-    // Also show root for context
-    if (type !== 'root') cy.nodes('[type="root"]').style('display', 'element');
-    matched.style('display', 'element');
-    matched.connectedEdges().style('display', 'element');
-    matched.connectedEdges().connectedNodes().style('display', 'element');
-  }}
-  cy.fit(cy.nodes(':visible'), 30);
-}}
-
-/* ── Edge labels on hover ── */
-cy.on('mouseover', 'edge', (evt) => {{
-  const e = evt.target;
-  const label = e.data('edgeLabel');
-  if (label) e.style('label', label);
-}});
-cy.on('mouseout', 'edge', (evt) => {{
-  evt.target.style('label', '');
-}});
-
-/* ── Node tooltip ── */
-const tooltip = document.getElementById('tooltip');
-cy.on('mouseover', 'node', (evt) => {{
-  const n = evt.target;
-  document.getElementById('tt-label').textContent = n.data('fullLabel');
-  const typeStr = n.data('type').toUpperCase();
-  const cat = n.data('signalCategory');
-  document.getElementById('tt-type').textContent = typeStr + (cat ? ' · ' + cat : '');
-  document.getElementById('tt-content').textContent = n.data('content');
-  const badge = document.getElementById('tt-badge');
-  const children = n.outgoers('node').length;
-  if (children > 0) {{ badge.textContent = children + ' connected'; badge.style.display = 'inline-block'; }}
-  else {{ badge.style.display = 'none'; }}
-  tooltip.style.display = 'block';
-}});
-cy.on('mousemove', (evt) => {{
-  if (tooltip.style.display === 'block') {{
-    tooltip.style.left = (evt.originalEvent.clientX + 16) + 'px';
-    tooltip.style.top = (evt.originalEvent.clientY - 10) + 'px';
-  }}
-}});
-cy.on('mouseout', 'node', () => tooltip.style.display = 'none');
-cy.on('tap', 'node', (evt) => {{
-  const n = evt.target;
-  document.getElementById('dp-label').textContent = n.data('fullLabel');
-  document.getElementById('dp-type').textContent = n.data('type').toUpperCase();
-  document.getElementById('dp-content').textContent = n.data('fullContent') || n.data('content');
-  document.getElementById('detail-panel').style.display = 'block';
-  tooltip.style.display = 'none';
-}});
-cy.on('tap', (evt) => {{
-  if (evt.target === cy) {{
-    tooltip.style.display = 'none';
-    document.getElementById('detail-panel').style.display = 'none';
-  }}
-}});
-</script>
-</body>
-</html>"""
+    # Use regular string concatenation for the HTML template to avoid f-string backslash issues
+    html = (
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>'
+        '<style>'
+        '* { box-sizing: border-box; margin: 0; padding: 0; }'
+        'body { background: #0B1220; font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; overflow: hidden; }'
+        '#cy { width: 100%; height: ' + str(cy_height) + 'px; '
+        '  background: radial-gradient(circle at 20% 20%, rgba(255,107,44,0.06), transparent 28%),'
+        '             radial-gradient(circle at 80% 24%, rgba(56,189,248,0.06), transparent 26%),'
+        '             radial-gradient(circle at 50% 100%, rgba(139,92,246,0.04), transparent 34%),'
+        '             #0B1220; }'
+        '#bar { height: 44px; background: #111827; border-bottom: 1px solid rgba(148,163,184,0.15);'
+        '  display: flex; align-items: center; padding: 0 10px; gap: 6px; flex-wrap: nowrap; }'
+        '.btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);'
+        '  color: #CBD5E1; border-radius: 6px; padding: 4px 8px; cursor: pointer;'
+        '  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;'
+        '  transition: all 0.15s; white-space: nowrap; }'
+        '.btn:hover { background: rgba(0,115,255,0.25); border-color: #0073FF; color:#fff; }'
+        '.btn.active { background: rgba(0,115,255,0.35); border-color: #0073FF; color:#fff; }'
+        '.badge { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 1px 5px; font-size: 0.6rem; margin-left: 3px; }'
+        '#meta { margin-left: auto; font-size: 0.68rem; color: #475569; font-weight: 600; white-space: nowrap; }'
+        '.sep { width: 1px; height: 20px; background: rgba(255,255,255,0.1); }'
+        '#tooltip { position: fixed; display: none; pointer-events: none; z-index: 1000;'
+        '  background: rgba(15,23,42,0.95); border: 1px solid rgba(148,163,184,0.25);'
+        '  border-radius: 12px; padding: 14px 16px; max-width: 340px;'
+        '  font-size: 0.82rem; color: #E2E8F0;'
+        '  box-shadow: 0 12px 36px rgba(0,0,0,0.5); backdrop-filter: blur(12px); }'
+        '#tooltip .tt-label { font-weight: 800; color: #60A5FA; margin-bottom: 4px; font-size: 0.9rem; }'
+        '#tooltip .tt-type { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 6px; }'
+        '#tooltip .tt-content { line-height: 1.5; color: #CBD5E1; }'
+        '#tooltip .tt-badge { display: inline-block; font-size: 0.6rem; background: rgba(99,102,241,0.3); color: #a5b4fc;'
+        '  border-radius: 4px; padding: 1px 6px; margin-top: 6px; }'
+        '#detail-panel { display: none; position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;'
+        '  background: rgba(15,23,42,0.95); border-top: 2px solid #0073FF;'
+        '  padding: 14px 18px 16px; max-height: 200px; overflow-y: auto;'
+        '  backdrop-filter: blur(12px); animation: slideUp 0.2s ease; }'
+        '@keyframes slideUp { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1; } }'
+        '#dp-close { float: right; background: none; border: none; color: #64748B; cursor: pointer; font-size: 1.1rem; }'
+        '#dp-close:hover { color: #E2E8F0; }'
+        '#dp-label { font-weight: 800; color: #60A5FA; font-size: 0.92rem; margin-bottom: 4px; }'
+        '#dp-type { display: inline-block; font-size: 0.65rem; text-transform: uppercase;'
+        '  letter-spacing: 0.1em; color: #0F172A; font-weight: 700;'
+        '  background: #60A5FA; border-radius: 4px; padding: 1px 7px; margin-bottom: 10px; }'
+        '#dp-content { line-height: 1.6; color: #CBD5E1; font-size: 0.84rem; white-space: pre-wrap; }'
+        '</style></head><body>'
+        '<div id="bar">'
+        '  <button class="btn" onclick="cy.fit(cy.nodes(),30)">Fit</button>'
+        '  <button class="btn" onclick="cy.zoom(Math.min(cy.zoom()*1.3,3))">+</button>'
+        '  <button class="btn" onclick="cy.zoom(Math.max(cy.zoom()*0.75,0.2))">-</button>'
+        '  <button class="btn" onclick="relayout()">Re-layout</button>'
+        '  <span class="sep"></span>'
+        '  <button class="btn" id="focusBtn" onclick="toggleFocus()">Smart Focus</button>'
+        '  <button class="btn" onclick="filterType(' + "'all'" + ')">All<span class="badge">' + str(node_count) + '</span></button>'
+        '  <button class="btn" onclick="filterType(' + "'step'" + ')">Steps<span class="badge">' + str(step_count) + '</span></button>'
+        '  <button class="btn" onclick="filterType(' + "'branch'" + ')">Branches<span class="badge">' + str(branch_count) + '</span></button>'
+        '  <button class="btn" onclick="filterType(' + "'conclusion'" + ')">End<span class="badge">' + str(conclusion_count) + '</span></button>'
+        '  ' + queued_btn +
+        '  <div id="meta">' + str(node_count) + ' nodes &middot; ' + str(edge_count) + ' links</div>'
+        '</div>'
+        '<div id="cy"></div>'
+        '<div id="tooltip">'
+        '  <div class="tt-label" id="tt-label"></div>'
+        '  <div class="tt-type" id="tt-type"></div>'
+        '  <div class="tt-content" id="tt-content"></div>'
+        '  <div class="tt-badge" id="tt-badge" style="display:none"></div>'
+        '</div>'
+        '<div id="detail-panel">'
+        '  <button id="dp-close" onclick="document.getElementById(' + "'detail-panel'" + ').style.display=' + "'none'" + '">&times;</button>'
+        '  <div id="dp-label"></div><div id="dp-type"></div><div id="dp-content"></div>'
+        '</div>'
+        '<script>'
+        'const elements = ' + elements_json + ';'
+        'const cy = cytoscape({'
+        '  container: document.getElementById("cy"),'
+        '  elements: [],'
+        '  style: ['
+        '    { selector: "node", style: {'
+        '        "background-color": "data(color)", "label": "data(label)",'
+        '        "color": "#F8FAFC", "font-size": "11px", "font-weight": "700",'
+        '        "text-valign": "center", "text-halign": "center",'
+        '        "text-wrap": "wrap", "text-max-width": "80px",'
+        '        "width": "80px", "height": "80px",'
+        '        "border-width": 2, "border-color": "rgba(255,255,255,0.18)",'
+        '        "opacity": 1,'
+        '        "transition-property": "opacity, background-color, border-color, width, height",'
+        '        "transition-duration": "0.3s",'
+        '    } },'
+        '    { selector: "node[type=\\"branch\\"]", style: { "shape": "diamond", "width": "72px", "height": "72px" } },'
+        '    { selector: "node[type=\\"conclusion\\"]", style: { "shape": "round-rectangle", "width": "100px", "height": "56px" } },'
+        '    { selector: "node[type=\\"human\\"]", style: {'
+        '        "border-width": 3, "border-color": "#8B5CF6", "border-style": "dashed",'
+        '        "shape": "round-rectangle", "width": "90px",'
+        '    } },'
+        '    { selector: "node[type=\\"queued\\"]", style: {'
+        '        "border-width": 3, "border-color": "#ff5b1f", "border-style": "dashed",'
+        '        "shape": "round-rectangle", "width": "90px", "height": "60px",'
+        '        "background-color": "rgba(255,91,31,0.18)", "font-size": "10px", "color": "#ff8c42",'
+        '    } },'
+        '    { selector: "node[type=\\"root\\"]", style: { "width": "90px", "height": "90px", "font-size": "12px" } },'
+        '    { selector: "node:selected", style: { "border-width": 4, "border-color": "#00C2FF" } },'
+        '    { selector: ".dimmed", style: { "opacity": 0.15 } },'
+        '    { selector: ".focused", style: { "border-width": 4, "border-color": "#00C2FF" } },'
+        '    { selector: "edge", style: {'
+        '        "width": 2, "line-color": "rgba(100,116,139,0.4)",'
+        '        "target-arrow-color": "rgba(100,116,139,0.6)",'
+        '        "target-arrow-shape": "triangle", "curve-style": "bezier", "arrow-scale": 0.9,'
+        '        "label": "", "font-size": "8px", "color": "#94A3B8",'
+        '        "text-rotation": "autorotate", "text-margin-y": -8,'
+        '        "opacity": 1,'
+        '        "transition-property": "opacity, line-color",'
+        '        "transition-duration": "0.3s",'
+        '    } },'
+        '    { selector: "edge.dimmed", style: { "opacity": 0.08 } },'
+        '    { selector: "edge.focused", style: { "width": 3, "line-color": "#0073FF", "target-arrow-color": "#0073FF" } },'
+        '  ],'
+        '  layout: { name: "breadthfirst", directed: true, spacingFactor: 1.65, padding: 28 },'
+        '  userZoomingEnabled: true, userPanningEnabled: true,'
+        '  minZoom: 0.15, maxZoom: 3,'
+        '});'
+        # Animated cascade
+        '(function() {'
+        '  var nodes = elements.filter(function(e){ return e.data && !e.data.source; });'
+        '  var edges = elements.filter(function(e){ return e.data && e.data.source; });'
+        '  var delay = 0;'
+        '  nodes.forEach(function(n, i) {'
+        '    setTimeout(function() {'
+        '      cy.add(n);'
+        '      edges.forEach(function(edge) {'
+        '        if (cy.getElementById(edge.data.id).length === 0 &&'
+        '            cy.getElementById(edge.data.source).length > 0 &&'
+        '            cy.getElementById(edge.data.target).length > 0) {'
+        '          cy.add(edge);'
+        '        }'
+        '      });'
+        '      cy.layout({ name: "breadthfirst", directed: true, spacingFactor: 1.65, padding: 28, animate: true, animationDuration: 200 }).run();'
+        '    }, delay);'
+        '    delay += 150;'
+        '  });'
+        '  setTimeout(function(){ cy.fit(cy.nodes(), 30); }, delay + 300);'
+        '})();'
+        # Relayout
+        'function relayout() {'
+        '  cy.layout({ name: "breadthfirst", directed: true, spacingFactor: 1.65, padding: 28, animate: true, animationDuration: 300 }).run();'
+        '}'
+        # Smart Focus
+        'var focusActive = false;'
+        'function toggleFocus() {'
+        '  focusActive = !focusActive;'
+        '  document.getElementById("focusBtn").classList.toggle("active", focusActive);'
+        '  if (!focusActive) { cy.elements().removeClass("dimmed focused"); return; }'
+        '  var conclusions = cy.nodes("[type=\\"conclusion\\"]");'
+        '  if (conclusions.length === 0) {'
+        '    var important = cy.nodes("[type=\\"root\\"], [type=\\"queued\\"]");'
+        '    cy.elements().addClass("dimmed");'
+        '    important.removeClass("dimmed").addClass("focused");'
+        '    important.connectedEdges().removeClass("dimmed").addClass("focused");'
+        '    return;'
+        '  }'
+        '  var pathNodes = cy.collection();'
+        '  var pathEdges = cy.collection();'
+        '  conclusions.forEach(function(c) {'
+        '    var cur = c;'
+        '    pathNodes = pathNodes.union(cur);'
+        '    while (true) {'
+        '      var incoming = cur.incomers("edge");'
+        '      if (incoming.length === 0) break;'
+        '      var edge = incoming[0];'
+        '      pathEdges = pathEdges.union(edge);'
+        '      cur = edge.source();'
+        '      pathNodes = pathNodes.union(cur);'
+        '    }'
+        '  });'
+        '  cy.elements().addClass("dimmed");'
+        '  pathNodes.removeClass("dimmed").addClass("focused");'
+        '  pathEdges.removeClass("dimmed").addClass("focused");'
+        '}'
+        # Filter by type
+        'function filterType(type) {'
+        '  if (type === "all") {'
+        '    cy.nodes().style("display", "element");'
+        '    cy.edges().style("display", "element");'
+        '  } else {'
+        '    cy.nodes().style("display", "none");'
+        '    cy.edges().style("display", "none");'
+        '    var matched = cy.nodes("[type=\\"" + type + "\\"]");'
+        '    if (type !== "root") cy.nodes("[type=\\"root\\"]").style("display", "element");'
+        '    matched.style("display", "element");'
+        '    matched.connectedEdges().style("display", "element");'
+        '    matched.connectedEdges().connectedNodes().style("display", "element");'
+        '  }'
+        '  cy.fit(cy.nodes(":visible"), 30);'
+        '}'
+        # Edge labels on hover
+        'cy.on("mouseover", "edge", function(evt) {'
+        '  var e = evt.target;'
+        '  var label = e.data("edgeLabel");'
+        '  if (label) e.style("label", label);'
+        '});'
+        'cy.on("mouseout", "edge", function(evt) { evt.target.style("label", ""); });'
+        # Node tooltip
+        'var tooltip = document.getElementById("tooltip");'
+        'cy.on("mouseover", "node", function(evt) {'
+        '  var n = evt.target;'
+        '  document.getElementById("tt-label").textContent = n.data("fullLabel");'
+        '  var typeStr = n.data("type").toUpperCase();'
+        '  var cat = n.data("signalCategory");'
+        '  document.getElementById("tt-type").textContent = typeStr + (cat ? " . " + cat : "");'
+        '  document.getElementById("tt-content").textContent = n.data("content");'
+        '  var badge = document.getElementById("tt-badge");'
+        '  var children = n.outgoers("node").length;'
+        '  if (children > 0) { badge.textContent = children + " connected"; badge.style.display = "inline-block"; }'
+        '  else { badge.style.display = "none"; }'
+        '  tooltip.style.display = "block";'
+        '});'
+        'cy.on("mousemove", function(evt) {'
+        '  if (tooltip.style.display === "block") {'
+        '    tooltip.style.left = (evt.originalEvent.clientX + 16) + "px";'
+        '    tooltip.style.top = (evt.originalEvent.clientY - 10) + "px";'
+        '  }'
+        '});'
+        'cy.on("mouseout", "node", function() { tooltip.style.display = "none"; });'
+        'cy.on("tap", "node", function(evt) {'
+        '  var n = evt.target;'
+        '  document.getElementById("dp-label").textContent = n.data("fullLabel");'
+        '  document.getElementById("dp-type").textContent = n.data("type").toUpperCase();'
+        '  document.getElementById("dp-content").textContent = n.data("fullContent") || n.data("content");'
+        '  document.getElementById("detail-panel").style.display = "block";'
+        '  tooltip.style.display = "none";'
+        '});'
+        'cy.on("tap", function(evt) {'
+        '  if (evt.target === cy) {'
+        '    tooltip.style.display = "none";'
+        '    document.getElementById("detail-panel").style.display = "none";'
+        '  }'
+        '});'
+        '</script></body></html>'
+    )
 
     components.html(html, height=height, scrolling=False)
 

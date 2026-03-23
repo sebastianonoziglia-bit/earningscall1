@@ -3448,25 +3448,17 @@ def main():
     hero_style = "--hero-image: none;"
     if hero_base64:
         hero_style = f"--hero-image: url('data:{hero_mime};base64,{hero_base64}')"
-    hero_image_html = (
-        (
-            "<img "
-            f"src='data:{hero_mime};base64,{hero_base64}' "
-            f"alt='{company} hero image' "
-            ">"
-        )
-        if hero_base64
-        else ""
-    )
     hero_classes = "earnings-hero"
     if hero_stock_html:
         hero_classes += " has-stock"
     st.markdown(company_header_html, unsafe_allow_html=True)
+    # NOTE: hero image is rendered via CSS background-image (--hero-image var)
+    # rather than an <img> tag — this keeps the HTML well under Streamlit's
+    # rehype-raw size limit and prevents raw-HTML rendering bugs.
     st.markdown(
         (
             f"<div class='{hero_classes}' id='earnings-hero-{kpi_anim_key}' "
             f"style=\"{hero_style}\">"
-            f"{hero_image_html}"
             f"{hero_stock_html}"
             "<div class='earnings-hero-overlay'>"
             f"<div class='earnings-hero-panel' id='kpi-panel-{kpi_anim_key}'>"
