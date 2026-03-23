@@ -1,5 +1,9 @@
 """Enhanced Genie chat UI wired to OpenAI + Thought Map."""
 
+import json
+from datetime import datetime
+from io import BytesIO
+
 import streamlit as st
 
 from utils.genie_ai import (
@@ -8,19 +12,127 @@ from utils.genie_ai import (
     clean_thought_markers,
     stream_genie_response,
 )
-from utils.thought_map import add_nodes_to_map, get_queued_nodes, parse_response_to_nodes, promote_queued_nodes
+from utils.thought_map import (
+    add_nodes_to_map,
+    get_queued_nodes,
+    parse_response_to_nodes,
+    promote_queued_nodes,
+)
 
 
 def _estimate_token_usage(history: list[dict]) -> int:
-    """
-    Rough token estimate for warning purposes.
-    Uses ~4 chars/token heuristic.
-    """
     total_chars = 0
     for message in history:
         total_chars += len(str(message.get("content", "")))
     return total_chars // 4
 
+
+# ── PDF generation ──────────────────────────────────────────────────────────
+
+def _build_chat_pdf(history: list[dict]) -> bytes:
+    """Build a styled PDF of the Genie chat dialogue."""
+    from fpdf import FPDF
+
+    class _PDF(FPDF):
+        def header(self):
+            self.set_font("Helvetica", "B", 14)
+            self.set_text_color(15, 23, 42)
+            self.cell(0, 10, "Genie Conversation Export", align="C", new_x="LMARGIN", new_y="NEXT")
+            self.set_font("Helvetica", "", 8)
+            self.set_text_color(100, 116, 139)
+            self.cell(0, 5, datetime.now().strftime("%Y-%m-%d %H:%M"), align="C", new_x="LMARGIN", new_y="NEXT")
+            self.ln(4)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Helvetica", "I", 7)
+            self.set_text_color(148, 163, 184)
+            self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", align="C")
+
+    pdf = _PDF(orientation="P", unit="mm", format="A4")
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    page_w = pdf.w - pdf.l_margin - pdf.r_margin
+    bubble_w = page_w * 0.78
+    gutter = 4  # space between edge and bubble
+
+    for msg in history:
+        role = msg.get("role", "assistant")
+        raw = msg.get("content", "")
+        text = clean_thought_markers(raw) if role == "assistant" else raw
+        # Strip markdown bold
+        text = text.replace("**", "").replace("__", "")
+
+        is_user = role == "user"
+
+        # Role label
+        pdf.set_font("Helvetica", "B", 8)
+        if is_user:
+            pdf.set_text_color(99, 102, 241)  # indigo
+            pdf.set_x(pdf.w - pdf.r_margin - bubble_w - gutter)
+            pdf.cell(bubble_w, 5, "You", align="R", new_x="LMARGIN", new_y="NEXT")
+        else:
+            pdf.set_text_color(255, 91, 31)  # orange
+            pdf.set_x(pdf.l_margin + gutter)
+            pdf.cell(bubble_w, 5, "Genie", align="L", new_x="LMARGIN", new_y="NEXT")
+
+        # Bubble background
+        y_before = pdf.get_y()
+        if is_user:
+            x_start = pdf.w - pdf.r_margin - bubble_w - gutter
+        else:
+            x_start = pdf.l_margin + gutter
+
+        # Measure text height
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(30, 41, 59)
+        pdf.set_x(x_start + 4)
+        # Use multi_cell to get the height
+        text_h = pdf.multi_cell(
+            bubble_w - 8, 4.5, text, align="L", dry_run=True, output="HEIGHT"
+        )
+        needed = text_h + 8  # padding
+
+        # Page break if needed
+        if pdf.get_y() + needed > pdf.h - 20:
+            pdf.add_page()
+            y_before = pdf.get_y()
+
+        # Draw rounded rect background
+        if is_user:
+            pdf.set_fill_color(238, 242, 255)  # light indigo
+        else:
+            pdf.set_fill_color(255, 247, 237)  # light orange
+        pdf.rect(x_start, y_before, bubble_w, needed, style="F")
+
+        # Draw text inside bubble
+        pdf.set_xy(x_start + 4, y_before + 4)
+        pdf.multi_cell(bubble_w - 8, 4.5, text, align="L")
+        pdf.ln(6)
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
+
+
+def _build_chat_markdown(history: list[dict]) -> str:
+    lines = [
+        "# Genie Conversation Export\n",
+        f"*{datetime.now().strftime('%Y-%m-%d %H:%M')}*\n",
+    ]
+    for msg in history:
+        role = msg.get("role", "assistant")
+        content = msg.get("content", "")
+        if role == "user":
+            lines.append(f"### You\n{content}\n")
+        else:
+            lines.append(f"### Genie\n{clean_thought_markers(content)}\n")
+    return "\n".join(lines)
+
+
+# ── Main render ─────────────────────────────────────────────────────────────
 
 def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response=None):
     """
@@ -28,7 +140,7 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     """
     st.markdown("<div id='genie-chat-section'></div>", unsafe_allow_html=True)
     st.markdown(
-        "<h3 style='margin-bottom:0.5rem;'>🧞 Ask the Genie</h3>"
+        "<h3 style='margin-bottom:0.5rem;'>Ask the Genie</h3>"
         "<p style='color:#64748B; font-size:0.9rem; margin-bottom:1rem;'>"
         "Select questions & signals above to queue them on the map, "
         "then press <b style='color:#ff5b1f;'>Start Genie Thoughts</b> — "
@@ -79,10 +191,11 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     }
     </style>""", unsafe_allow_html=True)
 
+    # ── CTA + unified export ──
     _cta_col, _export_col = st.columns([3, 1])
     with _cta_col:
         st.markdown('<div class="genie-start-btn">', unsafe_allow_html=True)
-        _btn_label = f"🧞 Start Genie Thoughts ({len(queued)})" if queued else "🧞 Start Genie Thoughts"
+        _btn_label = f"Start Genie Thoughts ({len(queued)})" if queued else "Start Genie Thoughts"
         _start_clicked = st.button(
             _btn_label,
             key="start_genie_thoughts_btn",
@@ -92,20 +205,33 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     with _export_col:
         history = st.session_state.get("genie_history", [])
         if history:
-            history_text = "\n\n".join([
-                f"**{m.get('role', '').upper()}:** {m.get('content', '')}"
-                for m in history
-            ])
+            _fmt = st.selectbox(
+                "Export format",
+                ["PDF", "Markdown", "JSON"],
+                key="chat_export_format",
+                label_visibility="collapsed",
+            )
+            if _fmt == "PDF":
+                _data = _build_chat_pdf(history)
+                _fname = f"genie_chat_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+                _mime = "application/pdf"
+            elif _fmt == "Markdown":
+                _data = _build_chat_markdown(history)
+                _fname = f"genie_chat_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
+                _mime = "text/markdown"
+            else:
+                _data = json.dumps(history, indent=2, default=str)
+                _fname = f"genie_chat_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+                _mime = "application/json"
             st.download_button(
-                "⬇ Export",
-                data=history_text,
-                file_name="genie_conversation.md",
-                mime="text/markdown",
+                f"Export Chat ({_fmt})",
+                data=_data,
+                file_name=_fname,
+                mime=_mime,
                 key="export_chat_btn",
             )
 
     # Display conversation history
-    history = st.session_state.get("genie_history", [])
     for message in history:
         role = message.get("role", "assistant")
         content = message.get("content", "")
@@ -126,7 +252,7 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
         else:
             user_input = (
                 "I've selected these topics to reason about together:\n\n"
-                + "\n".join(f"• {t}" for t in queued_texts)
+                + "\n".join(f"- {t}" for t in queued_texts)
                 + "\n\nPlease analyze each point and connect them where relevant."
             )
 

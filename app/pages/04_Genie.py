@@ -2637,9 +2637,11 @@ if (
     # Generate data-driven insight for displayed chart
     _chart_insights = []
     try:
+        _co_metrics = selected_company_metrics if 'selected_company_metrics' in dir() else []
+        # Fallback: always show Revenue insight for selected companies even when no metric is picked
+        _insight_metrics = _co_metrics[:2] if _co_metrics else ["Revenue"]
         for _co in selected_companies:
-            _co_metrics = selected_company_metrics if 'selected_company_metrics' in dir() else []
-            for _metric in (_co_metrics[:1] if _co_metrics else []):
+            for _metric in _insight_metrics:
                 _yrs = sorted(data_processor.get_available_years(_co))
                 if len(_yrs) >= 2:
                     _latest_yr = _yrs[-1]
@@ -3323,10 +3325,22 @@ if _all_signals:
                 for sig in _cats[_cat][:15]:
                     col_chip, col_text = st.columns([0.22, 0.78])
                     with col_chip:
+                        _brand = COMPANY_BRAND_COLORS.get(sig['company'].lower(), "")
+                        if not _brand:
+                            # Try partial match (e.g. "Meta Platforms" → "meta platforms")
+                            _co_lower = sig['company'].lower()
+                            for _bk, _bv in COMPANY_BRAND_COLORS.items():
+                                if _bk in _co_lower or _co_lower in _bk:
+                                    _brand = _bv
+                                    break
+                        _brand = _brand or "#c2410c"
+                        # Compute a lighter background from the brand color
+                        _chip_bg = _brand + "18"  # ~10% alpha hex
+                        _chip_border = _brand + "55"
                         st.markdown(
-                            f"<span style='background:#fff7f4;color:#c2410c;padding:3px 10px;"
+                            f"<span style='background:{_chip_bg};color:{_brand};padding:3px 10px;"
                             f"border-radius:12px;font-size:0.75rem;font-weight:600;white-space:nowrap;"
-                            f"border:1px solid #fed7aa;'>"
+                            f"border:1px solid {_chip_border};'>"
                             f"{sig['company']} · {sig['year']} {sig['quarter']}</span>",
                             unsafe_allow_html=True
                         )

@@ -518,16 +518,16 @@ def render_thought_map_controls():
     """Render annotation/elaboration/export controls below the thought map."""
     tm = _get_map()
 
-    col1, col2, col3, col4 = st.columns([2.5, 1.2, 1.2, 1.2])
+    col1, col2, col3 = st.columns([2.5, 1.2, 1.5])
 
     with col1:
         annotation = st.text_input(
-            "💬 Add your own thought node",
+            "Add your own thought node",
             placeholder="e.g. 'But what about subscriber growth offsetting this?'",
             key="tm_annotation_input",
             label_visibility="collapsed",
         )
-        if st.button("＋ Add to Map", key="tm_add_node_btn") and annotation.strip():
+        if st.button("+ Add to Map", key="tm_add_node_btn") and annotation.strip():
             human_node = {
                 "id": str(uuid.uuid4())[:8],
                 "type": "human",
@@ -546,38 +546,43 @@ def render_thought_map_controls():
             st.rerun()
 
     with col2:
-        if st.button("🔍 Elaborate Last Node", key="tm_elaborate_btn"):
+        if st.button("Elaborate Last Node", key="tm_elaborate_btn"):
             if tm["nodes"]:
                 candidates = [node for node in tm["nodes"].values() if node["type"] != "human"]
                 if candidates:
                     last_node = max(candidates, key=lambda node: node["created_at"])
-                    prompt = (
+                    from utils.thought_map import add_queued_node as _aq
+                    _aq(
                         "Please elaborate further on this reasoning step:\n\n"
                         f"**{last_node['label']}**\n{last_node['content']}\n\n"
-                        "Go deeper — use the [STEP N] format for your reasoning."
+                        "Go deeper — use the [STEP N] format for your reasoning.",
+                        source_type="elaboration",
                     )
-                    st.session_state["prefill_message"] = prompt
                     st.session_state["pending_elaboration_node_id"] = last_node["id"]
                     st.rerun()
 
     with col3:
         if tm["nodes"]:
-            st.download_button(
-                "⬇ Export JSON",
-                data=json.dumps(tm, indent=2, default=str),
-                file_name=f"thought_map_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                mime="application/json",
-                key="tm_export_json_btn",
+            _exp_fmt = st.selectbox(
+                "Export format",
+                ["Markdown", "JSON"],
+                key="tm_export_format",
+                label_visibility="collapsed",
             )
-
-    with col4:
-        if tm["nodes"]:
+            if _exp_fmt == "JSON":
+                _data = json.dumps(tm, indent=2, default=str)
+                _fname = f"thought_map_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+                _mime = "application/json"
+            else:
+                _data = _map_to_markdown(tm)
+                _fname = f"thought_map_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
+                _mime = "text/markdown"
             st.download_button(
-                "⬇ Export Markdown",
-                data=_map_to_markdown(tm),
-                file_name=f"thought_map_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
-                mime="text/markdown",
-                key="tm_export_md_btn",
+                f"Export Map ({_exp_fmt})",
+                data=_data,
+                file_name=_fname,
+                mime=_mime,
+                key="tm_export_btn",
             )
 
 
