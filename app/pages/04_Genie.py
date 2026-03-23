@@ -3243,10 +3243,16 @@ st.markdown("""<style>
 .guidance-signals-wrap div[data-testid="stExpander"] summary:hover {
     background: rgba(255,91,31,0.12) !important;
 }
-.guidance-signals-wrap div[data-testid="stExpander"] summary p,
-.guidance-signals-wrap div[data-testid="stExpander"] summary span {
+.guidance-signals-wrap div[data-testid="stExpander"] summary > div p,
+.guidance-signals-wrap div[data-testid="stExpander"] summary > div span {
     color: #e6edf3 !important;
     font-size: 0.9rem !important;
+}
+.guidance-signals-wrap div[data-testid="stExpander"] summary > span {
+    color: #ff8c42 !important;
+    font-family: "Material Symbols Rounded", "Material Symbols Outlined", sans-serif !important;
+    font-size: 1.05rem !important;
+    line-height: 1 !important;
 }
 .guidance-signals-wrap div[data-testid="stExpander"] summary strong {
     color: #ff8c42 !important;

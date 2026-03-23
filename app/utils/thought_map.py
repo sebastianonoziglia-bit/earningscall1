@@ -272,6 +272,16 @@ def consume_pending_human_notes() -> list[str]:
     return texts
 
 
+def is_reasoning_node(node: dict) -> bool:
+    """Return True only for assistant-generated reasoning nodes."""
+    if node.get("type") not in {"step", "branch", "conclusion"}:
+        return False
+    try:
+        return int(node.get("source_message_index", -1)) >= 0
+    except (TypeError, ValueError):
+        return False
+
+
 def parse_response_to_nodes(response_text: str, message_index: int) -> list[dict]:
     """Parse a Genie response into structured thought map nodes."""
     matches = list(STEP_PATTERN.finditer(response_text))
@@ -462,6 +472,8 @@ def render_thought_map(height: int = 620):
         '  transition: all 0.15s; white-space: nowrap; }'
         '.btn:hover { background: rgba(0,115,255,0.25); border-color: #0073FF; color:#fff; }'
         '.btn.active { background: rgba(0,115,255,0.35); border-color: #0073FF; color:#fff; }'
+        '.btn-refresh { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.45); color: #fca5a5; }'
+        '.btn-refresh:hover { background: rgba(239,68,68,0.26); border-color: #ef4444; color: #fff; }'
         '.badge { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 1px 5px; font-size: 0.6rem; margin-left: 3px; }'
         '#meta { margin-left: auto; font-size: 0.68rem; color: #475569; font-weight: 600; white-space: nowrap; }'
         '.sep { width: 1px; height: 20px; background: rgba(255,255,255,0.1); }'
@@ -499,6 +511,7 @@ def render_thought_map(height: int = 620):
         '  <button class="btn" onclick="filterType(' + "'step'" + ')">Steps<span class="badge">' + str(step_count) + '</span></button>'
         '  <button class="btn" onclick="filterType(' + "'branch'" + ')">Branches<span class="badge">' + str(branch_count) + '</span></button>'
         '  <button class="btn" onclick="filterType(' + "'conclusion'" + ')">End<span class="badge">' + str(conclusion_count) + '</span></button>'
+        '  <button class="btn btn-refresh" onclick="refreshMap()">Refresh</button>'
         '  ' + queued_btn +
         '  <div id="meta">' + str(node_count) + ' nodes &middot; ' + str(edge_count) + ' links</div>'
         '</div>'
@@ -596,6 +609,20 @@ def render_thought_map(height: int = 620):
         # Relayout
         'function relayout() {'
         '  cy.layout({ name: "breadthfirst", directed: true, spacingFactor: 1.65, padding: 28, animate: true, animationDuration: 300 }).run();'
+        '}'
+        'function refreshMap() {'
+        '  focusActive = false;'
+        '  document.getElementById("focusBtn").classList.remove("active");'
+        '  cy.elements().removeClass("dimmed focused");'
+        '  cy.nodes().unselect();'
+        '  cy.nodes().style("display", "element");'
+        '  cy.edges().style("display", "element");'
+        '  var tooltipEl = document.getElementById("tooltip");'
+        '  var panelEl = document.getElementById("detail-panel");'
+        '  if (tooltipEl) tooltipEl.style.display = "none";'
+        '  if (panelEl) panelEl.style.display = "none";'
+        '  relayout();'
+        '  setTimeout(function(){ cy.fit(cy.nodes(), 30); }, 320);'
         '}'
         # Smart Focus
         'var focusActive = false;'
@@ -783,17 +810,21 @@ def render_thought_map_dashboard():
 def render_thought_map_controls():
     """Render annotation/elaboration/export controls below the thought map."""
     tm = _get_map()
+    reasoning_candidates = [node for node in tm["nodes"].values() if is_reasoning_node(node)]
 
     col1, col2, col3 = st.columns([2.5, 1.2, 1.5])
 
     with col1:
-        annotation = st.text_input(
-            "Add your own thought node",
-            placeholder="e.g. 'But what about subscriber growth offsetting this?'",
-            key="tm_annotation_input",
-            label_visibility="collapsed",
-        )
-        if st.button("+ Add to Map", key="tm_add_node_btn") and annotation.strip():
+        with st.form("tm_annotation_form", clear_on_submit=True):
+            annotation = st.text_input(
+                "Add your own thought node",
+                placeholder="e.g. 'But what about subscriber growth offsetting this?'",
+                key="tm_annotation_input",
+                label_visibility="collapsed",
+            )
+            st.caption("Press Enter or click Add to Map.")
+            add_note = st.form_submit_button("+ Add to Map", use_container_width=True)
+        if add_note and annotation.strip():
             human_node = {
                 "id": str(uuid.uuid4())[:8],
                 "type": "human",
@@ -813,20 +844,22 @@ def render_thought_map_controls():
             st.rerun()
 
     with col2:
-        if st.button("Elaborate Last Node", key="tm_elaborate_btn"):
-            if tm["nodes"]:
-                candidates = [node for node in tm["nodes"].values() if node["type"] != "human"]
-                if candidates:
-                    last_node = max(candidates, key=lambda node: node["created_at"])
-                    from utils.thought_map import add_queued_node as _aq
-                    _aq(
-                        "Please elaborate further on this reasoning step:\n\n"
-                        f"**{last_node['label']}**\n{last_node['content']}\n\n"
-                        "Go deeper — use the [STEP N] format for your reasoning.",
-                        source_type="elaboration",
-                    )
-                    st.session_state["pending_elaboration_node_id"] = last_node["id"]
-                    st.rerun()
+        if st.button(
+            "Elaborate Last Node",
+            key="tm_elaborate_btn",
+            use_container_width=True,
+            disabled=not reasoning_candidates,
+        ):
+            last_node = max(reasoning_candidates, key=lambda node: node.get("created_at", ""))
+            from utils.thought_map import add_queued_node as _aq
+            _aq(
+                "Please elaborate further on this reasoning step:\n\n"
+                f"**{last_node['label']}**\n{last_node['content']}\n\n"
+                "Go deeper — use the [STEP N] format for your reasoning.",
+                source_type="elaboration",
+            )
+            st.session_state["pending_elaboration_node_id"] = last_node["id"]
+            st.rerun()
 
     with col3:
         if tm["nodes"]:

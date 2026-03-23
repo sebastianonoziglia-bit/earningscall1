@@ -37,6 +37,11 @@ def _estimate_token_usage(history: list[dict]) -> int:
     return total_chars // 4
 
 
+def _format_note_lines(notes: list[str]) -> str:
+    cleaned = [str(note).strip() for note in notes if str(note).strip()]
+    return "\n".join(f"- {note}" for note in cleaned)
+
+
 # ── PDF generation ──────────────────────────────────────────────────────────
 
 def _build_chat_pdf(history: list[dict]) -> bytes:
@@ -171,6 +176,27 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
             f"{_items_html}{_more}</div>",
             unsafe_allow_html=True,
         )
+    if pending_notes:
+        _note_items_html = ""
+        for note in pending_notes[:3]:
+            _txt = html.escape(str(note.get("content", ""))[:120])
+            _note_items_html += (
+                f"<div style='background:rgba(255,255,255,0.06);border:1px solid rgba(139,92,246,0.2);"
+                f"border-radius:8px;padding:6px 10px;margin-top:6px;font-size:0.82rem;"
+                f"color:#CBD5E1;line-height:1.4;'>{_txt}</div>"
+            )
+        _note_more = (
+            f"<div style='color:#64748B;font-size:0.75rem;margin-top:4px;'>"
+            f"+{len(pending_notes) - 3} more pending note{'s' if len(pending_notes) - 3 != 1 else ''}</div>"
+        ) if len(pending_notes) > 3 else ""
+        st.markdown(
+            f"<div style='background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.24);"
+            f"border-radius:12px;padding:10px 14px;margin-bottom:0.8rem;'>"
+            f"<strong style='color:#c4b5fd;font-size:0.9rem;'>"
+            f"&#x1F4AC; {len(pending_notes)} note{'s' if len(pending_notes) != 1 else ''} waiting for Genie</strong>"
+            f"{_note_items_html}{_note_more}</div>",
+            unsafe_allow_html=True,
+        )
 
     st.markdown("""<style>
     .genie-start-btn div[data-testid="stButton"] > button {
@@ -270,40 +296,68 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
     )
 
     # "Start Genie Thoughts" collects queued map nodes into a combined prompt
+    _consumed_thought_map_notes: list[str] = []
+    _notes_injected_into_user_input = False
     if _start_clicked and (queued or pending_notes):
         queued_texts = promote_queued_nodes() if queued else []
+        _consumed_thought_map_notes = consume_pending_human_notes() if pending_notes else []
+        _combined_prompt = ""
         if len(queued_texts) == 1:
-            user_input = queued_texts[0]
+            _combined_prompt = queued_texts[0]
         elif len(queued_texts) > 1:
-            user_input = (
+            _combined_prompt = (
                 "I've selected these topics to reason about together:\n\n"
                 + "\n".join(f"- {t}" for t in queued_texts)
                 + "\n\nPlease analyze each point and connect them where relevant."
             )
+        if _consumed_thought_map_notes:
+            _notes_block = _format_note_lines(_consumed_thought_map_notes)
+            if _combined_prompt:
+                user_input = (
+                    f"{_combined_prompt}\n\n"
+                    "Also incorporate these explicit thought map notes:\n"
+                    f"{_notes_block}"
+                )
+            else:
+                user_input = (
+                    "Please reason through these explicit thought map notes and use them in the answer:\n\n"
+                    f"{_notes_block}"
+                )
+            _notes_injected_into_user_input = True
         else:
-            user_input = "Please reason through the note I added to the thought map."
+            user_input = _combined_prompt
 
     if user_input:
+        if not _consumed_thought_map_notes:
+            _consumed_thought_map_notes = consume_pending_human_notes()
+
+        effective_user_input = str(user_input).strip()
+        if _consumed_thought_map_notes and not _notes_injected_into_user_input:
+            effective_user_input = (
+                f"{effective_user_input}\n\n"
+                "Also incorporate these explicit thought map notes:\n"
+                f"{_format_note_lines(_consumed_thought_map_notes)}"
+            ).strip()
+
         with st.chat_message("user", avatar="👤"):
-            st.markdown(user_input)
+            st.markdown(effective_user_input)
 
         st.session_state["genie_history"].append({
             "role": "user",
-            "content": user_input,
+            "content": effective_user_input,
         })
 
         runtime_state = dict(dashboard_state or {})
-        thought_map_user_notes = consume_pending_human_notes()
-        if thought_map_user_notes:
-            runtime_state["thought_map_user_notes"] = thought_map_user_notes
-        transcript_context = build_query_transcript_context(user_input, runtime_state)
+        if _consumed_thought_map_notes:
+            runtime_state["thought_map_user_notes"] = _consumed_thought_map_notes
+        transcript_context = build_query_transcript_context(effective_user_input, runtime_state)
         if transcript_context:
             runtime_state["matched_transcript_context"] = transcript_context
 
         messages = build_genie_messages(
             conversation_history=st.session_state["genie_history"][:-1],
             dashboard_state=runtime_state,
-            user_message=user_input,
+            user_message=effective_user_input,
         )
 
         msg_index = len(st.session_state["genie_history"]) - 1
