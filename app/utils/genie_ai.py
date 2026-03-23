@@ -233,7 +233,9 @@ def stream_genie_response(messages: list[dict]) -> str:
 
     with st.chat_message("assistant", avatar="🧞"):
         placeholder = st.empty()
+        node_counter = st.empty()  # Live node detection counter
         full_response = ""
+        _detected_nodes = 0
 
         try:
             stream = client.chat.completions.create(
@@ -248,12 +250,29 @@ def stream_genie_response(messages: list[dict]) -> str:
                 if delta:
                     full_response += delta
                     placeholder.markdown(full_response + "▌")
+                    # Count reasoning markers as they arrive
+                    new_count = full_response.upper().count("[STEP") + \
+                                full_response.upper().count("[BRANCH") + \
+                                full_response.upper().count("[CONCLUSION") + \
+                                full_response.upper().count("[OBSERVATION") + \
+                                full_response.upper().count("[ANALYSIS") + \
+                                full_response.upper().count("[INFERENCE")
+                    if new_count > _detected_nodes:
+                        _detected_nodes = new_count
+                        node_counter.markdown(
+                            f"<div style='font-size:0.75rem;color:#ff8c42;padding:4px 0;'>"
+                            f"Building thought map... {_detected_nodes} "
+                            f"{'node' if _detected_nodes == 1 else 'nodes'} detected</div>",
+                            unsafe_allow_html=True,
+                        )
 
             placeholder.markdown(clean_thought_markers(full_response))
+            node_counter.empty()  # Clear counter once done
 
         except Exception as exc:  # pragma: no cover
-            error_msg = f"⚠️ AI API issue: {str(exc)}"
+            error_msg = f"AI API issue: {str(exc)}"
             placeholder.warning(error_msg)
+            node_counter.empty()
             return error_msg
 
     return full_response

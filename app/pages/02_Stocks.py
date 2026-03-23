@@ -667,49 +667,7 @@ st.markdown("""
         border-color: #d7e3ff;
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
     }
-    /* Stocks page buttons — triple-specificity to beat global styles.py.
-       Uses body prefix + attribute selector + class to guarantee override. */
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:focus,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:active,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:visited,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:focus-visible,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:focus,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:active {
-        background: #1e40af !important;
-        background-color: #1e40af !important;
-        background-image: none !important;
-        border: 1px solid #1e3a8a !important;
-        color: #ffffff !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        font-size: 0.82rem !important;
-        padding: 8px 18px !important;
-        letter-spacing: 0.04em !important;
-        box-shadow: 0 1px 3px rgba(30,64,175,0.25) !important;
-        width: 100% !important;
-        transition: all 0.2s ease !important;
-        cursor: pointer !important;
-    }
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button *,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button p,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button span,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button *,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button p,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button span {
-        color: #ffffff !important;
-    }
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] .stButton > button:hover,
-    body section[data-testid="stMain"] div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:hover {
-        background: #1d4ed8 !important;
-        background-color: #1d4ed8 !important;
-        background-image: none !important;
-        color: #ffffff !important;
-        border-color: #1e40af !important;
-        box-shadow: 0 3px 8px rgba(30,64,175,0.35) !important;
-        transform: translateY(-1px);
-    }
+    /* placeholder — real button styles injected via JS at end of page */
     .price-up {
         color: green;
     }
@@ -1138,3 +1096,53 @@ dashboard_state = {
     'page': 'Stocks',
     'selected_company': st.session_state.get('selected_company', None),
 }
+
+# ── Button style override — injected LAST via JS to guarantee it wins ──
+# Streamlit injects its own styles at runtime; CSS specificity wars are
+# unreliable. This script runs after the page renders and forces styles
+# directly onto the DOM elements, which always wins.
+import streamlit.components.v1 as _comp
+_comp.html("""
+<script>
+(function() {
+  var style = document.createElement('style');
+  style.textContent = [
+    '.stButton > button, [data-testid="stButton"] > button {',
+    '  background: #1e40af !important;',
+    '  background-color: #1e40af !important;',
+    '  background-image: none !important;',
+    '  border: 1px solid #1e3a8a !important;',
+    '  color: #ffffff !important;',
+    '  border-radius: 8px !important;',
+    '  font-weight: 600 !important;',
+    '  font-size: 0.82rem !important;',
+    '  padding: 8px 18px !important;',
+    '  box-shadow: 0 1px 3px rgba(30,64,175,0.25) !important;',
+    '  cursor: pointer !important;',
+    '}',
+    '.stButton > button *, [data-testid="stButton"] > button * {',
+    '  color: #ffffff !important;',
+    '}',
+    '.stButton > button:hover, [data-testid="stButton"] > button:hover {',
+    '  background: #1d4ed8 !important;',
+    '  background-image: none !important;',
+    '  box-shadow: 0 3px 8px rgba(30,64,175,0.35) !important;',
+    '}',
+    '.stButton > button:active, .stButton > button:focus,',
+    '.stButton > button:focus-visible,',
+    '[data-testid="stButton"] > button:active,',
+    '[data-testid="stButton"] > button:focus,',
+    '[data-testid="stButton"] > button:focus-visible {',
+    '  background: #1e40af !important;',
+    '  background-image: none !important;',
+    '  outline: none !important;',
+    '  box-shadow: none !important;',
+    '}',
+  ].join('\\n');
+  // Inject into parent document (Streamlit app), not this iframe
+  if (window.parent && window.parent.document) {
+    window.parent.document.head.appendChild(style);
+  }
+})();
+</script>
+""", height=0)

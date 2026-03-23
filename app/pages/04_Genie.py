@@ -3176,8 +3176,8 @@ for _si, _sq in enumerate(_visible_suggestions):
             use_container_width=True,
         ):
             add_queued_node(_sq, source_type="suggestion")
-            st.session_state["suggestion_seed"] = _rng.randint(0, 999999)
-            st.rerun()
+            # No st.rerun() — queued node appears on next natural interaction
+            # to avoid jarring full-page reload
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Forward Signals Panel ─────────────────────────────────────────────────
@@ -3360,7 +3360,7 @@ if _all_signals:
                                 source_type="signal",
                                 meta={"company": sig["company"], "year": sig["year"], "quarter": sig["quarter"]},
                             )
-                            st.rerun()
+                            # No st.rerun() — avoid full page reload
 else:
     if not _fs_companies:
         st.info("Select companies above to see guidance signals extracted from earnings call transcripts.")
