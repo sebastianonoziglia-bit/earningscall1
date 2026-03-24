@@ -452,8 +452,7 @@ def _render_company_card(company, company_logos, stock_processor, timeframe, but
                 st.session_state.selected_timeframe = timeframe
                 st.rerun()
         return True
-    except Exception as e:
-        st.error(f"Error loading data for {company}: {str(e)}")
+    except Exception:
         return False
 
 
@@ -668,8 +667,44 @@ st.markdown("""
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
     }
     /* Hide Streamlit element toolbar overlay that creates dark bar on hover */
-    [data-testid="stElementToolbar"] {
+    [data-testid="stElementToolbar"],
+    [data-testid="stElementToolbarBorderless"] {
         display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+    /* Blue button styling — CSS fallback alongside JS inline styles.
+       .stApp prefix raises specificity above Streamlit emotion classes.
+       -webkit-text-fill-color needed because emotion CSS overrides color. */
+    .stApp div[data-testid="stButton"] > button,
+    .stApp [data-testid="stBaseButton-secondary"],
+    .stApp [data-testid="stBaseButton-primary"] {
+        background: #1e40af !important;
+        background-color: #1e40af !important;
+        background-image: none !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border: 1px solid #1e3a8a !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        padding: 8px 18px !important;
+        box-shadow: 0 2px 6px rgba(30,64,175,0.18) !important;
+        cursor: pointer !important;
+    }
+    .stApp div[data-testid="stButton"] > button:hover,
+    .stApp [data-testid="stBaseButton-secondary"]:hover,
+    .stApp [data-testid="stBaseButton-primary"]:hover {
+        background: #2563eb !important;
+        background-color: #2563eb !important;
+        background-image: none !important;
+    }
+    .stApp div[data-testid="stButton"] > button p,
+    .stApp div[data-testid="stButton"] > button span,
+    .stApp [data-testid="stBaseButton-secondary"] p,
+    .stApp [data-testid="stBaseButton-secondary"] span {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
     }
     .price-up {
         color: green;
@@ -743,26 +778,17 @@ with tab1:
         # Default timeframe for overview cards
         timeframe = "3M"
 
+        # Single continuous grid — companies + indicators packed left-to-right.
+        # Indicator cards keep their visual distinction via .indicator-card CSS.
+        all_display = companies_main + companies_indicators
         _render_company_grid(
-            companies_main,
+            all_display,
             company_logos,
             stock_processor,
             timeframe,
             button_prefix="company",
+            center_last_single=False,
         )
-
-        if companies_indicators:
-            st.markdown("<div style='height: 2.2rem;'></div>", unsafe_allow_html=True)
-            st.subheader("Main Indicators")
-            st.caption("Core market signals are separated from the main company wall for easier scanning.")
-            _render_company_grid(
-                companies_indicators,
-                company_logos,
-                stock_processor,
-                timeframe,
-                button_prefix="indicator",
-                center_last_single=True,
-            )
         
         # Add JavaScript for handling card clicks
         st.markdown("""
@@ -1120,9 +1146,6 @@ _comp.html("""
       '[data-testid="stBaseButton-primary"]'
     );
     btns.forEach(function(btn) {
-      // Skip buttons not on this page (nav bar etc)
-      var p = btn.closest('[data-testid="stAppViewBlockContainer"]');
-      if (!p) return;
       btn.style.setProperty('background', BLUE, 'important');
       btn.style.setProperty('background-color', BLUE, 'important');
       btn.style.setProperty('background-image', 'none', 'important');
