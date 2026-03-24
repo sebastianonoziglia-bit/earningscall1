@@ -28,7 +28,7 @@ from utils.data_loader import load_advertising_data, get_available_filters, read
 from utils.components import render_ai_assistant
 from utils.styles import load_common_styles, load_genie_specific_styles
 from utils.enhanced_chat_interface import render_enhanced_chat_interface
-from utils.thought_map import render_thought_map, render_thought_map_controls, match_signal_category, add_queued_node, get_queued_nodes
+from utils.thought_map import render_thought_map, render_thought_map_controls, match_signal_category, add_queued_node, get_queued_nodes, clear_thought_map
 from utils.m2_supply_data import get_m2_monthly_data, get_m2_annual_data, create_m2_visualization
 from utils.fed_funds_data import get_fed_funds_annual_data
 from utils.bitcoin_analysis import get_bitcoin_monthly_returns, create_bitcoin_monthly_returns_chart, render_bitcoin_analysis_section
