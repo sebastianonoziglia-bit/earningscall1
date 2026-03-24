@@ -768,6 +768,54 @@ div[data-testid="stButton"] button:hover {
         background-color: #e8f0fe;
         border-color: #4285f4;
     }
+
+    /* ── Fix: hide Material Icons text when font fails to load ("arrow_right" etc.) ── */
+    [data-testid="stExpander"] details summary span:first-child,
+    [data-testid="stExpander"] details summary span:first-of-type:not([data-testid]) {
+        font-size: 0 !important;
+        color: transparent !important;
+        overflow: hidden !important;
+        width: 20px !important;
+        max-width: 20px !important;
+        height: 20px !important;
+        max-height: 20px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        line-height: 0 !important;
+    }
+    [data-testid="stExpander"] details summary span:first-child svg,
+    [data-testid="stExpander"] details summary span:first-of-type:not([data-testid]) svg {
+        font-size: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        width: 20px !important;
+        height: 20px !important;
+        color: #94a3b8 !important;
+        visibility: visible !important;
+    }
+
+    /* ── Expander label text — ensure white on dark expander headers ── */
+    [data-testid="stExpander"] details summary span[data-testid="stMarkdownContainer"],
+    [data-testid="stExpander"] details summary span[data-testid="stMarkdownContainer"] p,
+    [data-testid="stExpander"] details summary span[data-testid="stMarkdownContainer"] span {
+        color: #e6edf3 !important;
+    }
+
+    /* ── Fix multiselect pill text clipping ── */
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+        overflow: visible !important;
+        max-width: none !important;
+    }
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] span {
+        overflow: visible !important;
+        text-overflow: unset !important;
+        white-space: nowrap !important;
+    }
+    [data-testid="stMultiSelect"] [data-baseweb="input"] {
+        overflow: visible !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -936,7 +984,44 @@ with col1:
         def get_company_segments_for_selection(company, excel_path):
             """Get actual segment names for a company from the workbook."""
             try:
-                df = pd.read_excel(excel_path, sheet_name="Company_yearly_segments_values")
+                # Try the yearly segments sheet first
+                try:
+                    df = pd.read_excel(excel_path, sheet_name="Company_yearly_segments_values")
+                except Exception:
+                    df = pd.DataFrame()
+
+                if df.empty:
+                    # Fallback: read from quarterly segment sheets (e.g. "Alphabet Quarterly Segments")
+                    try:
+                        xl = pd.ExcelFile(excel_path)
+                        comp_norm = str(company).strip().lower()
+                        matching_sheet = None
+                        for sheet in xl.sheet_names:
+                            if "quarterly segments" in sheet.lower():
+                                sheet_comp = sheet.replace("Quarterly Segments", "").strip()
+                                for _sfx in ("Granular", "Gran"):
+                                    if sheet_comp.endswith(_sfx):
+                                        sheet_comp = sheet_comp[:-len(_sfx)].strip()
+                                if sheet_comp.lower() == comp_norm or comp_norm.startswith(sheet_comp.lower()[:6]):
+                                    matching_sheet = sheet
+                                    break
+                        if matching_sheet:
+                            df_q = pd.read_excel(excel_path, sheet_name=matching_sheet)
+                            df_q.columns = [str(c).strip() for c in df_q.columns]
+                            # Find the segment column (usually first non-year column)
+                            seg_col = None
+                            for c in df_q.columns:
+                                if "segment" in c.lower() or c == df_q.columns[0]:
+                                    seg_col = c
+                                    break
+                            if seg_col:
+                                segments = df_q[seg_col].dropna().unique().tolist()
+                                segments = [str(s).strip() for s in segments if str(s).strip() and not str(s).strip().replace('.','',1).replace('-','',1).isdigit()]
+                                return [(company, seg) for seg in sorted(segments)]
+                        return []
+                    except Exception:
+                        return []
+
                 df.columns = [str(c).strip().lower() for c in df.columns]
                 comp_col = "company" if "company" in df.columns else df.columns[0]
                 seg_col = next((c for c in df.columns if "segment" in c), None)

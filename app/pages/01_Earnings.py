@@ -78,9 +78,10 @@ def main():
         }
 
         /* Fix: hide Material Icons text when font fails to load (shows "arrow_right" etc.) */
-        [data-testid="stExpander"] details > summary > span:first-child,
-        [data-testid="stExpander"] details > summary > span:first-of-type:not([data-testid]) {
+        [data-testid="stExpander"] details summary span:first-child,
+        [data-testid="stExpander"] details summary span:first-of-type:not([data-testid]) {
             font-size: 0 !important;
+            color: transparent !important;
             overflow: hidden !important;
             width: 20px !important;
             max-width: 20px !important;
@@ -90,18 +91,21 @@ def main():
             align-items: center !important;
             justify-content: center !important;
             flex-shrink: 0 !important;
+            line-height: 0 !important;
         }
-        [data-testid="stExpander"] details > summary > span:first-child svg,
-        [data-testid="stExpander"] details > summary > span:first-of-type:not([data-testid]) svg {
+        [data-testid="stExpander"] details summary span:first-child svg,
+        [data-testid="stExpander"] details summary span:first-of-type:not([data-testid]) svg {
             font-size: 20px !important;
             min-width: 20px !important;
             min-height: 20px !important;
             width: 20px !important;
             height: 20px !important;
+            color: #94a3b8 !important;
+            visibility: visible !important;
         }
         /* CSS-only fallback arrow when Material Icons font fails */
-        [data-testid="stExpander"] details > summary > span:first-child:empty::before,
-        [data-testid="stExpander"] details[open] > summary > span:first-child::after {
+        [data-testid="stExpander"] details summary span:first-child:empty::before,
+        [data-testid="stExpander"] details[open] summary span:first-child::after {
             content: "" !important;
             display: none !important;
         }

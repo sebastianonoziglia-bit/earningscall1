@@ -1436,7 +1436,20 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
     }
 
     function startGenieThoughts() {
-      try { window.parent.postMessage({type: "tm_start_genie"}, "*"); } catch(e) {}
+      try {
+        // Scroll the parent page down to the chat input area
+        var chatInput = window.parent.document.querySelector('[data-testid="stChatInput"] textarea, [data-testid="stTextArea"] textarea, [data-testid="stChatMessageInput"] textarea');
+        if (chatInput) {
+          chatInput.scrollIntoView({behavior: "smooth", block: "center"});
+          setTimeout(function() { chatInput.focus(); }, 400);
+        } else {
+          // Fallback: scroll to bottom of page
+          window.parent.scrollTo({top: window.parent.document.body.scrollHeight, behavior: "smooth"});
+        }
+      } catch(e) {
+        // Cross-origin fallback
+        try { window.parent.postMessage({type: "tm_start_genie"}, "*"); } catch(e2) {}
+      }
     }
 
     function elaborateNode() {

@@ -163,9 +163,9 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
         for q in queued[:4]:
             _txt = html.escape(str(q.get("content", ""))[:120])
             _items_html += (
-                f"<div style='background:rgba(255,255,255,0.06);border:1px solid rgba(255,91,31,0.2);"
+                f"<div style='background:rgba(255,91,31,0.05);border:1px solid rgba(255,91,31,0.2);"
                 f"border-radius:8px;padding:6px 10px;margin-top:6px;font-size:0.82rem;"
-                f"color:#CBD5E1;line-height:1.4;'>{_txt}</div>"
+                f"color:#1e293b;line-height:1.4;'>{_txt}</div>"
             )
         _more = f"<div style='color:#64748B;font-size:0.75rem;margin-top:4px;'>+{len(queued) - 4} more queued</div>" if len(queued) > 4 else ""
         st.markdown(
