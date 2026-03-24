@@ -78,17 +78,32 @@ def main():
         }
 
         /* Fix: hide Material Icons text when font fails to load (shows "arrow_right" etc.) */
-        [data-testid="stExpander"] details > summary > span:first-child {
+        [data-testid="stExpander"] details > summary > span:first-child,
+        [data-testid="stExpander"] details > summary > span:first-of-type:not([data-testid]) {
+            font-size: 0 !important;
             overflow: hidden !important;
-            max-width: 24px !important;
-            max-height: 24px !important;
+            width: 20px !important;
+            max-width: 20px !important;
+            height: 20px !important;
+            max-height: 20px !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
+            flex-shrink: 0 !important;
         }
-        [data-testid="stExpander"] details > summary > span:first-child svg {
+        [data-testid="stExpander"] details > summary > span:first-child svg,
+        [data-testid="stExpander"] details > summary > span:first-of-type:not([data-testid]) svg {
+            font-size: 20px !important;
             min-width: 20px !important;
             min-height: 20px !important;
+            width: 20px !important;
+            height: 20px !important;
+        }
+        /* CSS-only fallback arrow when Material Icons font fails */
+        [data-testid="stExpander"] details > summary > span:first-child:empty::before,
+        [data-testid="stExpander"] details[open] > summary > span:first-child::after {
+            content: "" !important;
+            display: none !important;
         }
 
         h1 {
@@ -127,10 +142,15 @@ def main():
             background-image: var(--hero-image);
             background-size: cover;
             background-position: center;
-            filter: blur(18px);
+            filter: blur(0px);
             transform: scale(1.08);
-            opacity: 0.85;
+            opacity: 0;
             z-index: 0;
+            transition: filter 0.8s ease, opacity 0.8s ease;
+        }
+        .earnings-hero.is-loaded::before {
+            filter: blur(18px);
+            opacity: 0.85;
         }
 
     	    .earnings-hero img {
@@ -2067,8 +2087,6 @@ def main():
         for sheet in xls.sheet_names:
             if "Quarterly Segments" not in sheet:
                 continue
-            if "Gran" in sheet:
-                continue
             try:
                 df = pd.read_excel(xls, sheet_name=sheet)
             except Exception as exc:
@@ -2077,6 +2095,10 @@ def main():
             if df is None or df.empty:
                 continue
             company_name = sheet.replace("Quarterly Segments", "").strip()
+            # Strip trailing granularity suffixes (e.g. "Comcast Quarterly Segments Gran")
+            for _sfx in ("Granular", "Gran"):
+                if company_name.endswith(_sfx):
+                    company_name = company_name[:-len(_sfx)].strip()
             company_name = QUARTERLY_COMPANY_MAP.get(company_name, company_name)
             # Align quarterly company names with the rest of the app (e.g., "Warner Bros." vs "Warner Bros").
             company_name = normalize_company(company_name)
@@ -3586,6 +3608,12 @@ def main():
     	                    }}, delayMs + (idx * stepMs))
     	                );
     	            }});
+    	            // Enable blur backdrop after KPIs finish animating
+    	            window.parent.__kpiAnimTimers.push(
+    	                window.parent.setTimeout(function() {{
+    	                    hero.classList.add("is-loaded");
+    	                }}, delayMs + (cards.length * stepMs) + 200)
+    	            );
     	        }};
 
     	        if (img && !img.complete) {{
@@ -6138,6 +6166,13 @@ function cgMetric(tab,mid,btn){
 /* Fix expander arrow icon rendering as text when material font fails to load */
 .ti-earnings-wrap [data-testid="stExpander"] details summary span[data-testid="stMarkdownContainer"] {
     display: inline !important;
+}
+.ti-earnings-wrap [data-testid="stExpander"] details > summary > span:first-child,
+.ti-earnings-wrap [data-testid="stExpander"] details > summary > span:first-of-type:not([data-testid]) {
+    font-size: 0 !important;
+    width: 20px !important; max-width: 20px !important;
+    height: 20px !important; max-height: 20px !important;
+    overflow: hidden !important;
 }
 </style>""", unsafe_allow_html=True)
 
