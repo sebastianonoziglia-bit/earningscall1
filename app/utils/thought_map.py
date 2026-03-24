@@ -228,6 +228,21 @@ def get_queued_nodes() -> list[dict]:
     return [n for n in tm["nodes"].values() if n.get("type") == "queued"]
 
 
+def remove_node_from_map(node_id: str) -> bool:
+    """Remove a node and its connected edges from the thought map."""
+    tm = _get_map()
+    if node_id not in tm["nodes"]:
+        return False
+    del tm["nodes"][node_id]
+    tm["root_ids"] = [rid for rid in tm["root_ids"] if rid != node_id]
+    tm["edges"] = [e for e in tm["edges"] if e["from"] != node_id and e["to"] != node_id]
+    for node in tm["nodes"].values():
+        if node_id in node.get("children", []):
+            node["children"].remove(node_id)
+    st.session_state["thought_map"] = tm
+    return True
+
+
 def promote_queued_nodes():
     """Mark all queued nodes as 'root' after AI reasoning starts. Returns the combined prompt text."""
     tm = _get_map()
@@ -371,11 +386,29 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
             "background: radial-gradient(circle at 50% 50%, rgba(255,91,31,0.04), transparent 60%);'>"
             "<div style='font-size:2.5rem; margin-bottom:12px;'>&#x1f9e0;</div>"
             "<strong style='font-size:1rem; color:#94A3B8;'>Thought Map</strong><br/>"
-            "<span style='font-size:0.85rem;'>Select questions and signals below to queue them as nodes.<br/>"
-            "Then press <b style='color:#ff5b1f;'>Start Genie Thoughts</b> to let the AI reason through them.</span>"
+            "<span style='font-size:0.85rem;'>Enter a question below to start mapping, "
+            "or select signals from the panels to queue them as nodes.</span>"
             "</div>",
             unsafe_allow_html=True,
         )
+        _start_col1, _start_col2 = st.columns([3, 1])
+        with _start_col1:
+            _start_text = st.text_input(
+                "Start a new thought",
+                placeholder="e.g. How does Meta's ad revenue compare to Google's?",
+                key="tm_start_thought_input",
+                label_visibility="collapsed",
+            )
+        with _start_col2:
+            _start_clicked = st.button(
+                "Start Thought",
+                key="tm_start_thought_btn",
+                type="primary",
+                use_container_width=True,
+            )
+        if _start_clicked and _start_text and _start_text.strip():
+            add_queued_node(_start_text.strip(), source_type="user_input")
+            st.rerun()
         return
 
     cy_nodes = []
@@ -565,7 +598,7 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       position: absolute;
       top: 14px;
       left: 14px;
-      right: 14px;
+      right: 230px;
       z-index: 8;
       border-radius: 18px;
       padding: 12px 14px;
@@ -642,6 +675,52 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       color: inherit;
       font-size: 10px;
       font-weight: 800;
+    }
+    #view-bar {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 10;
+      border-radius: 999px;
+      padding: 5px 6px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .vb-btn {
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 6px 14px;
+      background: transparent;
+      color: #8ea2bf;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 180ms ease;
+      white-space: nowrap;
+    }
+    .vb-btn:hover {
+      color: #fff;
+      background: rgba(255,255,255,0.08);
+    }
+    .vb-btn.active {
+      color: #fff;
+      background: rgba(56,189,248,0.22);
+      border-color: rgba(56,189,248,0.5);
+    }
+    .toolbar-btn.accent,
+    .side-btn.accent,
+    .dock-btn.accent {
+      border-color: rgba(255,91,31,0.34);
+      color: #ff8c42;
+      background: linear-gradient(135deg, rgba(255,91,31,0.14), rgba(255,91,31,0.08));
+    }
+    .toolbar-btn.accent:hover,
+    .side-btn.accent:hover,
+    .dock-btn.accent:hover {
+      border-color: rgba(255,91,31,0.8);
+      color: #fff;
+      background: linear-gradient(135deg, rgba(255,91,31,0.36), rgba(255,91,31,0.22));
     }
     #map-status {
       position: absolute;
@@ -916,14 +995,20 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
     <div id="map-stage">
       <div class="aurora"></div>
 
+      <div id="view-bar" class="glass">
+        <button class="vb-btn" data-view="classic" onclick="setView('classic')">Classic</button>
+        <button class="vb-btn" data-view="studio" onclick="setView('studio')">Studio</button>
+        <button class="vb-btn" data-view="focus" onclick="setView('focus')">Focus</button>
+      </div>
+
       <div id="classic-toolbar" class="glass">
         <div class="toolbar-group">
-          <button class="toolbar-btn" type="button" onclick="fitMap()">Fit</button>
+          <button class="toolbar-btn accent" type="button" onclick="startNewThought()">+ New Thought</button>
+          <button class="toolbar-btn" type="button" onclick="resetView()">Reset View</button>
           <button class="toolbar-btn" type="button" onclick="zoomIn()">+</button>
           <button class="toolbar-btn" type="button" onclick="zoomOut()">-</button>
-          <button class="toolbar-btn" type="button" onclick="relayout()">Re-layout</button>
           <button class="toolbar-btn" id="focusBtn" type="button" onclick="toggleFocus()">Smart Focus</button>
-          <button class="toolbar-btn danger" type="button" onclick="refreshMap()">Refresh</button>
+          <button class="toolbar-btn danger" type="button" onclick="deleteSelectedNode()" id="deleteBtn" style="display:none;">Remove Node</button>
         </div>
         <div class="toolbar-group">
           <button class="toolbar-btn active" type="button" data-filter="all" onclick="setFilter('all')">All <span class="count-badge" data-count="all"></span></button>
@@ -937,10 +1022,10 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       </div>
 
       <div id="focus-dock" class="glass">
-        <button class="dock-btn" type="button" onclick="fitMap()">Fit</button>
-        <button class="dock-btn" type="button" onclick="relayout()">Re-layout</button>
+        <button class="dock-btn accent" type="button" onclick="startNewThought()">+ New</button>
+        <button class="dock-btn" type="button" onclick="resetView()">Reset</button>
         <button class="dock-btn" id="focusDockBtn" type="button" onclick="toggleFocus()">Focus</button>
-        <button class="dock-btn danger" type="button" onclick="refreshMap()">Refresh</button>
+        <button class="dock-btn danger" type="button" onclick="deleteSelectedNode()" id="deleteDockBtn" style="display:none;">Remove</button>
       </div>
 
       <div id="map-status" class="glass">
@@ -978,10 +1063,10 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       <div class="sidebar-content">
         <div class="sidebar-card">
           <div class="section-title">Actions</div>
-          <button class="side-btn" type="button" onclick="fitMap()">Fit to canvas</button>
-          <button class="side-btn" type="button" onclick="relayout()">Re-layout graph</button>
+          <button class="side-btn accent" type="button" onclick="startNewThought()">+ New Thought</button>
+          <button class="side-btn" type="button" onclick="resetView()">Reset view</button>
           <button class="side-btn" id="focusSideBtn" type="button" onclick="toggleFocus()">Smart Focus</button>
-          <button class="side-btn danger" type="button" onclick="refreshMap()">Refresh view</button>
+          <button class="side-btn danger" type="button" onclick="deleteSelectedNode()" id="deleteSideBtn" style="display:none;">Remove Selected Node</button>
         </div>
 
         <div class="sidebar-card">
@@ -1272,7 +1357,7 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       }
     }
 
-    function refreshMap() {
+    function resetView() {
       currentFilter = "all";
       focusActive = false;
       updateFocusButtons();
@@ -1281,9 +1366,73 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       cy.edges().style("display", "element");
       clearSelection();
       document.getElementById("tooltip").style.display = "none";
+      toggleDeleteButtons(false);
       relayout();
       updateFilterButtons();
-      setTimeout(() => fitMap(), 340);
+      setTimeout(function() { fitMap(); }, 340);
+    }
+
+    function setView(v) {
+      root.classList.remove("view-classic", "view-studio", "view-focus");
+      root.classList.add("view-" + v);
+      document.querySelectorAll(".vb-btn[data-view]").forEach(function(b) {
+        b.classList.toggle("active", b.dataset.view === v);
+      });
+      setTimeout(function() { fitMap(); }, 200);
+    }
+
+    function startNewThought() {
+      var text = prompt("Enter a new thought or question:");
+      if (!text || !text.trim()) return;
+      text = text.trim();
+      var nodeId = "user_" + Date.now();
+      var label = text.length > 30 ? text.substring(0, 30) + "..." : text;
+      cy.add({
+        data: {
+          id: nodeId,
+          label: label,
+          fullLabel: text.length > 60 ? text.substring(0, 60) + "..." : text,
+          content: text.length > 150 ? text.substring(0, 150) + "..." : text,
+          fullContent: text,
+          type: "queued",
+          color: "#ff5b1f",
+          depth: 0,
+          signalCategory: "",
+          sourceType: "user_input"
+        }
+      });
+      meta.nodeCount += 1;
+      meta.counts.all += 1;
+      meta.counts.queued = (meta.counts.queued || 0) + 1;
+      updateCountBadges();
+      renderContext();
+      relayout();
+      setTimeout(function() { fitMap(); }, 360);
+      try {
+        window.parent.postMessage({type: "tm_new_thought", text: text, nodeId: nodeId}, "*");
+      } catch(e) {}
+    }
+
+    function deleteSelectedNode() {
+      if (!activeNode) return;
+      var nodeId = activeNode.data("id");
+      // Remove connected edges first
+      activeNode.connectedEdges().remove();
+      // Remove the node from Cytoscape
+      activeNode.remove();
+      activeNode = null;
+      clearSelection();
+      updateCountBadges();
+      toggleDeleteButtons(false);
+      // Post message to parent Streamlit to remove from session state
+      try {
+        window.parent.postMessage({type: "tm_delete_node", nodeId: nodeId}, "*");
+      } catch(e) {}
+    }
+
+    function toggleDeleteButtons(show) {
+      var btns = document.querySelectorAll("#deleteBtn, #deleteDockBtn, #deleteSideBtn");
+      btns.forEach(function(b) { b.style.display = show ? "" : "none"; });
     }
 
     function toggleFocus() {
@@ -1330,7 +1479,10 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
     }
 
     root.classList.remove("view-classic", "view-studio", "view-focus");
-    root.classList.add(`view-${initialView}`);
+    root.classList.add("view-" + initialView);
+    document.querySelectorAll(".vb-btn[data-view]").forEach(function(b) {
+      b.classList.toggle("active", b.dataset.view === initialView);
+    });
     cy.add(elements);
     relayout();
     const allNodes = cy.nodes();
@@ -1400,11 +1552,13 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       renderSelection(targetData);
       showDetailPanel(targetData);
       tooltip.style.display = "none";
+      toggleDeleteButtons(true);
     });
     cy.on("tap", (evt) => {
       if (evt.target === cy) {
         tooltip.style.display = "none";
         clearSelection();
+        toggleDeleteButtons(false);
       }
     });
 
@@ -1561,7 +1715,7 @@ def render_thought_map_controls():
     tm = _get_map()
     reasoning_candidates = [node for node in tm["nodes"].values() if is_reasoning_node(node)]
 
-    col1, col2, col3 = st.columns([2.5, 1.2, 1.5])
+    col1, col2, col3, col4 = st.columns([2.2, 1.0, 1.2, 1.2])
 
     with col1:
         with st.form("tm_annotation_form", clear_on_submit=True):
@@ -1633,6 +1787,23 @@ def render_thought_map_controls():
                 mime=_mime,
                 key="tm_export_btn",
             )
+
+    with col4:
+        _node_options = {
+            nid: f"{n.get('label', '?')[:28]} ({n.get('type', '?')})"
+            for nid, n in tm["nodes"].items()
+        }
+        if _node_options:
+            _sel_remove = st.selectbox(
+                "Remove node",
+                options=list(_node_options.keys()),
+                format_func=lambda x: _node_options.get(x, x),
+                key="tm_remove_select",
+                label_visibility="collapsed",
+            )
+            if st.button("Remove", key="tm_remove_btn", use_container_width=True):
+                remove_node_from_map(_sel_remove)
+                st.rerun()
 
 
 def _map_to_markdown(tm: dict) -> str:
