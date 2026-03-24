@@ -1447,75 +1447,117 @@ def render_thought_map_dashboard():
     total = len(tm["nodes"])
     edges = len(tm["edges"])
 
-    # Build status cards as HTML
+    # Build status cards with INLINE styles (st.markdown strips class attributes)
+    _stat_base = (
+        "background:rgba(15,23,42,0.6);border-radius:6px;"
+        "padding:6px 12px;min-width:60px;text-align:center;display:inline-block;"
+    )
+    _num_base = "display:block;font-size:1.3rem;font-weight:800;"
+    _lbl_base = "display:block;font-size:0.65rem;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;"
+
     cards = []
     if queued:
-        cards.append(f"<div class='tm-stat' style='border-color:#ff5b1f'>"
-                     f"<span class='tm-stat-n' style='color:#ff5b1f'>{queued}</span>"
-                     f"<span class='tm-stat-l'>Queued</span></div>")
+        cards.append(
+            f"<div style='{_stat_base}border-left:3px solid #ff5b1f;'>"
+            f"<span style='{_num_base}color:#ff5b1f;'>{queued}</span>"
+            f"<span style='{_lbl_base}'>Queued</span></div>")
     if steps:
-        cards.append(f"<div class='tm-stat' style='border-color:#0073FF'>"
-                     f"<span class='tm-stat-n' style='color:#0073FF'>{steps}</span>"
-                     f"<span class='tm-stat-l'>Steps</span></div>")
+        cards.append(
+            f"<div style='{_stat_base}border-left:3px solid #0073FF;'>"
+            f"<span style='{_num_base}color:#0073FF;'>{steps}</span>"
+            f"<span style='{_lbl_base}'>Steps</span></div>")
     if branches:
-        cards.append(f"<div class='tm-stat' style='border-color:#F59E0B'>"
-                     f"<span class='tm-stat-n' style='color:#F59E0B'>{branches}</span>"
-                     f"<span class='tm-stat-l'>Branches</span></div>")
+        cards.append(
+            f"<div style='{_stat_base}border-left:3px solid #F59E0B;'>"
+            f"<span style='{_num_base}color:#F59E0B;'>{branches}</span>"
+            f"<span style='{_lbl_base}'>Branches</span></div>")
     if conclusions:
-        cards.append(f"<div class='tm-stat' style='border-color:#10B981'>"
-                     f"<span class='tm-stat-n' style='color:#10B981'>{conclusions}</span>"
-                     f"<span class='tm-stat-l'>Conclusions</span></div>")
+        cards.append(
+            f"<div style='{_stat_base}border-left:3px solid #10B981;'>"
+            f"<span style='{_num_base}color:#10B981;'>{conclusions}</span>"
+            f"<span style='{_lbl_base}'>Conclusions</span></div>")
     if human:
-        cards.append(f"<div class='tm-stat' style='border-color:#8B5CF6'>"
-                     f"<span class='tm-stat-n' style='color:#8B5CF6'>{human}</span>"
-                     f"<span class='tm-stat-l'>Notes</span></div>")
-    cards.append(f"<div class='tm-stat' style='border-color:#475569'>"
-                 f"<span class='tm-stat-n' style='color:#94A3B8'>{edges}</span>"
-                 f"<span class='tm-stat-l'>Links</span></div>")
+        cards.append(
+            f"<div style='{_stat_base}border-left:3px solid #8B5CF6;'>"
+            f"<span style='{_num_base}color:#8B5CF6;'>{human}</span>"
+            f"<span style='{_lbl_base}'>Notes</span></div>")
+    cards.append(
+        f"<div style='{_stat_base}border-left:3px solid #475569;'>"
+        f"<span style='{_num_base}color:#94A3B8;'>{edges}</span>"
+        f"<span style='{_lbl_base}'>Links</span></div>")
 
     # Latest activity
     latest_nodes = sorted(tm["nodes"].values(), key=lambda n: n.get("created_at", ""), reverse=True)[:3]
-    activity_html = ""
+    activity_items = []
     for n in latest_nodes:
-        icon = {"root": "&#x1F535;", "step": "&#x27A1;", "branch": "&#x1F500;", "conclusion": "&#x2705;",
-                "human": "&#x1F4AC;", "queued": "&#x1F7E0;"}.get(n["type"], "&#x2022;")
+        _type_colors = {"root": "#0073FF", "step": "#0073FF", "branch": "#F59E0B",
+                        "conclusion": "#10B981", "human": "#8B5CF6", "queued": "#ff5b1f"}
+        _tc = _type_colors.get(n["type"], "#475569")
         safe_label = html.escape(str(n.get("label", ""))[:40])
         safe_type = html.escape(str(n.get("type", "")))
-        activity_html += (
-            f"<div class='tm-activity'>"
-            f"<span>{icon}</span>"
-            f"<span class='tm-act-label'>{safe_label}</span>"
-            f"<span class='tm-act-type'>{safe_type}</span>"
+        activity_items.append(
+            f"<div style='display:flex;align-items:center;gap:6px;padding:2px 0;font-size:0.8rem;color:#CBD5E1;'>"
+            f"<span style='width:8px;height:8px;border-radius:50%;background:{_tc};flex-shrink:0;display:inline-block;'></span>"
+            f"<span style='flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>{safe_label}</span>"
+            f"<span style='font-size:0.6rem;color:#475569;text-transform:uppercase;background:rgba(255,255,255,0.06);"
+            f"border-radius:4px;padding:1px 5px;'>{safe_type}</span>"
             f"</div>"
         )
+    activity_html = "".join(activity_items)
 
-    st.markdown(f"""<style>
-    .tm-dashboard {{ display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; }}
-    .tm-stats {{ display: flex; gap: 8px; flex-wrap: wrap; }}
-    .tm-stat {{
-        background: rgba(15,23,42,0.6); border-left: 3px solid; border-radius: 6px;
-        padding: 6px 12px; min-width: 60px; text-align: center;
-    }}
-    .tm-stat-n {{ display: block; font-size: 1.3rem; font-weight: 800; }}
-    .tm-stat-l {{ display: block; font-size: 0.65rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.06em; }}
-    .tm-recent {{ flex: 1; background: rgba(15,23,42,0.6); border-radius: 6px; padding: 8px 12px; }}
-    .tm-recent-title {{ font-size: 0.7rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }}
-    .tm-activity {{ display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 0.8rem; color: #CBD5E1; }}
-    .tm-act-label {{ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-    .tm-act-type {{ font-size: 0.6rem; color: #475569; text-transform: uppercase; background: rgba(255,255,255,0.06);
-        border-radius: 4px; padding: 1px 5px; }}
-    </style>
-    <div class="tm-dashboard">
-        <div class="tm-stats">{"".join(cards)}</div>
-        <div class="tm-recent">
-            <div class="tm-recent-title">Latest Activity</div>
-            {activity_html}
-        </div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(
+        f"<div style='display:flex;gap:10px;align-items:flex-start;margin-top:8px;flex-wrap:wrap;'>"
+        f"  <div style='display:flex;gap:8px;flex-wrap:wrap;'>{''.join(cards)}</div>"
+        f"  <div style='flex:1;background:rgba(15,23,42,0.6);border-radius:6px;padding:8px 12px;min-width:180px;'>"
+        f"    <div style='font-size:0.7rem;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;'>Latest Activity</div>"
+        f"    {activity_html}"
+        f"  </div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def render_thought_map_controls():
     """Render annotation/elaboration/export controls below the thought map."""
+    # Style controls for dark background — buttons, inputs, captions
+    st.markdown("""<style>
+    /* Thought map controls — readable on dark bg */
+    [data-testid="stForm"] [data-testid="stTextInput"] input {
+        background: rgba(15,23,42,0.7) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(148,163,184,0.2) !important;
+        border-radius: 8px !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
+    }
+    [data-testid="stForm"] [data-testid="stTextInput"] input::placeholder {
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stForm"] button[data-testid="stBaseButton-secondaryFormSubmit"],
+    [data-testid="stForm"] button[kind="secondaryFormSubmit"] {
+        background: rgba(255,91,31,0.15) !important;
+        color: #ff8c42 !important;
+        border: 1px solid rgba(255,91,31,0.3) !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        background-image: none !important;
+    }
+    [data-testid="stForm"] button[data-testid="stBaseButton-secondaryFormSubmit"]:hover,
+    [data-testid="stForm"] button[kind="secondaryFormSubmit"]:hover {
+        background: rgba(255,91,31,0.25) !important;
+        border-color: #ff5b1f !important;
+        color: #ffffff !important;
+        background-image: none !important;
+    }
+    [data-testid="stForm"] button p,
+    [data-testid="stForm"] button span {
+        color: inherit !important;
+    }
+    [data-testid="stCaptionContainer"] p {
+        color: #64748b !important;
+    }
+    </style>""", unsafe_allow_html=True)
     tm = _get_map()
     reasoning_candidates = [node for node in tm["nodes"].values() if is_reasoning_node(node)]
 

@@ -222,18 +222,32 @@ def render_enhanced_chat_interface(dashboard_state: dict = None, on_new_response
         background: linear-gradient(135deg, #ff5b1f 0%, #ff8c42 100%) !important;
         background-image: none !important;
     }
+    /* Chat input — white bg, dark text, visible placeholder */
     div[data-testid="stChatInput"] textarea,
-    div[data-testid="stChatInput"] input {
-        color: #0f172a !important;
+    div[data-testid="stChatInput"] input,
+    [data-testid="stChatInput"] textarea,
+    [data-testid="stChatInput"] input,
+    [data-testid="stChatInputTextArea"] textarea {
+        color: #1e293b !important;
         background-color: #ffffff !important;
-        -webkit-text-fill-color: #0f172a !important;
-        caret-color: #0f172a !important;
+        -webkit-text-fill-color: #1e293b !important;
+        caret-color: #1e293b !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 10px !important;
     }
     div[data-testid="stChatInput"] textarea::placeholder,
-    div[data-testid="stChatInput"] input::placeholder {
-        color: #64748b !important;
+    div[data-testid="stChatInput"] input::placeholder,
+    [data-testid="stChatInput"] textarea::placeholder,
+    [data-testid="stChatInput"] input::placeholder,
+    [data-testid="stChatInputTextArea"] textarea::placeholder {
+        color: #94a3b8 !important;
         opacity: 1 !important;
-        -webkit-text-fill-color: #64748b !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+    }
+    /* Chat input container background */
+    [data-testid="stChatInput"],
+    [data-testid="stBottom"] > div {
+        background-color: transparent !important;
     }
     </style>""", unsafe_allow_html=True)
 

@@ -4172,6 +4172,7 @@ def _render_company_financial_deep_dives(
     quarterly_df = _load_company_quarterly_kpis_df(excel_path, source_stamp)
     subs_df = _load_company_subscribers_quarterly_df(excel_path, source_stamp)
     minute_df = _load_company_minute_dollar_df(excel_path, source_stamp)
+    employees_df = _load_employee_yearly_df(excel_path, source_stamp)
     market_structure_df = _compute_duopoly_triopoly_share_series(data_processor, excel_path, source_stamp)
 
     year_min = int(metrics_df["Year"].min())
@@ -6696,71 +6697,60 @@ def _render_quarterly_intelligence_briefing(
 
 _OVERVIEW_AREA_CONFIG = [
     {
-        "key": "macro_snapshot",
-        "title": "Macro Snapshot",
-        "description": "Top macro KPIs, liquidity, and regime context.",
+        "key": "macro_geography",
+        "title": "Macro & Geography",
+        "description": "Macro regime, liquidity context, and interactive global ad spend map.",
     },
     {
-        "key": "global_media_map",
-        "title": "Global Media Economy",
-        "description": "Interactive world map and country-level ad structure.",
-    },
-    {
-        "key": "insights",
-        "title": "Insights by Category",
-        "description": "Quarterly overview commentary from workbook + auto insights.",
-    },
-    {
-        "key": "macro_regime",
-        "title": "Macro Regime Charts",
-        "description": "Cross-sheet macro bridge and regime diagnostics.",
+        "key": "channels_devices",
+        "title": "Channels & Devices",
+        "description": "Ad spend by channel, insights by category, and device-platform migration.",
     },
     {
         "key": "deep_dives",
-        "title": "Company Deep Dives",
-        "description": "P/E, debt, margins, R&D, efficiency and concentration.",
+        "title": "Company Dashboard",
+        "description": "P/E, debt, margins, R&D, employees, and market structure comparison.",
     },
     {
-        "key": "device_platform",
-        "title": "Device & Platform",
-        "description": "Smartphone share and device-linked ad migration.",
-    },
-    {
-        "key": "topic_signal",
-        "title": "Topic Signal & Quotes",
-        "description": "Transcript topic map plus iconic CEO/CFO commentary.",
+        "key": "narrative_sentiment",
+        "title": "Narrative & Sentiment",
+        "description": "Transcript topics, CEO/CFO quotes, and market signal cards.",
     },
     {
         "key": "export",
         "title": "Export",
-        "description": "Download current filtered overview payload and HTML snapshot.",
+        "description": "Download current payload and HTML snapshot.",
     },
 ]
 
 
 def _render_overview_area_selector() -> str:
-    st.markdown("### Overview Navigator")
-    st.caption("Single-view mode: choose one area at a time (8 sections inside one Overview page).")
-
     valid_keys = {item["key"] for item in _OVERVIEW_AREA_CONFIG}
-    active_key = st.session_state.get("overview_active_area", "macro_snapshot")
+    # Map old keys to new merged keys for backward compat
+    _key_migration = {
+        "macro_snapshot": "macro_geography",
+        "global_media_map": "macro_geography",
+        "insights": "channels_devices",
+        "macro_regime": "macro_geography",
+        "device_platform": "channels_devices",
+        "topic_signal": "narrative_sentiment",
+    }
+    active_key = st.session_state.get("overview_active_area", "macro_geography")
     if active_key not in valid_keys:
-        active_key = "macro_snapshot"
+        active_key = _key_migration.get(active_key, "macro_geography")
 
-    for row_start in (0, 4):
-        row_items = _OVERVIEW_AREA_CONFIG[row_start: row_start + 4]
-        row_cols = st.columns(4)
-        for col, item in zip(row_cols, row_items):
-            with col:
-                if st.button(
-                    item["title"],
-                    key=f"overview_area_btn_{item['key']}",
-                    use_container_width=True,
-                    type="primary" if active_key == item["key"] else "secondary",
-                ):
-                    active_key = item["key"]
-                    st.session_state["overview_active_area"] = active_key
-                st.caption(item["description"])
+    row_cols = st.columns(len(_OVERVIEW_AREA_CONFIG))
+    for col, item in zip(row_cols, _OVERVIEW_AREA_CONFIG):
+        with col:
+            if st.button(
+                item["title"],
+                key=f"overview_area_btn_{item['key']}",
+                use_container_width=True,
+                type="primary" if active_key == item["key"] else "secondary",
+            ):
+                active_key = item["key"]
+                st.session_state["overview_active_area"] = active_key
+            st.caption(item["description"])
 
     st.session_state["overview_active_area"] = active_key
     return active_key
@@ -6857,7 +6847,7 @@ with ux_col1:
         help="Controls Plotly per-chart download format from the modebar.",
     )
 with ux_col2:
-    st.markdown("Use the navigator buttons below to open one overview section at a time.")
+    st.markdown("")
 
 selected_overview_area = _render_overview_area_selector()
 
@@ -6921,10 +6911,17 @@ with st.sidebar:
         if not insights_scope.empty and "is_active" in insights_scope.columns:
             insights_scope = insights_scope[insights_scope["is_active"].fillna(0).astype(int) == 1]
 
-        if not macro_scope.empty:
-            row = macro_scope.sort_values(["year", "_quarter_num"], ascending=[False, False]).iloc[0]
-            st.metric("Global Ad Market", _format_macro_metric(row.get("global_ad_market"), "B"))
-            st.metric("Duopoly Share", _format_macro_metric(row.get("duopoly_share"), "%"))
+        try:
+            if not macro_scope.empty:
+                _sort_cols = [c for c in ["year", "_quarter_num"] if c in macro_scope.columns]
+                if _sort_cols:
+                    row = macro_scope.sort_values(_sort_cols, ascending=[False] * len(_sort_cols)).iloc[0]
+                else:
+                    row = macro_scope.iloc[0]
+                st.metric("Global Ad Market", _format_macro_metric(row.get("global_ad_market"), "B"))
+                st.metric("Duopoly Share", _format_macro_metric(row.get("duopoly_share"), "%"))
+        except (KeyError, IndexError):
+            st.caption("Macro summary temporarily unavailable.")
         if not insights_scope.empty:
             st.metric("Active Insights", f"{len(insights_scope)}")
             top_cats = (
@@ -6938,83 +6935,69 @@ with st.sidebar:
                     + " · ".join([f"{k}: {v}" for k, v in top_cats.items()])
                 )
         else:
-            st.caption("No active Overview insights found for this period.")
+            st.caption("No active insights for this period. Try selecting a different quarter.")
 
 render_ai_assistant(location="sidebar", current_page="Overview")
 
 st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
-if selected_overview_area == "macro_snapshot":
-    macro_kpi_rendered = render_macro_kpi_panel(data_processor, selected_year, selected_quarter, plotly_config)
-    if not macro_kpi_rendered:
-        st.caption(
-            "Macro KPI panel is ready and will auto-populate when M2, GroupM, ad-revenue, and company-metrics inputs are available."
-        )
+# ── Always render Macro KPI strip at the top as "Key Trends" ─────────────
+macro_kpi_rendered = render_macro_kpi_panel(data_processor, selected_year, selected_quarter, plotly_config)
+if not macro_kpi_rendered:
+    st.caption("Key trends will auto-populate when M2, GroupM, ad-revenue, and company-metrics inputs are available.")
+st.markdown("<hr style='margin:0.5rem 0 1.5rem 0;border-color:rgba(148,163,184,0.15);'>", unsafe_allow_html=True)
 
+# ── Section routing (merged modules) ────────────────────────────────────
+if selected_overview_area == "macro_geography":
+    # Macro context dashboard (8 cards: Fed Rate, M2, Inflation, etc.)
     macro_context_rendered = _render_macro_context_dashboard(data_processor, selected_year, selected_quarter)
     if not macro_context_rendered:
-        st.caption(
-            "Macro context dashboard is ready and connected. It auto-reads whichever tabs contain "
-            "matching rate/labor/currency/valuation fields (no strict sheet naming required)."
-        )
+        st.caption("Macro context auto-reads rate/labor/currency/valuation fields from your workbook.")
 
     if not _render_excel_macro_section(data_processor, selected_year, selected_quarter):
-        st.info("No `Overview_Macro` row found for the selected period.")
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
-    end_snap_section()
-    st.stop()
+        st.caption("No macro commentary row found for this period.")
 
-if selected_overview_area == "insights":
+    # Macro regime cross-sheet charts
+    st.markdown("<hr style='margin:1rem 0;border-color:rgba(148,163,184,0.12);'>", unsafe_allow_html=True)
+    macro_expansion_rendered = _render_macro_expansion_sections(
+        data_processor, selected_year, selected_quarter, plotly_config,
+    )
+    macro_bridge_rendered = _render_macro_bridge_charts(data_processor, selected_year, selected_quarter, plotly_config)
+
+    st.markdown("<hr style='margin:1rem 0;border-color:rgba(148,163,184,0.12);'>", unsafe_allow_html=True)
+    # Global Media Economy map renders below (falls through to map code)
+
+if selected_overview_area == "channels_devices":
+    # Insights by category
     insights_rendered = _render_excel_overview_insights(data_processor, selected_year, selected_quarter)
     if not insights_rendered:
-        st.info("No active `Overview_Insights` rows found for the selected period.")
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
-    end_snap_section()
-    st.stop()
-
-if selected_overview_area == "macro_regime":
-    macro_expansion_rendered = _render_macro_expansion_sections(
-        data_processor,
-        selected_year,
-        selected_quarter,
-        plotly_config,
-    )
-    if not macro_expansion_rendered:
-        st.caption(
-            "Expanded macro cross-sheet charts will auto-populate when matching macro fields exist in your workbook."
+        st.info(
+            f"No active insights for {selected_year} {selected_quarter}. "
+            "Try a different period -- insights are populated per quarter in the Google Sheet."
         )
-    macro_bridge_rendered = _render_macro_bridge_charts(data_processor, selected_year, selected_quarter, plotly_config)
-    if not macro_bridge_rendered:
-        st.info("Macro bridge charts are unavailable because required source sheets are missing.")
+
+    st.markdown("<hr style='margin:1rem 0;border-color:rgba(148,163,184,0.12);'>", unsafe_allow_html=True)
+
+    # Device & Platform
+    device_rendered = _render_device_platform_market_share(data_processor, selected_year, plotly_config)
+    if not device_rendered:
+        st.caption("Device/platform section loads when smartphone shipment or device-class data is available.")
+
     _render_overview_download_section(data_processor, selected_year, selected_quarter)
     end_snap_section()
     st.stop()
 
 if selected_overview_area == "deep_dives":
     deep_dive_rendered = _render_company_financial_deep_dives(
-        data_processor,
-        selected_year,
-        selected_quarter,
-        plotly_config,
+        data_processor, selected_year, selected_quarter, plotly_config,
     )
     if not deep_dive_rendered:
-        st.info("Company deep-dive charts need annual company metrics (Revenue, Net Income, Debt, CapEx, R&D).")
+        st.info("Company dashboard needs annual company metrics (Revenue, Net Income, Debt, CapEx, R&D).")
     _render_overview_download_section(data_processor, selected_year, selected_quarter)
     end_snap_section()
     st.stop()
 
-if selected_overview_area == "device_platform":
-    device_rendered = _render_device_platform_market_share(data_processor, selected_year, plotly_config)
-    if not device_rendered:
-        st.info(
-            "Device/platform section auto-loads when `Hardware_Smartphone_Shipments` or "
-            "`Country_Advertising_Data_FullVi` contains device-class fields."
-        )
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
-    end_snap_section()
-    st.stop()
-
-if selected_overview_area == "topic_signal":
+if selected_overview_area == "narrative_sentiment":
     topic_chart_rendered = _render_transcript_topic_growth_chart(selected_year, selected_quarter, plotly_config)
     if not topic_chart_rendered:
         st.info(
@@ -7099,7 +7082,13 @@ if selected_overview_area == "export":
     end_snap_section()
     st.stop()
 
-# SECTION 1 — GLOBAL CONTEXT (WORLD MAP)
+# GLOBAL MEDIA ECONOMY MAP — part of "Macro & Geography" module
+if selected_overview_area != "macro_geography":
+    # Not in macro_geography → nothing below should render; stop if we got here
+    _render_overview_download_section(data_processor, selected_year, selected_quarter)
+    end_snap_section()
+    st.stop()
+
 st.markdown("<div id='section-global-media-economy'></div>", unsafe_allow_html=True)
 st.subheader("The Global Media Economy")
 st.markdown(
@@ -11399,3 +11388,7 @@ else:
             period_limit=week_window,
         )
     _ov_render_heatmap_figure(heatmap_df, "stock", heatmap_freq, "Company")
+
+# End of Macro & Geography module — export controls at the bottom
+_render_overview_download_section(data_processor, selected_year, selected_quarter)
+end_snap_section()

@@ -667,7 +667,10 @@ st.markdown("""
         border-color: #d7e3ff;
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
     }
-    /* placeholder — real button styles injected via JS at end of page */
+    /* Hide Streamlit element toolbar overlay that creates dark bar on hover */
+    [data-testid="stElementToolbar"] {
+        display: none !important;
+    }
     .price-up {
         color: green;
     }
@@ -1097,52 +1100,74 @@ dashboard_state = {
     'selected_company': st.session_state.get('selected_company', None),
 }
 
-# ── Button style override — injected LAST via JS to guarantee it wins ──
-# Streamlit injects its own styles at runtime; CSS specificity wars are
-# unreliable. This script runs after the page renders and forces styles
-# directly onto the DOM elements, which always wins.
+# ── Button style override — MutationObserver applies INLINE styles ──
+# CSS specificity wars with Streamlit are unwinnable. Inline styles always
+# beat any stylesheet rule, so we apply them directly via JS on every DOM
+# mutation. A throttle prevents performance issues.
 import streamlit.components.v1 as _comp
 _comp.html("""
 <script>
 (function() {
-  var style = document.createElement('style');
-  style.textContent = [
-    '.stButton > button, [data-testid="stButton"] > button {',
-    '  background: #1e40af !important;',
-    '  background-color: #1e40af !important;',
-    '  background-image: none !important;',
-    '  border: 1px solid #1e3a8a !important;',
-    '  color: #ffffff !important;',
-    '  border-radius: 8px !important;',
-    '  font-weight: 600 !important;',
-    '  font-size: 0.82rem !important;',
-    '  padding: 8px 18px !important;',
-    '  box-shadow: 0 1px 3px rgba(30,64,175,0.25) !important;',
-    '  cursor: pointer !important;',
-    '}',
-    '.stButton > button *, [data-testid="stButton"] > button * {',
-    '  color: #ffffff !important;',
-    '}',
-    '.stButton > button:hover, [data-testid="stButton"] > button:hover {',
-    '  background: #1d4ed8 !important;',
-    '  background-image: none !important;',
-    '  box-shadow: 0 3px 8px rgba(30,64,175,0.35) !important;',
-    '}',
-    '.stButton > button:active, .stButton > button:focus,',
-    '.stButton > button:focus-visible,',
-    '[data-testid="stButton"] > button:active,',
-    '[data-testid="stButton"] > button:focus,',
-    '[data-testid="stButton"] > button:focus-visible {',
-    '  background: #1e40af !important;',
-    '  background-image: none !important;',
-    '  outline: none !important;',
-    '  box-shadow: none !important;',
-    '}',
-  ].join('\\n');
-  // Inject into parent document (Streamlit app), not this iframe
-  if (window.parent && window.parent.document) {
-    window.parent.document.head.appendChild(style);
+  var doc = window.parent ? window.parent.document : document;
+  var BLUE = '#1e40af';
+  var BLUE_HOVER = '#2563eb';
+  var _timer = null;
+
+  function styleAllButtons() {
+    var btns = doc.querySelectorAll(
+      '[data-testid="stButton"] button, ' +
+      '[data-testid="stBaseButton-secondary"], ' +
+      '[data-testid="stBaseButton-primary"]'
+    );
+    btns.forEach(function(btn) {
+      // Skip buttons not on this page (nav bar etc)
+      var p = btn.closest('[data-testid="stAppViewBlockContainer"]');
+      if (!p) return;
+      btn.style.setProperty('background', BLUE, 'important');
+      btn.style.setProperty('background-color', BLUE, 'important');
+      btn.style.setProperty('background-image', 'none', 'important');
+      btn.style.setProperty('color', '#ffffff', 'important');
+      btn.style.setProperty('border', '1px solid #1e3a8a', 'important');
+      btn.style.setProperty('border-radius', '8px', 'important');
+      btn.style.setProperty('font-weight', '600', 'important');
+      btn.style.setProperty('font-size', '0.85rem', 'important');
+      btn.style.setProperty('padding', '8px 18px', 'important');
+      btn.style.setProperty('box-shadow', '0 2px 6px rgba(30,64,175,0.2)', 'important');
+      btn.style.setProperty('cursor', 'pointer', 'important');
+      // Force white text on all children
+      var kids = btn.querySelectorAll('p, span, div');
+      kids.forEach(function(k) { k.style.setProperty('color', '#ffffff', 'important'); });
+      // Add hover listeners (only once)
+      if (!btn._stocksHover) {
+        btn._stocksHover = true;
+        btn.addEventListener('mouseenter', function() {
+          this.style.setProperty('background', BLUE_HOVER, 'important');
+          this.style.setProperty('background-color', BLUE_HOVER, 'important');
+          this.style.setProperty('box-shadow', '0 4px 12px rgba(37,99,235,0.35)', 'important');
+          this.style.setProperty('transform', 'translateY(-1px)', 'important');
+        });
+        btn.addEventListener('mouseleave', function() {
+          this.style.setProperty('background', BLUE, 'important');
+          this.style.setProperty('background-color', BLUE, 'important');
+          this.style.setProperty('box-shadow', '0 2px 6px rgba(30,64,175,0.2)', 'important');
+          this.style.setProperty('transform', 'none', 'important');
+        });
+      }
+    });
   }
+
+  // Initial pass
+  styleAllButtons();
+  // Re-apply on DOM changes (throttled to 150ms)
+  var obs = new MutationObserver(function() {
+    if (_timer) clearTimeout(_timer);
+    _timer = setTimeout(styleAllButtons, 150);
+  });
+  obs.observe(doc.body, { childList: true, subtree: true });
+  // Safety: also re-apply after short delay for Streamlit hydration
+  setTimeout(styleAllButtons, 300);
+  setTimeout(styleAllButtons, 800);
+  setTimeout(styleAllButtons, 1500);
 })();
 </script>
 """, height=0)

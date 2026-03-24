@@ -58,7 +58,10 @@ _DISPLAY_MARKER_RE = re.compile(
 
 
 def clean_thought_markers(text: str) -> str:
-    """Convert raw [STEP 1] tokens into readable markdown headings for chat display."""
+    """Convert raw [STEP 1] tokens into readable markdown headings for chat display.
+    Also escapes $ signs to prevent Streamlit's LaTeX renderer from collapsing
+    financial figures like $108.9B into unreadable math mode.
+    """
     def _sub(m: re.Match) -> str:
         tag = m.group(1).strip().title()      # "Step 1", "Branch A", "Conclusion"
         subtitle = (m.group(2) or "").strip()
@@ -66,7 +69,11 @@ def clean_thought_markers(text: str) -> str:
             return f"\n\n**{tag} — {subtitle.title()}:** "
         return f"\n\n**{tag}:** "
 
-    return _DISPLAY_MARKER_RE.sub(_sub, text).strip()
+    cleaned = _DISPLAY_MARKER_RE.sub(_sub, text).strip()
+    # Escape lone $ signs that aren't already escaped or part of $$ blocks.
+    # This prevents Streamlit from treating "$108.9B in 2024" as LaTeX math.
+    cleaned = re.sub(r'(?<!\$)\$(?!\$)', r'\\$', cleaned)
+    return cleaned
 
 
 GENIE_SYSTEM_PROMPT = """
@@ -270,7 +277,9 @@ def stream_genie_response(messages: list[dict]) -> str:
                 delta = chunk.choices[0].delta.content
                 if delta:
                     full_response += delta
-                    placeholder.markdown(full_response + "▌")
+                    # Escape $ during streaming to prevent LaTeX rendering
+                    _display = re.sub(r'(?<!\$)\$(?!\$)', r'\\$', full_response)
+                    placeholder.markdown(_display + "▌")
                     # Count reasoning markers as they arrive
                     new_count = full_response.upper().count("[STEP") + \
                                 full_response.upper().count("[BRANCH") + \
