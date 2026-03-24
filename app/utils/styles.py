@@ -139,42 +139,38 @@ def load_common_styles():
 
         /* Plotly typography handled by Plotly defaults to avoid CSS conflicts */
 
-    /* Fix: hide Material Icons text when font fails to load ("arrow_right" etc.) — GLOBAL */
-    [data-testid="stExpander"] details summary span:first-child,
-    [data-testid="stExpander"] details summary span:first-of-type:not([data-testid]) {
+    /* Fix: hide Material Icons text when font fails to load ("arrow_right" etc.) — GLOBAL
+       Strategy: set font-size:0 on entire summary to hide icon text,
+       then restore font-size on the label container [data-testid="stMarkdownContainer"]. */
+    [data-testid="stExpander"] details summary {
         font-size: 0 !important;
-        color: transparent !important;
-        overflow: hidden !important;
-        width: 20px !important;
-        max-width: 20px !important;
-        height: 20px !important;
-        max-height: 20px !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        flex-shrink: 0 !important;
-        line-height: 0 !important;
+        line-height: normal !important;
     }
-    [data-testid="stExpander"] details summary span:first-child svg,
-    [data-testid="stExpander"] details summary span:first-of-type:not([data-testid]) svg {
-        font-size: 20px !important;
+    [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"],
+    [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"] * {
+        font-size: 0.875rem !important;
+        color: inherit !important;
+    }
+    [data-testid="stExpander"] details summary svg {
+        width: 20px !important;
+        height: 20px !important;
         min-width: 20px !important;
         min-height: 20px !important;
-        width: 20px !important;
-        height: 20px !important;
-        color: #94a3b8 !important;
         visibility: visible !important;
     }
 
     /* Fix multiselect pill text clipping — first letters hidden by overflow */
-    [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] {
         overflow: visible !important;
         max-width: none !important;
+        padding-left: 8px !important;
     }
-    [data-testid="stMultiSelect"] span[data-baseweb="tag"] span {
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] > span:first-child {
         overflow: visible !important;
         text-overflow: unset !important;
         white-space: nowrap !important;
+        padding-left: 0 !important;
+        margin-left: 0 !important;
     }
 
     /* Slider styling */

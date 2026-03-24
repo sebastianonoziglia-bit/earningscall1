@@ -1456,8 +1456,22 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       if (!activeNode) return;
       var text = activeNode.data("fullContent") || activeNode.data("content") || activeNode.data("label");
       try {
-        window.parent.postMessage({type: "tm_elaborate", nodeId: activeNode.data("id"), text: text}, "*");
-      } catch(e) {}
+        // Find the chat input in the parent Streamlit page and pre-fill it
+        var chatInput = window.parent.document.querySelector('[data-testid="stChatInput"] textarea, [data-testid="stTextArea"] textarea');
+        if (chatInput) {
+          var elaboratePrompt = "Please elaborate further on: " + text;
+          // Set the value using native input setter to trigger React state
+          var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+          nativeSetter.call(chatInput, elaboratePrompt);
+          chatInput.dispatchEvent(new Event("input", {bubbles: true}));
+          chatInput.scrollIntoView({behavior: "smooth", block: "center"});
+          setTimeout(function() { chatInput.focus(); }, 300);
+        } else {
+          window.parent.scrollTo({top: window.parent.document.body.scrollHeight, behavior: "smooth"});
+        }
+      } catch(e) {
+        try { window.parent.postMessage({type: "tm_elaborate", nodeId: activeNode.data("id"), text: text}, "*"); } catch(e2) {}
+      }
     }
 
     function toggleEmptyOverlay(show) {
@@ -1598,7 +1612,6 @@ def render_thought_map(height: int = 620, view_mode: str = "classic"):
       activeNode.select();
       const targetData = activeNode.data();
       renderSelection(targetData);
-      showDetailPanel(targetData);
       tooltip.style.display = "none";
       toggleDeleteButtons(true);
     });

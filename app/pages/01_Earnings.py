@@ -77,37 +77,18 @@ def main():
             margin: 0 auto;
         }
 
-        /* Fix: hide Material Icons text when font fails to load (shows "arrow_right" etc.) */
-        [data-testid="stExpander"] details summary span:first-child,
-        [data-testid="stExpander"] details summary span:first-of-type:not([data-testid]) {
+        /* Fix: hide Material Icons text when font fails to load (shows "arrow_right" etc.)
+           Set font-size:0 on entire summary, restore on label container. */
+        [data-testid="stExpander"] details summary {
             font-size: 0 !important;
-            color: transparent !important;
-            overflow: hidden !important;
-            width: 20px !important;
-            max-width: 20px !important;
-            height: 20px !important;
-            max-height: 20px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            flex-shrink: 0 !important;
-            line-height: 0 !important;
         }
-        [data-testid="stExpander"] details summary span:first-child svg,
-        [data-testid="stExpander"] details summary span:first-of-type:not([data-testid]) svg {
-            font-size: 20px !important;
-            min-width: 20px !important;
-            min-height: 20px !important;
+        [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"],
+        [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"] * {
+            font-size: 0.875rem !important;
+        }
+        [data-testid="stExpander"] details summary svg {
             width: 20px !important;
             height: 20px !important;
-            color: #94a3b8 !important;
-            visibility: visible !important;
-        }
-        /* CSS-only fallback arrow when Material Icons font fails */
-        [data-testid="stExpander"] details summary span:first-child:empty::before,
-        [data-testid="stExpander"] details[open] summary span:first-child::after {
-            content: "" !important;
-            display: none !important;
         }
 
         h1 {
