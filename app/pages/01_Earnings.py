@@ -77,6 +77,20 @@ def main():
             margin: 0 auto;
         }
 
+        /* Fix: hide Material Icons text when font fails to load (shows "arrow_right" etc.) */
+        [data-testid="stExpander"] details > summary > span:first-child {
+            overflow: hidden !important;
+            max-width: 24px !important;
+            max-height: 24px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        [data-testid="stExpander"] details > summary > span:first-child svg {
+            min-width: 20px !important;
+            min-height: 20px !important;
+        }
+
         h1 {
             margin-top: 0.2rem;
             margin-bottom: 0.75rem;
@@ -4453,6 +4467,27 @@ def main():
             except Exception:
                 pass
 
+    # ── Segment year range (placed near Segment Composition) ──────────────
+    segment_controls = st.columns([7, 3])
+    with segment_controls[1]:
+        st.markdown(
+            """
+            <div class="segment-range-label">
+                <span>Segment year range</span>
+                <span class="segment-range-info" data-tooltip="Select one year or a range to sum segment revenue across years. Use this to compare how the mix changes over time.">i</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.slider(
+            "",
+            min_value=int(min_year),
+            max_value=int(max_year),
+            value=(int(segment_start), int(segment_end)),
+            key=segment_range_key,
+            label_visibility="collapsed",
+        )
+
     # ── Institutional Ownership ───────────────────────────────────────────
     st.subheader("Institutional Ownership")
 
@@ -4641,26 +4676,6 @@ def main():
                 _holders_df[_holders_df["holder_type"] == "fund"].reset_index(drop=True),
                 "Fund",
             )
-
-    segment_controls = st.columns([7, 3])
-    with segment_controls[1]:
-        st.markdown(
-            """
-            <div class="segment-range-label">
-                <span>Segment year range</span>
-                <span class="segment-range-info" data-tooltip="Select one year or a range to sum segment revenue across years. Use this to compare how the mix changes over time.">i</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.slider(
-            "",
-            min_value=int(min_year),
-            max_value=int(max_year),
-            value=(int(segment_start), int(segment_end)),
-            key=segment_range_key,
-            label_visibility="collapsed",
-        )
 
     st.divider()
 
@@ -6098,6 +6113,7 @@ function cgMetric(tab,mid,btn){
             st.markdown("""<style>
 .ti-earnings-wrap div[data-testid="stButton"] > button {
     background: #f8fafc !important; color: #1e293b !important;
+    -webkit-text-fill-color: #1e293b !important;
     border: 1px solid #e2e8f0 !important; border-radius: 6px !important;
     font-size: 0.82rem !important; text-align: left !important;
     white-space: normal !important; height: auto !important;
@@ -6106,7 +6122,22 @@ function cgMetric(tab,mid,btn){
 }
 .ti-earnings-wrap div[data-testid="stButton"] > button:hover {
     background: #fff7f4 !important; border-color: #ff5b1f !important;
-    color: #0f172a !important;
+    color: #0f172a !important; -webkit-text-fill-color: #0f172a !important;
+}
+.ti-earnings-wrap div[data-testid="stButton"] > button:active,
+.ti-earnings-wrap div[data-testid="stButton"] > button:focus,
+.ti-earnings-wrap div[data-testid="stButton"] > button:focus-visible {
+    background: #fff7f4 !important; border-color: #ff5b1f !important;
+    color: #0f172a !important; -webkit-text-fill-color: #0f172a !important;
+    outline: none !important; box-shadow: 0 0 0 2px rgba(255,91,31,0.25) !important;
+}
+.ti-earnings-wrap div[data-testid="stButton"] > button p,
+.ti-earnings-wrap div[data-testid="stButton"] > button span {
+    color: #1e293b !important; -webkit-text-fill-color: #1e293b !important;
+}
+/* Fix expander arrow icon rendering as text when material font fails to load */
+.ti-earnings-wrap [data-testid="stExpander"] details summary span[data-testid="stMarkdownContainer"] {
+    display: inline !important;
 }
 </style>""", unsafe_allow_html=True)
 

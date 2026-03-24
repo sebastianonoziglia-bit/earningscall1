@@ -446,7 +446,6 @@ def _render_company_card(company, company_logos, stock_processor, timeframe, but
             if st.button(
                 f"View {company}",
                 key=f"{button_prefix}_{_normalize_company_key(company)}",
-                help=f"View detailed data for {company}",
             ):
                 st.session_state.selected_company = company
                 st.session_state.selected_timeframe = timeframe
@@ -457,8 +456,19 @@ def _render_company_card(company, company_logos, stock_processor, timeframe, but
 
 
 def _render_company_grid(companies, company_logos, stock_processor, timeframe, button_prefix, center_last_single=False):
-    for start in range(0, len(companies), 3):
-        row = companies[start:start + 3]
+    # Pre-filter: verify each company actually has renderable data
+    # so that failed cards don't leave empty column slots in the grid.
+    renderable = []
+    for c in companies:
+        try:
+            _d = stock_processor.get_company_data(c, timeframe)
+            if _d and "quote" in _d:
+                renderable.append(c)
+        except Exception:
+            pass
+
+    for start in range(0, len(renderable), 3):
+        row = renderable[start:start + 3]
         if len(row) == 1 and center_last_single:
             _, middle, _ = st.columns([0.35, 1, 0.35])
             row_cols = [middle]

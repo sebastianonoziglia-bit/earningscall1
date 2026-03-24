@@ -205,6 +205,8 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
     # ── HuggingFace: always fetch fresh from Google Sheet ─────────────────
     _is_hf = bool(_os.environ.get("SPACE_ID") or _os.environ.get("HF_SPACE_ID"))
     _gsheet_url = _os.environ.get("GOOGLE_SHEET_URL", "").strip()
+    if not _gsheet_url:
+        _gsheet_url = f"https://docs.google.com/spreadsheets/d/{DEFAULT_GOOGLE_SHEET_ID}/export?format=xlsx"
 
     if _is_hf and _gsheet_url:
         _cache_path = "/tmp/ae_workbook_live.xlsx"
@@ -240,6 +242,10 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
     # ── End HF live fetch — fall through to local resolution below ────────
 
     google_sheet_url = os.getenv("GOOGLE_SHEET_URL", "").strip()
+    if not google_sheet_url:
+        # Fall back to the default Google Sheet when env var isn't set
+        google_sheet_url = f"https://docs.google.com/spreadsheets/d/{DEFAULT_GOOGLE_SHEET_ID}/export?format=xlsx"
+        logger.info("GOOGLE_SHEET_URL not set — using DEFAULT_GOOGLE_SHEET_ID fallback")
     attached_assets = Path(__file__).resolve().parent.parent / "attached_assets"
     attached_assets.mkdir(parents=True, exist_ok=True)
     dest = attached_assets / "live_data.xlsx"

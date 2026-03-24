@@ -1635,7 +1635,7 @@ def get_available_years(data_processor):
         years = df_metrics["year"].dropna().unique().tolist()
         return sorted([int(y) for y in years])
 
-    common_years = list(range(2010, 2025))
+    common_years = list(range(2010, datetime.now().year + 1))
     available_years = []
     companies = get_available_companies(data_processor)
 
@@ -6357,9 +6357,24 @@ def _render_overview_download_section(
     data_processor: FinancialDataProcessor,
     selected_year: int,
     selected_quarter: str,
+    key_suffix: str = "",
 ) -> None:
     st.markdown("### Export Overview")
     st.caption("Download the currently filtered overview as a full-page HTML snapshot or as structured JSON data.")
+
+    fmt_col, dl_col = st.columns([1, 2])
+    _fmt_key = f"overview_chart_export_fmt{key_suffix}"
+    with fmt_col:
+        _fmt_val = st.selectbox(
+            "Chart Export Format",
+            ["png", "svg"],
+            index=["png", "svg"].index(st.session_state.get("_ov_chart_fmt", "png")),
+            key=_fmt_key,
+            help="Controls Plotly per-chart download format from the modebar.",
+        )
+        st.session_state["_ov_chart_fmt"] = _fmt_val
+    with dl_col:
+        st.markdown("")
 
     payload = _build_overview_export_payload(data_processor, selected_year, selected_quarter)
     payload_bytes = json.dumps(payload, ensure_ascii=False, indent=2, default=str).encode("utf-8")
@@ -6368,10 +6383,10 @@ def _render_overview_download_section(
         data=payload_bytes,
         file_name=f"overview_snapshot_{int(selected_year)}_{str(selected_quarter).lower()}.json",
         mime="application/json",
-        key=f"overview_export_json_{int(selected_year)}_{str(selected_quarter)}",
+        key=f"overview_export_json_{int(selected_year)}_{str(selected_quarter)}{key_suffix}",
     )
 
-    button_id = f"ov-download-html-{int(selected_year)}-{str(selected_quarter).lower()}".replace(" ", "-")
+    button_id = f"ov-download-html-{int(selected_year)}-{str(selected_quarter).lower()}{key_suffix}".replace(" ", "-")
     components.html(
         _html_block(
             f"""
@@ -6716,11 +6731,6 @@ _OVERVIEW_AREA_CONFIG = [
         "title": "Narrative & Sentiment",
         "description": "Transcript topics, CEO/CFO quotes, and market signal cards.",
     },
-    {
-        "key": "export",
-        "title": "Export",
-        "description": "Download current payload and HTML snapshot.",
-    },
 ]
 
 
@@ -6734,6 +6744,7 @@ def _render_overview_area_selector() -> str:
         "macro_regime": "macro_geography",
         "device_platform": "channels_devices",
         "topic_signal": "narrative_sentiment",
+        "export": "macro_geography",
     }
     active_key = st.session_state.get("overview_active_area", "macro_geography")
     if active_key not in valid_keys:
@@ -6837,18 +6848,6 @@ with gran_col:
         help="Auto uses each chart's native frequency. Annual/Quarterly/Monthly/Daily enables extra period controls when data exists.",
     )
 
-ux_col1, ux_col2 = st.columns([1.0, 2.0])
-with ux_col1:
-    chart_export_format = st.selectbox(
-        "Chart Export Format",
-        ["png", "svg"],
-        index=0,
-        key="overview_chart_export_format",
-        help="Controls Plotly per-chart download format from the modebar.",
-    )
-with ux_col2:
-    st.markdown("")
-
 selected_overview_area = _render_overview_area_selector()
 
 selected_month = None
@@ -6895,7 +6894,7 @@ st.session_state["overview_time_context"] = update_global_time_context(
     excel_path=excel_path,
 )
 
-plotly_config["toImageButtonOptions"]["format"] = chart_export_format
+plotly_config["toImageButtonOptions"]["format"] = st.session_state.get("_ov_chart_fmt", "png")
 
 # Sticky summary sidebar (period-aware, updates with filters).
 with st.sidebar:
@@ -6983,7 +6982,7 @@ if selected_overview_area == "channels_devices":
     if not device_rendered:
         st.caption("Device/platform section loads when smartphone shipment or device-class data is available.")
 
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
+    _render_overview_download_section(data_processor, selected_year, selected_quarter, key_suffix="_ch")
     end_snap_section()
     st.stop()
 
@@ -6993,7 +6992,7 @@ if selected_overview_area == "deep_dives":
     )
     if not deep_dive_rendered:
         st.info("Company dashboard needs annual company metrics (Revenue, Net Income, Debt, CapEx, R&D).")
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
+    _render_overview_download_section(data_processor, selected_year, selected_quarter, key_suffix="_dd")
     end_snap_section()
     st.stop()
 
@@ -7073,19 +7072,14 @@ if selected_overview_area == "narrative_sentiment":
                         unsafe_allow_html=True,
                     )
 
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
-    end_snap_section()
-    st.stop()
-
-if selected_overview_area == "export":
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
+    _render_overview_download_section(data_processor, selected_year, selected_quarter, key_suffix="_ns")
     end_snap_section()
     st.stop()
 
 # GLOBAL MEDIA ECONOMY MAP — part of "Macro & Geography" module
 if selected_overview_area != "macro_geography":
     # Not in macro_geography → nothing below should render; stop if we got here
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
+    _render_overview_download_section(data_processor, selected_year, selected_quarter, key_suffix="_oth")
     end_snap_section()
     st.stop()
 
@@ -8058,7 +8052,7 @@ else:
 
 
 if selected_overview_area == "global_media_map":
-    _render_overview_download_section(data_processor, selected_year, selected_quarter)
+    _render_overview_download_section(data_processor, selected_year, selected_quarter, key_suffix="_gm")
     end_snap_section()
     st.stop()
 
@@ -10187,7 +10181,7 @@ render_executive_summary_section()
 end_snap_section()
 
 st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
-_render_overview_download_section(data_processor, selected_year, selected_quarter)
+_render_overview_download_section(data_processor, selected_year, selected_quarter, key_suffix="_mg")
 
 # Add spacing before footer
 st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
@@ -11389,6 +11383,5 @@ else:
         )
     _ov_render_heatmap_figure(heatmap_df, "stock", heatmap_freq, "Company")
 
-# End of Macro & Geography module — export controls at the bottom
-_render_overview_download_section(data_processor, selected_year, selected_quarter)
+# End of Macro & Geography module
 end_snap_section()
