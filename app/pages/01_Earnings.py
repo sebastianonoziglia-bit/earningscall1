@@ -78,17 +78,21 @@ def main():
         }
 
         /* Fix: hide Material Icons text when font fails to load (shows "arrow_right" etc.)
-           Set font-size:0 on entire summary, restore on label container. */
-        [data-testid="stExpander"] details summary {
+           Target summary AND all descendants to override Streamlit emotion styles. */
+        [data-testid="stExpander"] summary,
+        [data-testid="stExpander"] summary * {
             font-size: 0 !important;
+            color: transparent !important;
         }
-        [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"],
-        [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"] * {
+        [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"],
+        [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] * {
             font-size: 0.875rem !important;
+            color: #374151 !important;
         }
-        [data-testid="stExpander"] details summary svg {
-            width: 20px !important;
-            height: 20px !important;
+        [data-testid="stExpander"] summary svg,
+        [data-testid="stExpander"] summary svg * {
+            color: #94a3b8 !important;
+            visibility: visible !important;
         }
 
         h1 {
@@ -3637,6 +3641,723 @@ def main():
 
     st.markdown("<hr class='thin-section-divider' />", unsafe_allow_html=True)
 
+    # ── Institutional Ownership ───────────────────────────────────────────
+    st.subheader("Institutional Ownership")
+
+    _h_tickers = COMPANY_TICKERS.get(company, COMPANY_TICKERS.get(canonical_company, []))
+    _h_ticker = _h_tickers[0] if _h_tickers else ""
+    _holders_df = pd.DataFrame()
+    if _h_ticker:
+        _holders_df = data_processor.get_holders(ticker=_h_ticker)
+    if _holders_df.empty:
+        _all_h = data_processor.get_holders()
+        if not _all_h.empty and _h_ticker:
+            _holders_df = _all_h[
+                _all_h["company"].str.upper() == _h_ticker.upper()
+            ].copy()
+
+    if _holders_df.empty:
+        st.info("Ownership data is not available for this company.")
+    else:
+        def _clean_hname(name: str) -> str:
+            """Shorten 'FUND FAMILY-Specific Fund Name' → 'Specific Fund Name'."""
+            if "-" in name:
+                parts = name.split("-", 1)
+                tail = parts[1].strip()
+                if len(tail) >= 6:
+                    return tail
+            return name.strip()
+
+        _holders_df = _holders_df.copy()
+        _holders_df["name_short"] = _holders_df["holder_name"].apply(_clean_hname)
+        _holders_df["pct_display"] = (_holders_df["pct_out"] * 100).round(2)
+        _holders_df["value_b"] = (_holders_df["value_usd"].fillna(0) / 1e9).round(1)
+        _holders_df["shares_m"] = (_holders_df["shares"].fillna(0) / 1e6).round(1)
+        _holders_df = _holders_df.sort_values("pct_out", ascending=False).reset_index(drop=True)
+
+        _top_h = _holders_df.iloc[0]
+        _BIG3 = ["vanguard", "blackrock", "state street"]
+        _big3_pct = (
+            _holders_df[
+                _holders_df["name_short"].str.lower().apply(
+                    lambda n: any(b in n for b in _BIG3)
+                )
+            ]["pct_out"].sum()
+            * 100
+        )
+        _n_inst = int((_holders_df["holder_type"] == "institutional").sum())
+        _n_fund = int((_holders_df["holder_type"] == "fund").sum())
+        _h_date = ""
+        try:
+            _dt = pd.to_datetime(_holders_df["date_fetched"]).max()
+            _h_date = _dt.strftime("%b %Y") if pd.notna(_dt) else ""
+        except Exception:
+            pass
+
+        # KPI strip
+        _hkpi = st.columns(3)
+        _kpi_style = (
+            "background:#f8fafc;border:1px solid #e2e8f0;"
+            "border-radius:12px;padding:1rem 1.1rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);"
+        )
+        with _hkpi[0]:
+            st.markdown(
+                f"<div style='{_kpi_style}'>"
+                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
+                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Top Holder</div>"
+                f"<div style='font-size:0.95rem;font-weight:700;color:#111827;"
+                f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
+                f"{html.escape(_top_h['name_short'][:30])}</div>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#2563eb;line-height:1.1;'>"
+                f"{_top_h['pct_display']:.2f}%</div>"
+                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
+                f"${_top_h['value_b']:.1f}B position</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with _hkpi[1]:
+            st.markdown(
+                f"<div style='{_kpi_style}'>"
+                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
+                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Big Three</div>"
+                f"<div style='font-size:0.8rem;color:#6b7280;'>Vanguard · BlackRock · State Street</div>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#2563eb;line-height:1.1;'>"
+                f"{_big3_pct:.1f}%</div>"
+                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
+                f"Passive mega-managers combined</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with _hkpi[2]:
+            st.markdown(
+                f"<div style='{_kpi_style}'>"
+                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
+                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Holders tracked</div>"
+                f"<div style='font-size:1.6rem;font-weight:800;color:#111827;line-height:1.1;'>"
+                f"{len(_holders_df)}</div>"
+                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
+                f"{_n_inst} institutional · {_n_fund} funds"
+                f"{(' · snapshot ' + _h_date) if _h_date else ''}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<div style='margin-top:0.75rem;'></div>", unsafe_allow_html=True)
+
+        _INST_PALETTE = [
+            "#1a73e8", "#00c9a7", "#f59e0b", "#ef4444", "#8b5cf6",
+            "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
+        ]
+
+        def _render_ownership_tab(df_tab: pd.DataFrame, tab_label: str) -> None:
+            """Render donut + compact table for one holder type."""
+            if df_tab.empty:
+                st.info(f"No {tab_label.lower()} holders found.")
+                return
+
+            _top8 = df_tab.head(8).copy()
+            _top8_labels = _top8["name_short"].tolist()
+            _top8_vals = _top8["pct_display"].tolist()
+            _top8_colors = _INST_PALETTE[: len(_top8)]
+
+            _donut_fig = go.Figure(go.Pie(
+                labels=_top8_labels,
+                values=_top8_vals,
+                hole=0.50,
+                sort=False,
+                marker=dict(colors=_top8_colors, line=dict(color="rgba(0,0,0,0.15)", width=1)),
+                textinfo="none",
+                hovertemplate="<b>%{label}</b><br>%{value:.2f}%<extra></extra>",
+                customdata=_top8[["value_b", "shares_m"]].values,
+            ))
+            _donut_fig.update_layout(
+                height=340,
+                margin=dict(l=0, r=0, t=10, b=10),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#111827"),
+                showlegend=True,
+                legend=dict(
+                    orientation="v", x=1.01, y=0.5, yanchor="middle",
+                    bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#111827", size=10),
+                ),
+                hoverlabel=HOVERLABEL_STYLE,
+            )
+            # Compact styled HTML table
+            _tbl_rows = ""
+            for _ri, (_idx, _row) in enumerate(df_tab.iterrows()):
+                _bg = "#f8fafc" if _ri % 2 == 0 else "#f1f5f9"
+                _tbl_rows += (
+                    f"<tr style='background:{_bg};'>"
+                    f"<td style='padding:6px 8px;color:#6b7280;font-size:11px;width:30px;'>{_ri+1}</td>"
+                    f"<td style='padding:6px 8px;color:#111827;font-size:12px;font-weight:600;'>{html.escape(_row['name_short'][:36])}</td>"
+                    f"<td style='padding:6px 8px;color:#374151;font-size:11px;text-align:right;'>{_row['shares_m']:.1f}</td>"
+                    f"<td style='padding:6px 8px;color:#374151;font-size:11px;text-align:right;'>${_row['value_b']:.1f}B</td>"
+                    f"<td style='padding:6px 8px;color:#2563eb;font-size:11px;text-align:right;font-weight:700;'>{_row['pct_display']:.2f}%</td>"
+                    f"</tr>"
+                )
+            _tbl_html = (
+                "<div style='overflow-x:auto;'>"
+                "<table style='width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;'>"
+                "<thead><tr style='background:#e2e8f0;'>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;width:30px;'>#</th>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;'>Holder</th>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Shares (M)</th>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Value</th>"
+                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>% Stake</th>"
+                "</tr></thead>"
+                f"<tbody>{_tbl_rows}</tbody>"
+                "</table></div>"
+            )
+
+            _dcol, _tcol = st.columns([1, 1.4])
+            with _dcol:
+                st.plotly_chart(_donut_fig, use_container_width=True, config=PLOTLY_CONFIG)
+            with _tcol:
+                st.markdown(_tbl_html, unsafe_allow_html=True)
+
+        # Tabs: Institutional | Funds
+        _tab_inst, _tab_fund = st.tabs(["📋 Institutional", "📊 Funds"])
+        with _tab_inst:
+            _render_ownership_tab(
+                _holders_df[_holders_df["holder_type"] == "institutional"].reset_index(drop=True),
+                "Institutional",
+            )
+        with _tab_fund:
+            _render_ownership_tab(
+                _holders_df[_holders_df["holder_type"] == "fund"].reset_index(drop=True),
+                "Fund",
+            )
+
+    st.divider()
+
+
+    st.divider()
+
+    # Default to the last 5 years where possible, but keep explorer floor at 2010.
+    metrics_floor_year = 2010
+    metrics_ceiling_year = max(int(max_year), int(max(years)))
+    if metrics_ceiling_year < metrics_floor_year:
+        metrics_floor_year = metrics_ceiling_year
+    default_start = max(int(metrics_floor_year), int(metrics_ceiling_year) - 4)
+
+    # Company metrics explorer
+    st.markdown("<div class='metrics-section-spacer'></div>", unsafe_allow_html=True)
+    st.subheader("Company Metrics Explorer")
+
+    metric_cols = st.columns([3, 1, 1])
+    with metric_cols[0]:
+        selected_metrics = st.multiselect(
+            "Select metrics",
+            options=list(AVAILABLE_METRICS.keys()),
+            default=["Revenue"],
+        )
+    with metric_cols[1]:
+        metric_chart = st.radio("Chart", ["Bar", "Line"], horizontal=True)
+    with metric_cols[2]:
+        compare_companies = st.multiselect(
+            "Compare with",
+            options=[c for c in companies if c != company],
+            default=[],
+        )
+
+    metric_year_range = st.slider(
+        "Metrics year range",
+        min_value=int(metrics_floor_year),
+        max_value=int(metrics_ceiling_year),
+        value=(int(default_start), int(metrics_ceiling_year)),
+        key="metrics_year_range",
+    )
+
+    metric_toggle_row = st.columns([0.55, 0.25, 0.2])
+    with metric_toggle_row[1]:
+        metrics_freq = st.radio(
+            "Frequency",
+            ["Yearly", "Quarterly"],
+            horizontal=True,
+            key="metrics_frequency",
+        )
+    with metric_toggle_row[2]:
+        show_metric_yoy = st.checkbox("Show YoY%", value=True, key="metrics_show_yoy")
+
+    metrics_df = data_processor.df_metrics
+    metrics_quarter_col = None
+    metrics_ready = True
+    quarterly_metrics_df = None
+    if metrics_freq == "Quarterly":
+        quarterly_metrics_df = load_quarterly_company_metrics(
+            data_processor.data_path, get_file_mtime(data_processor.data_path)
+        )
+        metrics_ready = quarterly_metrics_df is not None and not quarterly_metrics_df.empty
+
+    has_metrics_source = (
+        (metrics_df is not None and not metrics_df.empty) or (quarterly_metrics_df is not None)
+    )
+    if selected_metrics and has_metrics_source:
+        selected_companies = [company] + compare_companies
+        df_filtered = pd.DataFrame()
+        if metrics_df is not None and not metrics_df.empty:
+            df_filtered = metrics_df[
+                (metrics_df["company"].isin(selected_companies))
+                & (metrics_df["year"] >= metric_year_range[0])
+                & (metrics_df["year"] <= metric_year_range[1])
+            ]
+
+        if metrics_freq == "Quarterly" and not metrics_ready:
+            st.info("Quarterly company metrics are not available in the Excel yet.")
+        else:
+            for metric_label in selected_metrics:
+                metric_col = AVAILABLE_METRICS[metric_label]
+                if metrics_freq == "Quarterly":
+                    if quarterly_metrics_df is None or quarterly_metrics_df.empty:
+                        st.info("Quarterly company metrics are not available in the Excel yet.")
+                        break
+                    df_metric = quarterly_metrics_df[
+                        (quarterly_metrics_df["company"].isin(selected_companies))
+                        & (quarterly_metrics_df["year"] >= metric_year_range[0])
+                        & (quarterly_metrics_df["year"] <= metric_year_range[1])
+                        & (quarterly_metrics_df["metric_key"] == metric_col)
+                    ].copy()
+                    if df_metric.empty:
+                        st.info(f"No quarterly data available for {metric_label}.")
+                        continue
+                    df_metric = (
+                        df_metric.groupby(["company", "year", "quarter_num", "period_label"], as_index=False)[
+                            "value"
+                        ].sum()
+                    )
+                else:
+                    df_metric = df_filtered[["company", "year", metric_col]].dropna().rename(
+                        columns={metric_col: "value"}
+                    )
+                    if df_metric.empty:
+                        st.info(f"No data available for {metric_label}.")
+                        continue
+                df_metric["year"] = pd.to_numeric(df_metric["year"], errors="coerce")
+                df_metric = df_metric.dropna(subset=["year"])
+                df_metric["year"] = df_metric["year"].astype(int)
+                if metrics_freq == "Quarterly":
+                    df_metric["quarter_num"] = pd.to_numeric(df_metric["quarter_num"], errors="coerce")
+                    df_metric = df_metric.dropna(subset=["year", "quarter_num"])
+                    df_metric["year"] = df_metric["year"].astype(int)
+                    df_metric["quarter_num"] = df_metric["quarter_num"].astype(int)
+                    df_metric = df_metric.sort_values(["company", "year", "quarter_num"])
+                    df_metric["period_label"] = (
+                        df_metric["year"].astype(int).astype(str)
+                        + " Q"
+                        + df_metric["quarter_num"].astype(int).astype(str)
+                    )
+                    df_metric["yoy"] = df_metric.groupby("company")["value"].pct_change() * 100
+                    df_metric["yoy_label"] = df_metric["yoy"].apply(lambda v: format_yoy_label(v, "%"))
+                    x_col = "period_label"
+                    change_label = "QoQ"
+                else:
+                    df_metric = df_metric.sort_values(["company", "year"])
+                    df_metric["yoy"] = df_metric.groupby("company")["value"].pct_change() * 100
+                    df_metric["yoy_label"] = df_metric["yoy"].apply(lambda v: format_yoy_label(v, "%"))
+                    x_col = "year"
+                    change_label = "YoY"
+                custom_data = ["yoy_label"] if show_metric_yoy else None
+                if metric_chart == "Bar":
+                    fig = px.bar(
+                        df_metric,
+                        x=x_col,
+                        y="value",
+                        color="company",
+                        barmode="group",
+                        title=f"{metric_label} Over Time",
+                        color_discrete_map=COMPANY_COLORS,
+                        custom_data=custom_data,
+                    )
+                else:
+                    fig = px.line(
+                        df_metric,
+                        x=x_col,
+                        y="value",
+                        color="company",
+                        markers=True,
+                        title=f"{metric_label} Over Time",
+                        color_discrete_map=COMPANY_COLORS,
+                        custom_data=custom_data,
+                    )
+                fig.update_layout(
+                    yaxis_title=f"{metric_label} (M)",
+                    xaxis_title="Quarterly" if metrics_freq == "Quarterly" else "Year",
+                    height=520,
+                    margin=dict(t=60, r=30, l=20, b=40),
+                )
+                _period_word = "Quarter" if metrics_freq == "Quarterly" else "Year"
+                if show_metric_yoy:
+                    hovertemplate = (
+                        f"<b>%{{fullData.name}}</b>"
+                        f"<br><span style='color:#94a3b8'>{_period_word}</span>  <b>%{{x}}</b>"
+                        f"<br><span style='color:#94a3b8'>{metric_label}</span>  <b>$%{{y:,.0f}}M</b>"
+                        f"<br><span style='color:#94a3b8'>{change_label}</span>  <b>%{{customdata[0]}}</b>"
+                        f"<extra></extra>"
+                    )
+                else:
+                    hovertemplate = (
+                        f"<b>%{{fullData.name}}</b>"
+                        f"<br><span style='color:#94a3b8'>{_period_word}</span>  <b>%{{x}}</b>"
+                        f"<br><span style='color:#94a3b8'>{metric_label}</span>  <b>$%{{y:,.0f}}M</b>"
+                        f"<extra></extra>"
+                    )
+                fig.update_traces(
+                    hovertemplate=hovertemplate
+                )
+                fig.update_layout(hoverlabel=HOVERLABEL_STYLE)
+                if metrics_freq == "Quarterly":
+                    period_order = (
+                        df_metric[["year", "quarter_num"]]
+                        .drop_duplicates()
+                        .sort_values(["year", "quarter_num"])
+                    )
+                    quarter_labels = (
+                        period_order["year"].astype(int).astype(str)
+                        + " Q"
+                        + period_order["quarter_num"].astype(int).astype(str)
+                    ).tolist()
+                    category_order, tickvals, ticktext = build_quarter_axis(quarter_labels)
+                    fig.update_xaxes(
+                        type="category",
+                        categoryorder="array",
+                        categoryarray=category_order,
+                        tickmode="array",
+                        tickvals=tickvals,
+                        ticktext=ticktext,
+                    )
+                    render_plotly(fig, xaxis_is_year=False)
+                else:
+                    render_plotly(fig, xaxis_is_year=True)
+
+
+    st.subheader("Insights")
+    render_transcript_highlights(company, int(year), selected_quarter)
+
+    try:
+        from utils.transcript_live import (
+            extract_outlook_risks_opportunities,
+            SIGNAL_ICONS,
+            SIGNAL_COLORS,
+        )
+        _oro = extract_outlook_risks_opportunities(
+            str(data_processor.data_path),
+            canonical_company,
+            int(year),
+            selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
+        )
+        _has_oro = any(bool(v) for v in _oro.values())
+    except Exception:
+        _oro = {}
+        _has_oro = False
+        SIGNAL_ICONS = {"Outlook": "🔭", "Risks": "⚠️", "Opportunities": "🚀"}
+        SIGNAL_COLORS = {
+            "Outlook":       {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
+            "Risks":         {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
+            "Opportunities": {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
+        }
+
+    if _has_oro:
+        _period = (
+            f"Q{_parse_quarter_int(selected_quarter)} {year}"
+            if _parse_quarter_int(selected_quarter) else str(year)
+        )
+        st.markdown(
+            f"<div style='margin:1.5rem 0 0.75rem 0;'>"
+            f"<span style='font-weight:700;font-size:1rem;color:#111827;'>"
+            f"Signals from the earnings call</span>"
+            f"<span style='color:#6b7280;font-size:0.82rem;margin-left:10px;'>"
+            f"{canonical_company} · {_period}</span></div>",
+            unsafe_allow_html=True,
+        )
+        _oro_cols = st.columns(3, gap="medium")
+        for _col, _cat in zip(_oro_cols, ["Outlook", "Risks", "Opportunities"]):
+            with _col:
+                _sigs = _oro.get(_cat, [])
+                _c = SIGNAL_COLORS.get(_cat, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
+                _icon = SIGNAL_ICONS.get(_cat, "")
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:8px;"
+                    f"margin-bottom:12px;padding-bottom:8px;"
+                    f"border-bottom:2px solid {_c['border']};'>"
+                    f"<span style='font-size:1.1rem;'>{_icon}</span>"
+                    f"<span style='font-weight:700;font-size:0.9rem;color:#111827;'>{_cat}</span>"
+                    f"<span style='margin-left:auto;background:{_c['tag']};color:white;"
+                    f"font-size:0.65rem;padding:2px 7px;border-radius:10px;"
+                    f"font-weight:600;'>{len(_sigs)}</span></div>",
+                    unsafe_allow_html=True,
+                )
+                if not _sigs:
+                    st.markdown(
+                        f"<p style='color:#9ca3af;font-size:0.82rem;font-style:italic;'>"
+                        f"No {_cat.lower()} signals found.</p>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    for _sig in _sigs:
+                        _q = str(_sig.get("quote", "")).strip()
+                        _sp = str(_sig.get("speaker", "")).strip()
+                        _rl = str(_sig.get("role", "")).strip()
+                        if len(_q) > 180:
+                            _q = _q[:180].rsplit(" ", 1)[0] + "…"
+                        _sp_html = ""
+                        if _sp and _sp.lower() not in ("", "unknown", "nan"):
+                            _sp_html = (
+                                f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;'>"
+                                f"{html.escape(_sp)}"
+                                + (f" · <span style='color:{_c['tag']}'>{html.escape(_rl)}</span>" if _rl else "")
+                                + "</div>"
+                            )
+                        st.markdown(
+                            f"<div style='background:{_c['bg']};"
+                            f"border:1px solid {_c['border']};"
+                            f"border-left:3px solid {_c['border']};"
+                            f"border-radius:6px;padding:10px 12px;margin-bottom:8px;'>"
+                            f"<p style='margin:0;font-size:0.83rem;color:#374151;"
+                            f"line-height:1.6;font-style:italic;'>"
+                            f"\"{html.escape(_q)}\"</p>"
+                            f"{_sp_html}</div>",
+                            unsafe_allow_html=True,
+                        )
+
+    company_insights_df = load_company_insights_text(data_processor.data_path)
+
+    company_insights_filtered = pd.DataFrame()
+    insight_source_label = f"Annual {year}"
+    if company_insights_df is not None and not company_insights_df.empty:
+        all_insights = company_insights_df.copy()
+        all_insights["company"] = all_insights["company"].astype(str).str.strip().apply(normalize_company)
+        all_insights["year"] = pd.to_numeric(all_insights["year"], errors="coerce")
+        all_insights = all_insights[
+            (all_insights["company"] == canonical_company)
+            & (all_insights["year"] == int(year))
+            & (all_insights["insight"].notna())
+        ].copy()
+
+        qnum = _parse_quarter_int(selected_quarter)
+        if "quarter" in all_insights.columns and qnum is not None:
+            all_insights["_quarter_num"] = all_insights["quarter"].apply(_parse_quarter_int)
+            quarter_match = all_insights[all_insights["_quarter_num"] == int(qnum)].copy()
+            if not quarter_match.empty:
+                company_insights_filtered = quarter_match
+                insight_source_label = f"Q{qnum} {year}"
+            else:
+                annual_fallback = all_insights[
+                    all_insights["quarter"].isna()
+                    | (all_insights["quarter"].astype(str).str.strip() == "")
+                ].copy()
+                company_insights_filtered = annual_fallback
+                insight_source_label = f"Annual {year}"
+        else:
+            if "quarter" in all_insights.columns:
+                all_insights["quarter"] = all_insights["quarter"].fillna("")
+                all_insights = all_insights[
+                    all_insights["quarter"].astype(str).str.strip().str.upper().isin(
+                        ["", "ANNUAL", "FY", "YEARLY", "YEAR"]
+                    )
+                ].copy()
+            company_insights_filtered = all_insights
+            insight_source_label = f"Annual {year}"
+
+        if "category" in company_insights_filtered.columns:
+            company_insights_filtered["category"] = company_insights_filtered["category"].fillna("")
+
+    if company_insights_filtered.empty:
+        _co_insight_generated = False
+        _ant_available_ci = False
+        try:
+            from utils.anthropic_service import is_api_available as _ci_ant_check, call_claude as _ci_call
+            _ant_available_ci = _ci_ant_check()
+        except Exception:
+            pass
+        if _ant_available_ci:
+            try:
+                _ci_transcript = _load_transcript_for_company(
+                    str(data_processor.data_path), canonical_company, int(year),
+                    selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
+                )
+                if _ci_transcript:
+                    _ci_system = (
+                        "You are a senior media & technology financial analyst. "
+                        "Write exactly 3 insight bullets about this company's performance. "
+                        "Format: one sentence per bullet, separated by | character. "
+                        "Cover: revenue performance, key business development, forward outlook. "
+                        "Be specific with numbers. No bullet symbols, no headers, no markdown."
+                    )
+                    _ci_period = f"Q{_parse_quarter_int(selected_quarter)} {year}" if _parse_quarter_int(selected_quarter) else str(year)
+                    _ci_result = _ci_call(
+                        _ci_system,
+                        f"Company: {canonical_company}\nPeriod: {_ci_period}\n"
+                        f"Transcript (first 3000 chars):\n{_ci_transcript[:3000]}\n\nWrite 3 insight bullets separated by |",
+                        max_tokens=350,
+                    )
+                    if _ci_result:
+                        _ci_parts = [p.strip().lstrip("•-·").strip() for p in _ci_result.split("|") if p.strip()]
+                        if _ci_parts:
+                            company_color = (
+                                COMPANY_COLORS.get(company)
+                                or COMPANY_COLORS.get(canonical_company)
+                                or "#111827"
+                            )
+                            _items_html = "".join(f"<li>{html.escape(p)}</li>" for p in _ci_parts[:3])
+                            _card = (
+                                f"<div class='company-insight-card insight-card' style='border-left:4px solid {company_color};'>"
+                                f"<div class='company-insight-title'>✨ AI Analysis</div>"
+                                f"<ul class='company-insight-list'>{_items_html}</ul>"
+                                f"</div>"
+                            )
+                            st.markdown("#### Company insights")
+                            st.markdown(
+                                f"<div class='insights-carousel-wrap' data-carousel='company'>"
+                                f"<div class='insights-carousel' id='insights-carousel-company'>{_card}</div>"
+                                f"</div>",
+                                unsafe_allow_html=True,
+                            )
+                            _co_insight_generated = True
+            except Exception:
+                pass
+    else:
+        st.markdown("#### Company insights")
+        st.caption(f"Source: {insight_source_label}")
+        company_cards = []
+        company_color = (
+            COMPANY_COLORS.get(company)
+            or COMPANY_COLORS.get(canonical_company)
+            or COMPANY_COLORS.get(normalize_company(company))
+            or "#111827"
+        )
+        for category, group in company_insights_filtered.groupby("category"):
+            title = str(category).strip() if category and str(category).strip() else "Company Insight"
+            insights = []
+            for item in group["insight"].tolist():
+                for part in split_insight_text(item):
+                    if part and str(part).strip():
+                        insights.append(html.escape(str(part).strip()))
+            if not insights:
+                continue
+            insight_items = "".join(f"<li>{item}</li>" for item in insights)
+            company_cards.append(
+                f"<div class=\"company-insight-card insight-card\" style=\"border-left: 4px solid {company_color};\">"
+                f"<div class=\"company-insight-title\">{html.escape(title)}</div>"
+                f"<ul class=\"company-insight-list\">{insight_items}</ul>"
+                "</div>"
+            )
+        if company_cards:
+            st.markdown(
+                f"<div class='insights-carousel-wrap' data-carousel='company'>"
+                f"<button class='insights-nav left' data-dir='left' data-target='company' aria-label='Scroll left'>&lsaquo;</button>"
+                f"<div class='insights-carousel' id='insights-carousel-company'>{''.join(company_cards)}</div>"
+                f"<button class='insights-nav right' data-dir='right' data-target='company' aria-label='Scroll right'>&rsaquo;</button>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("Company insights are not available for this company/year.")
+
+    company_auto_narratives_df = load_company_auto_narratives(data_processor.data_path)
+    if company_auto_narratives_df is not None and not company_auto_narratives_df.empty:
+        auto_rows = company_auto_narratives_df.copy()
+        if "company" not in auto_rows.columns and "companies" in auto_rows.columns:
+            auto_rows["company"] = auto_rows["companies"].astype(str).str.split("|").str[0]
+        if {"company", "year"}.issubset(auto_rows.columns):
+            auto_rows["company"] = auto_rows["company"].astype(str).str.strip().apply(normalize_company)
+            auto_rows["year"] = pd.to_numeric(auto_rows["year"], errors="coerce")
+            auto_rows = auto_rows[
+                (auto_rows["company"] == canonical_company)
+                & (auto_rows["year"] == int(year))
+            ].copy()
+            if not auto_rows.empty:
+                st.markdown(
+                    """
+                    <style>
+                    .wm-priority {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 999px;
+                        padding: 0.18rem 0.5rem;
+                        font-size: 0.68rem;
+                        font-weight: 700;
+                        letter-spacing: 0.03em;
+                        text-transform: uppercase;
+                        line-height: 1;
+                    }
+                    .wm-priority-high { background: rgba(239,68,68,0.15); color: #ef4444; }
+                    .wm-priority-medium { background: rgba(249,115,22,0.15); color: #f97316; }
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                company_color = (
+                    COMPANY_COLORS.get(company)
+                    or COMPANY_COLORS.get(canonical_company)
+                    or COMPANY_COLORS.get(normalize_company(company))
+                    or "#111827"
+                )
+                narrative_cards = []
+                for _, row in auto_rows.sort_values(["priority", "insight_id"]).iterrows():
+                    raw_text = str(row.get("text", "") or row.get("comment", "") or "").strip()
+                    if not raw_text:
+                        continue
+                    priority = str(row.get("priority", "medium")).strip().lower()
+                    priority = priority if priority in {"high", "medium"} else "medium"
+                    category = str(row.get("category", "")).strip() or "Narrative"
+                    narrative_cards.append(
+                        f"<div class=\"company-insight-card insight-card\" style=\"border-left: 4px solid {company_color};\">"
+                        f"<div style=\"display:flex; align-items:center; justify-content:space-between; gap:8px;\">"
+                        f"<div style=\"font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#64748B;\">{html.escape(category)}</div>"
+                        f"<span class=\"wm-priority wm-priority-{priority}\">{html.escape(priority.upper())}</span>"
+                        "</div>"
+                        f"<div style=\"margin-top:8px; font-size:0.95rem; line-height:1.55;\">{html.escape(raw_text)}</div>"
+                        "<div style=\"margin-top:10px; color:#6b7280; font-size:0.78rem; font-style:italic;\">⚡ Auto-generated from financial metrics</div>"
+                        "</div>"
+                    )
+                if narrative_cards:
+                    st.markdown("#### Auto narratives")
+                    st.markdown("".join(narrative_cards), unsafe_allow_html=True)
+
+    components.html(
+        """
+        <script>
+        (function() {
+            const root = window.parent.document;
+            const bindCarousel = (key) => {
+                const carousel = root.getElementById(`insights-carousel-${key}`);
+                if (!carousel) return;
+                const leftBtn = root.querySelector(`.insights-nav.left[data-target="${key}"]`);
+                const rightBtn = root.querySelector(`.insights-nav.right[data-target="${key}"]`);
+                const updateButtons = () => {
+                    const maxScroll = carousel.scrollWidth - carousel.clientWidth - 2;
+                    if (leftBtn) leftBtn.disabled = carousel.scrollLeft <= 2;
+                    if (rightBtn) rightBtn.disabled = carousel.scrollLeft >= maxScroll;
+                };
+                const scrollByAmount = (dir) => {
+                    const card = carousel.querySelector(".insight-card");
+                    const step = card ? card.getBoundingClientRect().width + 14 : 320;
+                    carousel.scrollBy({ left: dir * step, behavior: "smooth" });
+                };
+                if (leftBtn) {
+                    leftBtn.addEventListener("click", () => scrollByAmount(-1));
+                }
+                if (rightBtn) {
+                    rightBtn.addEventListener("click", () => scrollByAmount(1));
+                }
+                carousel.addEventListener("scroll", () => {
+                    window.requestAnimationFrame(updateButtons);
+                });
+                updateButtons();
+                window.addEventListener("resize", updateButtons);
+            };
+            bindCarousel("segment");
+            bindCarousel("company");
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
     # Segment composition
     st.subheader("Segment Composition")
     canonical_company = normalize_company(company)
@@ -4501,196 +5222,6 @@ def main():
             label_visibility="collapsed",
         )
 
-    # ── Institutional Ownership ───────────────────────────────────────────
-    st.subheader("Institutional Ownership")
-
-    _h_tickers = COMPANY_TICKERS.get(company, COMPANY_TICKERS.get(canonical_company, []))
-    _h_ticker = _h_tickers[0] if _h_tickers else ""
-    _holders_df = pd.DataFrame()
-    if _h_ticker:
-        _holders_df = data_processor.get_holders(ticker=_h_ticker)
-    if _holders_df.empty:
-        _all_h = data_processor.get_holders()
-        if not _all_h.empty and _h_ticker:
-            _holders_df = _all_h[
-                _all_h["company"].str.upper() == _h_ticker.upper()
-            ].copy()
-
-    if _holders_df.empty:
-        st.info("Ownership data is not available for this company.")
-    else:
-        def _clean_hname(name: str) -> str:
-            """Shorten 'FUND FAMILY-Specific Fund Name' → 'Specific Fund Name'."""
-            if "-" in name:
-                parts = name.split("-", 1)
-                tail = parts[1].strip()
-                if len(tail) >= 6:
-                    return tail
-            return name.strip()
-
-        _holders_df = _holders_df.copy()
-        _holders_df["name_short"] = _holders_df["holder_name"].apply(_clean_hname)
-        _holders_df["pct_display"] = (_holders_df["pct_out"] * 100).round(2)
-        _holders_df["value_b"] = (_holders_df["value_usd"].fillna(0) / 1e9).round(1)
-        _holders_df["shares_m"] = (_holders_df["shares"].fillna(0) / 1e6).round(1)
-        _holders_df = _holders_df.sort_values("pct_out", ascending=False).reset_index(drop=True)
-
-        _top_h = _holders_df.iloc[0]
-        _BIG3 = ["vanguard", "blackrock", "state street"]
-        _big3_pct = (
-            _holders_df[
-                _holders_df["name_short"].str.lower().apply(
-                    lambda n: any(b in n for b in _BIG3)
-                )
-            ]["pct_out"].sum()
-            * 100
-        )
-        _n_inst = int((_holders_df["holder_type"] == "institutional").sum())
-        _n_fund = int((_holders_df["holder_type"] == "fund").sum())
-        _h_date = ""
-        try:
-            _dt = pd.to_datetime(_holders_df["date_fetched"]).max()
-            _h_date = _dt.strftime("%b %Y") if pd.notna(_dt) else ""
-        except Exception:
-            pass
-
-        # KPI strip
-        _hkpi = st.columns(3)
-        _kpi_style = (
-            "background:#f8fafc;border:1px solid #e2e8f0;"
-            "border-radius:12px;padding:1rem 1.1rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);"
-        )
-        with _hkpi[0]:
-            st.markdown(
-                f"<div style='{_kpi_style}'>"
-                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
-                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Top Holder</div>"
-                f"<div style='font-size:0.95rem;font-weight:700;color:#111827;"
-                f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
-                f"{html.escape(_top_h['name_short'][:30])}</div>"
-                f"<div style='font-size:1.6rem;font-weight:800;color:#2563eb;line-height:1.1;'>"
-                f"{_top_h['pct_display']:.2f}%</div>"
-                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
-                f"${_top_h['value_b']:.1f}B position</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-        with _hkpi[1]:
-            st.markdown(
-                f"<div style='{_kpi_style}'>"
-                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
-                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Big Three</div>"
-                f"<div style='font-size:0.8rem;color:#6b7280;'>Vanguard · BlackRock · State Street</div>"
-                f"<div style='font-size:1.6rem;font-weight:800;color:#2563eb;line-height:1.1;'>"
-                f"{_big3_pct:.1f}%</div>"
-                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
-                f"Passive mega-managers combined</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-        with _hkpi[2]:
-            st.markdown(
-                f"<div style='{_kpi_style}'>"
-                f"<div style='font-size:0.7rem;color:#6b7280;text-transform:uppercase;"
-                f"letter-spacing:0.08em;margin-bottom:0.25rem;'>Holders tracked</div>"
-                f"<div style='font-size:1.6rem;font-weight:800;color:#111827;line-height:1.1;'>"
-                f"{len(_holders_df)}</div>"
-                f"<div style='font-size:0.78rem;color:#6b7280;margin-top:0.15rem;'>"
-                f"{_n_inst} institutional · {_n_fund} funds"
-                f"{(' · snapshot ' + _h_date) if _h_date else ''}</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-
-        st.markdown("<div style='margin-top:0.75rem;'></div>", unsafe_allow_html=True)
-
-        _INST_PALETTE = [
-            "#1a73e8", "#00c9a7", "#f59e0b", "#ef4444", "#8b5cf6",
-            "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
-        ]
-
-        def _render_ownership_tab(df_tab: pd.DataFrame, tab_label: str) -> None:
-            """Render donut + compact table for one holder type."""
-            if df_tab.empty:
-                st.info(f"No {tab_label.lower()} holders found.")
-                return
-
-            _top8 = df_tab.head(8).copy()
-            _top8_labels = _top8["name_short"].tolist()
-            _top8_vals = _top8["pct_display"].tolist()
-            _top8_colors = _INST_PALETTE[: len(_top8)]
-
-            _donut_fig = go.Figure(go.Pie(
-                labels=_top8_labels,
-                values=_top8_vals,
-                hole=0.50,
-                sort=False,
-                marker=dict(colors=_top8_colors, line=dict(color="rgba(0,0,0,0.15)", width=1)),
-                textinfo="none",
-                hovertemplate="<b>%{label}</b><br>%{value:.2f}%<extra></extra>",
-                customdata=_top8[["value_b", "shares_m"]].values,
-            ))
-            _donut_fig.update_layout(
-                height=340,
-                margin=dict(l=0, r=0, t=10, b=10),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#111827"),
-                showlegend=True,
-                legend=dict(
-                    orientation="v", x=1.01, y=0.5, yanchor="middle",
-                    bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#111827", size=10),
-                ),
-                hoverlabel=HOVERLABEL_STYLE,
-            )
-            # Compact styled HTML table
-            _tbl_rows = ""
-            for _ri, (_idx, _row) in enumerate(df_tab.iterrows()):
-                _bg = "#f8fafc" if _ri % 2 == 0 else "#f1f5f9"
-                _tbl_rows += (
-                    f"<tr style='background:{_bg};'>"
-                    f"<td style='padding:6px 8px;color:#6b7280;font-size:11px;width:30px;'>{_ri+1}</td>"
-                    f"<td style='padding:6px 8px;color:#111827;font-size:12px;font-weight:600;'>{html.escape(_row['name_short'][:36])}</td>"
-                    f"<td style='padding:6px 8px;color:#374151;font-size:11px;text-align:right;'>{_row['shares_m']:.1f}</td>"
-                    f"<td style='padding:6px 8px;color:#374151;font-size:11px;text-align:right;'>${_row['value_b']:.1f}B</td>"
-                    f"<td style='padding:6px 8px;color:#2563eb;font-size:11px;text-align:right;font-weight:700;'>{_row['pct_display']:.2f}%</td>"
-                    f"</tr>"
-                )
-            _tbl_html = (
-                "<div style='overflow-x:auto;'>"
-                "<table style='width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;'>"
-                "<thead><tr style='background:#e2e8f0;'>"
-                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;width:30px;'>#</th>"
-                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;'>Holder</th>"
-                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Shares (M)</th>"
-                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>Value</th>"
-                "<th style='padding:6px 8px;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:right;'>% Stake</th>"
-                "</tr></thead>"
-                f"<tbody>{_tbl_rows}</tbody>"
-                "</table></div>"
-            )
-
-            _dcol, _tcol = st.columns([1, 1.4])
-            with _dcol:
-                st.plotly_chart(_donut_fig, use_container_width=True, config=PLOTLY_CONFIG)
-            with _tcol:
-                st.markdown(_tbl_html, unsafe_allow_html=True)
-
-        # Tabs: Institutional | Funds
-        _tab_inst, _tab_fund = st.tabs(["📋 Institutional", "📊 Funds"])
-        with _tab_inst:
-            _render_ownership_tab(
-                _holders_df[_holders_df["holder_type"] == "institutional"].reset_index(drop=True),
-                "Institutional",
-            )
-        with _tab_fund:
-            _render_ownership_tab(
-                _holders_df[_holders_df["holder_type"] == "fund"].reset_index(drop=True),
-                "Fund",
-            )
-
-    st.divider()
 
     # Segment evolution
     st.subheader("Segment Evolution")
@@ -4859,528 +5390,6 @@ def main():
             )
         render_plotly(fig, xaxis_is_year=xaxis_is_year)
 
-    st.subheader("Insights")
-    render_transcript_highlights(company, int(year), selected_quarter)
-
-    try:
-        from utils.transcript_live import (
-            extract_outlook_risks_opportunities,
-            SIGNAL_ICONS,
-            SIGNAL_COLORS,
-        )
-        _oro = extract_outlook_risks_opportunities(
-            str(data_processor.data_path),
-            canonical_company,
-            int(year),
-            selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
-        )
-        _has_oro = any(bool(v) for v in _oro.values())
-    except Exception:
-        _oro = {}
-        _has_oro = False
-        SIGNAL_ICONS = {"Outlook": "🔭", "Risks": "⚠️", "Opportunities": "🚀"}
-        SIGNAL_COLORS = {
-            "Outlook":       {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
-            "Risks":         {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
-            "Opportunities": {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
-        }
-
-    if _has_oro:
-        _period = (
-            f"Q{_parse_quarter_int(selected_quarter)} {year}"
-            if _parse_quarter_int(selected_quarter) else str(year)
-        )
-        st.markdown(
-            f"<div style='margin:1.5rem 0 0.75rem 0;'>"
-            f"<span style='font-weight:700;font-size:1rem;color:#111827;'>"
-            f"Signals from the earnings call</span>"
-            f"<span style='color:#6b7280;font-size:0.82rem;margin-left:10px;'>"
-            f"{canonical_company} · {_period}</span></div>",
-            unsafe_allow_html=True,
-        )
-        _oro_cols = st.columns(3, gap="medium")
-        for _col, _cat in zip(_oro_cols, ["Outlook", "Risks", "Opportunities"]):
-            with _col:
-                _sigs = _oro.get(_cat, [])
-                _c = SIGNAL_COLORS.get(_cat, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
-                _icon = SIGNAL_ICONS.get(_cat, "")
-                st.markdown(
-                    f"<div style='display:flex;align-items:center;gap:8px;"
-                    f"margin-bottom:12px;padding-bottom:8px;"
-                    f"border-bottom:2px solid {_c['border']};'>"
-                    f"<span style='font-size:1.1rem;'>{_icon}</span>"
-                    f"<span style='font-weight:700;font-size:0.9rem;color:#111827;'>{_cat}</span>"
-                    f"<span style='margin-left:auto;background:{_c['tag']};color:white;"
-                    f"font-size:0.65rem;padding:2px 7px;border-radius:10px;"
-                    f"font-weight:600;'>{len(_sigs)}</span></div>",
-                    unsafe_allow_html=True,
-                )
-                if not _sigs:
-                    st.markdown(
-                        f"<p style='color:#9ca3af;font-size:0.82rem;font-style:italic;'>"
-                        f"No {_cat.lower()} signals found.</p>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    for _sig in _sigs:
-                        _q = str(_sig.get("quote", "")).strip()
-                        _sp = str(_sig.get("speaker", "")).strip()
-                        _rl = str(_sig.get("role", "")).strip()
-                        if len(_q) > 180:
-                            _q = _q[:180].rsplit(" ", 1)[0] + "…"
-                        _sp_html = ""
-                        if _sp and _sp.lower() not in ("", "unknown", "nan"):
-                            _sp_html = (
-                                f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;'>"
-                                f"{html.escape(_sp)}"
-                                + (f" · <span style='color:{_c['tag']}'>{html.escape(_rl)}</span>" if _rl else "")
-                                + "</div>"
-                            )
-                        st.markdown(
-                            f"<div style='background:{_c['bg']};"
-                            f"border:1px solid {_c['border']};"
-                            f"border-left:3px solid {_c['border']};"
-                            f"border-radius:6px;padding:10px 12px;margin-bottom:8px;'>"
-                            f"<p style='margin:0;font-size:0.83rem;color:#374151;"
-                            f"line-height:1.6;font-style:italic;'>"
-                            f"\"{html.escape(_q)}\"</p>"
-                            f"{_sp_html}</div>",
-                            unsafe_allow_html=True,
-                        )
-
-    company_insights_df = load_company_insights_text(data_processor.data_path)
-
-    company_insights_filtered = pd.DataFrame()
-    insight_source_label = f"Annual {year}"
-    if company_insights_df is not None and not company_insights_df.empty:
-        all_insights = company_insights_df.copy()
-        all_insights["company"] = all_insights["company"].astype(str).str.strip().apply(normalize_company)
-        all_insights["year"] = pd.to_numeric(all_insights["year"], errors="coerce")
-        all_insights = all_insights[
-            (all_insights["company"] == canonical_company)
-            & (all_insights["year"] == int(year))
-            & (all_insights["insight"].notna())
-        ].copy()
-
-        qnum = _parse_quarter_int(selected_quarter)
-        if "quarter" in all_insights.columns and qnum is not None:
-            all_insights["_quarter_num"] = all_insights["quarter"].apply(_parse_quarter_int)
-            quarter_match = all_insights[all_insights["_quarter_num"] == int(qnum)].copy()
-            if not quarter_match.empty:
-                company_insights_filtered = quarter_match
-                insight_source_label = f"Q{qnum} {year}"
-            else:
-                annual_fallback = all_insights[
-                    all_insights["quarter"].isna()
-                    | (all_insights["quarter"].astype(str).str.strip() == "")
-                ].copy()
-                company_insights_filtered = annual_fallback
-                insight_source_label = f"Annual {year}"
-        else:
-            if "quarter" in all_insights.columns:
-                all_insights["quarter"] = all_insights["quarter"].fillna("")
-                all_insights = all_insights[
-                    all_insights["quarter"].astype(str).str.strip().str.upper().isin(
-                        ["", "ANNUAL", "FY", "YEARLY", "YEAR"]
-                    )
-                ].copy()
-            company_insights_filtered = all_insights
-            insight_source_label = f"Annual {year}"
-
-        if "category" in company_insights_filtered.columns:
-            company_insights_filtered["category"] = company_insights_filtered["category"].fillna("")
-
-    if company_insights_filtered.empty:
-        _co_insight_generated = False
-        _ant_available_ci = False
-        try:
-            from utils.anthropic_service import is_api_available as _ci_ant_check, call_claude as _ci_call
-            _ant_available_ci = _ci_ant_check()
-        except Exception:
-            pass
-        if _ant_available_ci:
-            try:
-                _ci_transcript = _load_transcript_for_company(
-                    str(data_processor.data_path), canonical_company, int(year),
-                    selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
-                )
-                if _ci_transcript:
-                    _ci_system = (
-                        "You are a senior media & technology financial analyst. "
-                        "Write exactly 3 insight bullets about this company's performance. "
-                        "Format: one sentence per bullet, separated by | character. "
-                        "Cover: revenue performance, key business development, forward outlook. "
-                        "Be specific with numbers. No bullet symbols, no headers, no markdown."
-                    )
-                    _ci_period = f"Q{_parse_quarter_int(selected_quarter)} {year}" if _parse_quarter_int(selected_quarter) else str(year)
-                    _ci_result = _ci_call(
-                        _ci_system,
-                        f"Company: {canonical_company}\nPeriod: {_ci_period}\n"
-                        f"Transcript (first 3000 chars):\n{_ci_transcript[:3000]}\n\nWrite 3 insight bullets separated by |",
-                        max_tokens=350,
-                    )
-                    if _ci_result:
-                        _ci_parts = [p.strip().lstrip("•-·").strip() for p in _ci_result.split("|") if p.strip()]
-                        if _ci_parts:
-                            company_color = (
-                                COMPANY_COLORS.get(company)
-                                or COMPANY_COLORS.get(canonical_company)
-                                or "#111827"
-                            )
-                            _items_html = "".join(f"<li>{html.escape(p)}</li>" for p in _ci_parts[:3])
-                            _card = (
-                                f"<div class='company-insight-card insight-card' style='border-left:4px solid {company_color};'>"
-                                f"<div class='company-insight-title'>✨ AI Analysis</div>"
-                                f"<ul class='company-insight-list'>{_items_html}</ul>"
-                                f"</div>"
-                            )
-                            st.markdown("#### Company insights")
-                            st.markdown(
-                                f"<div class='insights-carousel-wrap' data-carousel='company'>"
-                                f"<div class='insights-carousel' id='insights-carousel-company'>{_card}</div>"
-                                f"</div>",
-                                unsafe_allow_html=True,
-                            )
-                            _co_insight_generated = True
-            except Exception:
-                pass
-    else:
-        st.markdown("#### Company insights")
-        st.caption(f"Source: {insight_source_label}")
-        company_cards = []
-        company_color = (
-            COMPANY_COLORS.get(company)
-            or COMPANY_COLORS.get(canonical_company)
-            or COMPANY_COLORS.get(normalize_company(company))
-            or "#111827"
-        )
-        for category, group in company_insights_filtered.groupby("category"):
-            title = str(category).strip() if category and str(category).strip() else "Company Insight"
-            insights = []
-            for item in group["insight"].tolist():
-                for part in split_insight_text(item):
-                    if part and str(part).strip():
-                        insights.append(html.escape(str(part).strip()))
-            if not insights:
-                continue
-            insight_items = "".join(f"<li>{item}</li>" for item in insights)
-            company_cards.append(
-                f"<div class=\"company-insight-card insight-card\" style=\"border-left: 4px solid {company_color};\">"
-                f"<div class=\"company-insight-title\">{html.escape(title)}</div>"
-                f"<ul class=\"company-insight-list\">{insight_items}</ul>"
-                "</div>"
-            )
-        if company_cards:
-            st.markdown(
-                f"<div class='insights-carousel-wrap' data-carousel='company'>"
-                f"<button class='insights-nav left' data-dir='left' data-target='company' aria-label='Scroll left'>&lsaquo;</button>"
-                f"<div class='insights-carousel' id='insights-carousel-company'>{''.join(company_cards)}</div>"
-                f"<button class='insights-nav right' data-dir='right' data-target='company' aria-label='Scroll right'>&rsaquo;</button>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-        else:
-            st.info("Company insights are not available for this company/year.")
-
-    company_auto_narratives_df = load_company_auto_narratives(data_processor.data_path)
-    if company_auto_narratives_df is not None and not company_auto_narratives_df.empty:
-        auto_rows = company_auto_narratives_df.copy()
-        if "company" not in auto_rows.columns and "companies" in auto_rows.columns:
-            auto_rows["company"] = auto_rows["companies"].astype(str).str.split("|").str[0]
-        if {"company", "year"}.issubset(auto_rows.columns):
-            auto_rows["company"] = auto_rows["company"].astype(str).str.strip().apply(normalize_company)
-            auto_rows["year"] = pd.to_numeric(auto_rows["year"], errors="coerce")
-            auto_rows = auto_rows[
-                (auto_rows["company"] == canonical_company)
-                & (auto_rows["year"] == int(year))
-            ].copy()
-            if not auto_rows.empty:
-                st.markdown(
-                    """
-                    <style>
-                    .wm-priority {
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        border-radius: 999px;
-                        padding: 0.18rem 0.5rem;
-                        font-size: 0.68rem;
-                        font-weight: 700;
-                        letter-spacing: 0.03em;
-                        text-transform: uppercase;
-                        line-height: 1;
-                    }
-                    .wm-priority-high { background: rgba(239,68,68,0.15); color: #ef4444; }
-                    .wm-priority-medium { background: rgba(249,115,22,0.15); color: #f97316; }
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                company_color = (
-                    COMPANY_COLORS.get(company)
-                    or COMPANY_COLORS.get(canonical_company)
-                    or COMPANY_COLORS.get(normalize_company(company))
-                    or "#111827"
-                )
-                narrative_cards = []
-                for _, row in auto_rows.sort_values(["priority", "insight_id"]).iterrows():
-                    raw_text = str(row.get("text", "") or row.get("comment", "") or "").strip()
-                    if not raw_text:
-                        continue
-                    priority = str(row.get("priority", "medium")).strip().lower()
-                    priority = priority if priority in {"high", "medium"} else "medium"
-                    category = str(row.get("category", "")).strip() or "Narrative"
-                    narrative_cards.append(
-                        f"<div class=\"company-insight-card insight-card\" style=\"border-left: 4px solid {company_color};\">"
-                        f"<div style=\"display:flex; align-items:center; justify-content:space-between; gap:8px;\">"
-                        f"<div style=\"font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#64748B;\">{html.escape(category)}</div>"
-                        f"<span class=\"wm-priority wm-priority-{priority}\">{html.escape(priority.upper())}</span>"
-                        "</div>"
-                        f"<div style=\"margin-top:8px; font-size:0.95rem; line-height:1.55;\">{html.escape(raw_text)}</div>"
-                        "<div style=\"margin-top:10px; color:#6b7280; font-size:0.78rem; font-style:italic;\">⚡ Auto-generated from financial metrics</div>"
-                        "</div>"
-                    )
-                if narrative_cards:
-                    st.markdown("#### Auto narratives")
-                    st.markdown("".join(narrative_cards), unsafe_allow_html=True)
-
-    components.html(
-        """
-        <script>
-        (function() {
-            const root = window.parent.document;
-            const bindCarousel = (key) => {
-                const carousel = root.getElementById(`insights-carousel-${key}`);
-                if (!carousel) return;
-                const leftBtn = root.querySelector(`.insights-nav.left[data-target="${key}"]`);
-                const rightBtn = root.querySelector(`.insights-nav.right[data-target="${key}"]`);
-                const updateButtons = () => {
-                    const maxScroll = carousel.scrollWidth - carousel.clientWidth - 2;
-                    if (leftBtn) leftBtn.disabled = carousel.scrollLeft <= 2;
-                    if (rightBtn) rightBtn.disabled = carousel.scrollLeft >= maxScroll;
-                };
-                const scrollByAmount = (dir) => {
-                    const card = carousel.querySelector(".insight-card");
-                    const step = card ? card.getBoundingClientRect().width + 14 : 320;
-                    carousel.scrollBy({ left: dir * step, behavior: "smooth" });
-                };
-                if (leftBtn) {
-                    leftBtn.addEventListener("click", () => scrollByAmount(-1));
-                }
-                if (rightBtn) {
-                    rightBtn.addEventListener("click", () => scrollByAmount(1));
-                }
-                carousel.addEventListener("scroll", () => {
-                    window.requestAnimationFrame(updateButtons);
-                });
-                updateButtons();
-                window.addEventListener("resize", updateButtons);
-            };
-            bindCarousel("segment");
-            bindCarousel("company");
-        })();
-        </script>
-        """,
-        height=0,
-    )
-
-    st.divider()
-
-    # Default to the last 5 years where possible, but keep explorer floor at 2010.
-    metrics_floor_year = 2010
-    metrics_ceiling_year = max(int(max_year), int(max(years)))
-    if metrics_ceiling_year < metrics_floor_year:
-        metrics_floor_year = metrics_ceiling_year
-    default_start = max(int(metrics_floor_year), int(metrics_ceiling_year) - 4)
-
-    # Company metrics explorer
-    st.markdown("<div class='metrics-section-spacer'></div>", unsafe_allow_html=True)
-    st.subheader("Company Metrics Explorer")
-
-    metric_cols = st.columns([3, 1, 1])
-    with metric_cols[0]:
-        selected_metrics = st.multiselect(
-            "Select metrics",
-            options=list(AVAILABLE_METRICS.keys()),
-            default=["Revenue"],
-        )
-    with metric_cols[1]:
-        metric_chart = st.radio("Chart", ["Bar", "Line"], horizontal=True)
-    with metric_cols[2]:
-        compare_companies = st.multiselect(
-            "Compare with",
-            options=[c for c in companies if c != company],
-            default=[],
-        )
-
-    metric_year_range = st.slider(
-        "Metrics year range",
-        min_value=int(metrics_floor_year),
-        max_value=int(metrics_ceiling_year),
-        value=(int(default_start), int(metrics_ceiling_year)),
-        key="metrics_year_range",
-    )
-
-    metric_toggle_row = st.columns([0.55, 0.25, 0.2])
-    with metric_toggle_row[1]:
-        metrics_freq = st.radio(
-            "Frequency",
-            ["Yearly", "Quarterly"],
-            horizontal=True,
-            key="metrics_frequency",
-        )
-    with metric_toggle_row[2]:
-        show_metric_yoy = st.checkbox("Show YoY%", value=True, key="metrics_show_yoy")
-
-    metrics_df = data_processor.df_metrics
-    metrics_quarter_col = None
-    metrics_ready = True
-    quarterly_metrics_df = None
-    if metrics_freq == "Quarterly":
-        quarterly_metrics_df = load_quarterly_company_metrics(
-            data_processor.data_path, get_file_mtime(data_processor.data_path)
-        )
-        metrics_ready = quarterly_metrics_df is not None and not quarterly_metrics_df.empty
-
-    has_metrics_source = (
-        (metrics_df is not None and not metrics_df.empty) or (quarterly_metrics_df is not None)
-    )
-    if selected_metrics and has_metrics_source:
-        selected_companies = [company] + compare_companies
-        df_filtered = pd.DataFrame()
-        if metrics_df is not None and not metrics_df.empty:
-            df_filtered = metrics_df[
-                (metrics_df["company"].isin(selected_companies))
-                & (metrics_df["year"] >= metric_year_range[0])
-                & (metrics_df["year"] <= metric_year_range[1])
-            ]
-
-        if metrics_freq == "Quarterly" and not metrics_ready:
-            st.info("Quarterly company metrics are not available in the Excel yet.")
-        else:
-            for metric_label in selected_metrics:
-                metric_col = AVAILABLE_METRICS[metric_label]
-                if metrics_freq == "Quarterly":
-                    if quarterly_metrics_df is None or quarterly_metrics_df.empty:
-                        st.info("Quarterly company metrics are not available in the Excel yet.")
-                        break
-                    df_metric = quarterly_metrics_df[
-                        (quarterly_metrics_df["company"].isin(selected_companies))
-                        & (quarterly_metrics_df["year"] >= metric_year_range[0])
-                        & (quarterly_metrics_df["year"] <= metric_year_range[1])
-                        & (quarterly_metrics_df["metric_key"] == metric_col)
-                    ].copy()
-                    if df_metric.empty:
-                        st.info(f"No quarterly data available for {metric_label}.")
-                        continue
-                    df_metric = (
-                        df_metric.groupby(["company", "year", "quarter_num", "period_label"], as_index=False)[
-                            "value"
-                        ].sum()
-                    )
-                else:
-                    df_metric = df_filtered[["company", "year", metric_col]].dropna().rename(
-                        columns={metric_col: "value"}
-                    )
-                    if df_metric.empty:
-                        st.info(f"No data available for {metric_label}.")
-                        continue
-                df_metric["year"] = pd.to_numeric(df_metric["year"], errors="coerce")
-                df_metric = df_metric.dropna(subset=["year"])
-                df_metric["year"] = df_metric["year"].astype(int)
-                if metrics_freq == "Quarterly":
-                    df_metric["quarter_num"] = pd.to_numeric(df_metric["quarter_num"], errors="coerce")
-                    df_metric = df_metric.dropna(subset=["year", "quarter_num"])
-                    df_metric["year"] = df_metric["year"].astype(int)
-                    df_metric["quarter_num"] = df_metric["quarter_num"].astype(int)
-                    df_metric = df_metric.sort_values(["company", "year", "quarter_num"])
-                    df_metric["period_label"] = (
-                        df_metric["year"].astype(int).astype(str)
-                        + " Q"
-                        + df_metric["quarter_num"].astype(int).astype(str)
-                    )
-                    df_metric["yoy"] = df_metric.groupby("company")["value"].pct_change() * 100
-                    df_metric["yoy_label"] = df_metric["yoy"].apply(lambda v: format_yoy_label(v, "%"))
-                    x_col = "period_label"
-                    change_label = "QoQ"
-                else:
-                    df_metric = df_metric.sort_values(["company", "year"])
-                    df_metric["yoy"] = df_metric.groupby("company")["value"].pct_change() * 100
-                    df_metric["yoy_label"] = df_metric["yoy"].apply(lambda v: format_yoy_label(v, "%"))
-                    x_col = "year"
-                    change_label = "YoY"
-                custom_data = ["yoy_label"] if show_metric_yoy else None
-                if metric_chart == "Bar":
-                    fig = px.bar(
-                        df_metric,
-                        x=x_col,
-                        y="value",
-                        color="company",
-                        barmode="group",
-                        title=f"{metric_label} Over Time",
-                        color_discrete_map=COMPANY_COLORS,
-                        custom_data=custom_data,
-                    )
-                else:
-                    fig = px.line(
-                        df_metric,
-                        x=x_col,
-                        y="value",
-                        color="company",
-                        markers=True,
-                        title=f"{metric_label} Over Time",
-                        color_discrete_map=COMPANY_COLORS,
-                        custom_data=custom_data,
-                    )
-                fig.update_layout(
-                    yaxis_title=f"{metric_label} (M)",
-                    xaxis_title="Quarterly" if metrics_freq == "Quarterly" else "Year",
-                    height=520,
-                    margin=dict(t=60, r=30, l=20, b=40),
-                )
-                _period_word = "Quarter" if metrics_freq == "Quarterly" else "Year"
-                if show_metric_yoy:
-                    hovertemplate = (
-                        f"<b>%{{fullData.name}}</b>"
-                        f"<br><span style='color:#94a3b8'>{_period_word}</span>  <b>%{{x}}</b>"
-                        f"<br><span style='color:#94a3b8'>{metric_label}</span>  <b>$%{{y:,.0f}}M</b>"
-                        f"<br><span style='color:#94a3b8'>{change_label}</span>  <b>%{{customdata[0]}}</b>"
-                        f"<extra></extra>"
-                    )
-                else:
-                    hovertemplate = (
-                        f"<b>%{{fullData.name}}</b>"
-                        f"<br><span style='color:#94a3b8'>{_period_word}</span>  <b>%{{x}}</b>"
-                        f"<br><span style='color:#94a3b8'>{metric_label}</span>  <b>$%{{y:,.0f}}M</b>"
-                        f"<extra></extra>"
-                    )
-                fig.update_traces(
-                    hovertemplate=hovertemplate
-                )
-                fig.update_layout(hoverlabel=HOVERLABEL_STYLE)
-                if metrics_freq == "Quarterly":
-                    period_order = (
-                        df_metric[["year", "quarter_num"]]
-                        .drop_duplicates()
-                        .sort_values(["year", "quarter_num"])
-                    )
-                    quarter_labels = (
-                        period_order["year"].astype(int).astype(str)
-                        + " Q"
-                        + period_order["quarter_num"].astype(int).astype(str)
-                    ).tolist()
-                    category_order, tickvals, ticktext = build_quarter_axis(quarter_labels)
-                    fig.update_xaxes(
-                        type="category",
-                        categoryorder="array",
-                        categoryarray=category_order,
-                        tickmode="array",
-                        tickvals=tickvals,
-                        ticktext=ticktext,
-                    )
-                    render_plotly(fig, xaxis_is_year=False)
-                else:
-                    render_plotly(fig, xaxis_is_year=True)
 
     # ── Coinglass-style single-company performance heatmap ──────────────────
     st.markdown("<div class='metrics-section-spacer'></div>", unsafe_allow_html=True)
@@ -5903,6 +5912,7 @@ function cgMetric(tab,mid,btn){
     if _hm_insight_html:
         st.markdown(_hm_insight_html, unsafe_allow_html=True)
 
+
     # ── TRANSCRIPT INTELLIGENCE ──────────────────────────────────────────────
     st.markdown("<hr style='margin:3rem 0 1.5rem 0;border-color:rgba(255,255,255,0.07);'>", unsafe_allow_html=True)
     st.markdown("### 📑 Transcript Intelligence")
@@ -6148,16 +6158,11 @@ function cgMetric(tab,mid,btn){
 .ti-earnings-wrap div[data-testid="stButton"] > button span {
     color: #1e293b !important; -webkit-text-fill-color: #1e293b !important;
 }
-/* Fix expander arrow icon rendering as text when material font fails to load */
-.ti-earnings-wrap [data-testid="stExpander"] details summary span[data-testid="stMarkdownContainer"] {
-    display: inline !important;
-}
-.ti-earnings-wrap [data-testid="stExpander"] details > summary > span:first-child,
-.ti-earnings-wrap [data-testid="stExpander"] details > summary > span:first-of-type:not([data-testid]) {
-    font-size: 0 !important;
-    width: 20px !important; max-width: 20px !important;
-    height: 20px !important; max-height: 20px !important;
-    overflow: hidden !important;
+/* Transcript Intelligence expander labels — ensure visible on white bg */
+.ti-earnings-wrap [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"],
+.ti-earnings-wrap [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] * {
+    font-size: 0.875rem !important;
+    color: #374151 !important;
 }
 </style>""", unsafe_allow_html=True)
 

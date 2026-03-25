@@ -770,29 +770,36 @@ div[data-testid="stButton"] button:hover {
     }
 
     /* ── Fix: hide Material Icons text when font fails to load ("arrow_right" etc.) ── */
-    [data-testid="stExpander"] details summary {
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] summary * {
         font-size: 0 !important;
+        color: transparent !important;
     }
-    [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"],
-    [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"] * {
+    [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"],
+    [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] * {
         font-size: 0.875rem !important;
         color: #e6edf3 !important;
     }
-    [data-testid="stExpander"] details summary svg {
-        width: 20px !important;
-        height: 20px !important;
+    [data-testid="stExpander"] summary svg,
+    [data-testid="stExpander"] summary svg * {
+        color: #94a3b8 !important;
+        visibility: visible !important;
     }
 
     /* ── Fix multiselect pill text clipping ── */
     [data-testid="stMultiSelect"] [data-baseweb="tag"] {
         overflow: visible !important;
         max-width: none !important;
-        padding-left: 8px !important;
+        padding-left: 10px !important;
     }
     [data-testid="stMultiSelect"] [data-baseweb="tag"] > span:first-child {
         overflow: visible !important;
         text-overflow: unset !important;
         white-space: nowrap !important;
+        padding-left: 2px !important;
+    }
+    [data-testid="stMultiSelect"] [data-baseweb="input"] {
+        overflow: visible !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1231,13 +1238,16 @@ st.markdown(
         border-radius: 12px !important;
         overflow: hidden !important;
     }
-    /* Expander header (toggle bar) */
+    /* Expander header (toggle bar) — color set on label only, not summary (avoids showing icon text) */
     div[data-testid="stExpander"] summary {
         background: rgba(15, 23, 42, 0.7) !important;
         padding: 12px 16px !important;
-        font-weight: 600 !important;
-        color: #e6edf3 !important;
         border-radius: 12px !important;
+    }
+    div[data-testid="stExpander"] summary [data-testid="stMarkdownContainer"],
+    div[data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] * {
+        color: #e6edf3 !important;
+        font-weight: 600 !important;
     }
     div[data-testid="stExpander"] summary:hover {
         background: rgba(255, 91, 31, 0.12) !important;
@@ -3298,26 +3308,18 @@ st.markdown("""<style>
 }
 .guidance-signals-wrap div[data-testid="stExpander"] summary {
     background: rgba(255,91,31,0.06) !important;
-    color: #e6edf3 !important;
-    font-weight: 600 !important;
     padding: 10px 14px !important;
     border-radius: 10px !important;
 }
 .guidance-signals-wrap div[data-testid="stExpander"] summary:hover {
     background: rgba(255,91,31,0.12) !important;
 }
-.guidance-signals-wrap div[data-testid="stExpander"] summary > div p,
-.guidance-signals-wrap div[data-testid="stExpander"] summary > div span {
+.guidance-signals-wrap div[data-testid="stExpander"] summary [data-testid="stMarkdownContainer"],
+.guidance-signals-wrap div[data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] * {
     color: #e6edf3 !important;
     font-size: 0.9rem !important;
 }
-.guidance-signals-wrap div[data-testid="stExpander"] summary > span {
-    color: #ff8c42 !important;
-    font-family: "Material Symbols Rounded", "Material Symbols Outlined", sans-serif !important;
-    font-size: 1.05rem !important;
-    line-height: 1 !important;
-}
-.guidance-signals-wrap div[data-testid="stExpander"] summary strong {
+.guidance-signals-wrap div[data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] strong {
     color: #ff8c42 !important;
 }
 .guidance-signals-wrap div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {

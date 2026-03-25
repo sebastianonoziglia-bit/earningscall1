@@ -140,22 +140,22 @@ def load_common_styles():
         /* Plotly typography handled by Plotly defaults to avoid CSS conflicts */
 
     /* Fix: hide Material Icons text when font fails to load ("arrow_right" etc.) — GLOBAL
-       Strategy: set font-size:0 on entire summary to hide icon text,
-       then restore font-size on the label container [data-testid="stMarkdownContainer"]. */
-    [data-testid="stExpander"] details summary {
+       Strategy: font-size:0 + color:transparent on summary AND all descendants,
+       then restore only on [data-testid="stMarkdownContainer"]. This ensures
+       even elements with direct Streamlit/emotion font-size get overridden. */
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] summary * {
         font-size: 0 !important;
-        line-height: normal !important;
+        color: transparent !important;
     }
-    [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"],
-    [data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"] * {
+    [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"],
+    [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] * {
         font-size: 0.875rem !important;
-        color: inherit !important;
+        color: #374151 !important;
     }
-    [data-testid="stExpander"] details summary svg {
-        width: 20px !important;
-        height: 20px !important;
-        min-width: 20px !important;
-        min-height: 20px !important;
+    [data-testid="stExpander"] summary svg,
+    [data-testid="stExpander"] summary svg * {
+        color: #94a3b8 !important;
         visibility: visible !important;
     }
 
@@ -163,14 +163,21 @@ def load_common_styles():
     [data-testid="stMultiSelect"] [data-baseweb="tag"] {
         overflow: visible !important;
         max-width: none !important;
-        padding-left: 8px !important;
+        padding-left: 10px !important;
     }
     [data-testid="stMultiSelect"] [data-baseweb="tag"] > span:first-child {
         overflow: visible !important;
         text-overflow: unset !important;
         white-space: nowrap !important;
-        padding-left: 0 !important;
+        padding-left: 2px !important;
         margin-left: 0 !important;
+    }
+    /* Ensure the tag container doesn't clip */
+    [data-testid="stMultiSelect"] [data-baseweb="input"] {
+        overflow: visible !important;
+    }
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div:first-child {
+        overflow: visible !important;
     }
 
     /* Slider styling */
