@@ -3098,12 +3098,51 @@ st.markdown("</div>", unsafe_allow_html=True)
 _deep_dive("overview", "Explore the full ad landscape")
 _separator()
 _wr_logos = {}
-for _wr_co in ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "Disney", "Comcast", "Spotify", "Roku"]:
+_wr_companies = ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "Disney", "Comcast", "Spotify", "Roku"]
+for _wr_co in _wr_companies:
     _wr_b64 = _resolve_logo(_wr_co, logos)
     if _wr_b64:
         _wr_logos[_wr_co] = _wr_b64
 _wr_logos_json = json.dumps(_wr_logos)
-_section("REVENUE ANATOMY", "Not all revenue is advertising.", "Total 2024 revenue per company. Orange = ad revenue. Blue = everything else.")
+
+# ── Build dynamic yearData from sheets ──
+_wr_year_data: dict[int, list[dict]] = {}
+if not metrics_df.empty and not ad_sheet_df.empty:
+    # metrics_df: company, year, revenue (in $M)
+    # ad_sheet_df: Year + company columns (values in $B)
+    _wr_ad_lookup: dict[tuple[int, str], float] = {}
+    for _, _wr_row in ad_sheet_df.iterrows():
+        _wr_yr = int(_wr_row["Year"])
+        for _wr_col in ad_sheet_df.columns:
+            if str(_wr_col).strip().lower() == "year":
+                continue
+            _wr_mapped_co, _ = _map_ad_column_to_company(_wr_col)
+            if _wr_mapped_co:
+                _wr_val = pd.to_numeric(_wr_row.get(_wr_col), errors="coerce")
+                if pd.notna(_wr_val):
+                    _wr_ad_lookup[(_wr_yr, _wr_mapped_co)] = float(_wr_val)  # already $B
+
+    for _wr_yr in sorted(metrics_df["year"].unique()):
+        _wr_yr_int = int(_wr_yr)
+        if _wr_yr_int < 2015:
+            continue
+        _yr_rows = metrics_df[metrics_df["year"] == _wr_yr_int]
+        _yr_entries = []
+        for _, _mr in _yr_rows.iterrows():
+            _co = str(_mr["company"])
+            if _co not in _wr_companies:
+                continue
+            _total_b = float(_mr["revenue"]) / 1000.0 if pd.notna(_mr["revenue"]) else 0.0
+            _ad_b = _wr_ad_lookup.get((_wr_yr_int, _co), 0.0)
+            if _total_b > 0:
+                _yr_entries.append({"name": _co, "total": round(_total_b, 1), "ad": round(_ad_b, 1)})
+        if _yr_entries:
+            _wr_year_data[_wr_yr_int] = sorted(_yr_entries, key=lambda x: x["total"], reverse=True)
+
+_wr_year_data_json = json.dumps(_wr_year_data)
+_wr_latest_year = max(_wr_year_data.keys()) if _wr_year_data else effective_year
+_section("REVENUE ANATOMY", "Not all revenue is advertising.",
+         f"Total {_wr_latest_year} revenue per company. Orange = ad revenue. Blue = everything else.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(
     """
@@ -3137,54 +3176,14 @@ html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
 var WR_LOGOS="""
     + _wr_logos_json
     + """;
-/* Year-by-year data — sorted by 2024 total revenue */
-const yearData={
-  2019:[
-    {name:"Amazon",total:280.5,ad:14.1},{name:"Apple",total:260.2,ad:7},
-    {name:"Alphabet",total:161.9,ad:134.8},{name:"Microsoft",total:125.8,ad:7.6},
-    {name:"Comcast",total:108.9,ad:5.2},{name:"Disney",total:69.6,ad:2.0},
-    {name:"Meta",total:70.7,ad:69.7},{name:"Netflix",total:20.2,ad:0},
-    {name:"Spotify",total:7.4,ad:0.8},{name:"Roku",total:1.1,ad:0.7}
-  ],
-  2020:[
-    {name:"Amazon",total:386.1,ad:19.8},{name:"Apple",total:274.5,ad:9},
-    {name:"Alphabet",total:182.5,ad:147},{name:"Microsoft",total:143.0,ad:8.5},
-    {name:"Comcast",total:103.6,ad:4.6},{name:"Disney",total:65.4,ad:1.6},
-    {name:"Meta",total:86.0,ad:84.2},{name:"Netflix",total:25.0,ad:0},
-    {name:"Spotify",total:9.0,ad:1.1},{name:"Roku",total:1.8,ad:1.3}
-  ],
-  2021:[
-    {name:"Amazon",total:469.8,ad:31.2},{name:"Apple",total:365.8,ad:13},
-    {name:"Alphabet",total:257.6,ad:209.5},{name:"Microsoft",total:168.1,ad:10},
-    {name:"Comcast",total:116.4,ad:5.8},{name:"Disney",total:67.4,ad:2.5},
-    {name:"Meta",total:117.9,ad:115.7},{name:"Netflix",total:29.7,ad:0},
-    {name:"Spotify",total:11.4,ad:1.5},{name:"Roku",total:2.8,ad:2.3}
-  ],
-  2022:[
-    {name:"Amazon",total:514.0,ad:37.7},{name:"Apple",total:394.3,ad:15},
-    {name:"Alphabet",total:282.8,ad:224.5},{name:"Microsoft",total:198.3,ad:12},
-    {name:"Comcast",total:121.4,ad:5.9},{name:"Disney",total:82.7,ad:3.0},
-    {name:"Meta",total:116.6,ad:113.6},{name:"Netflix",total:31.6,ad:0.8},
-    {name:"Spotify",total:12.4,ad:1.6},{name:"Roku",total:2.7,ad:2.1}
-  ],
-  2023:[
-    {name:"Amazon",total:574.8,ad:46.9},{name:"Apple",total:383.3,ad:16},
-    {name:"Alphabet",total:307.4,ad:237.9},{name:"Microsoft",total:211.9,ad:15},
-    {name:"Comcast",total:121.6,ad:6.2},{name:"Disney",total:88.9,ad:3.2},
-    {name:"Meta",total:134.9,ad:131.9},{name:"Netflix",total:33.7,ad:1.5},
-    {name:"Spotify",total:14.3,ad:1.8},{name:"Roku",total:3.5,ad:3.1}
-  ],
-  2024:[
-    {name:"Amazon",total:638,ad:56},{name:"Apple",total:391,ad:18},
-    {name:"Alphabet",total:350,ad:237},{name:"Microsoft",total:245,ad:18},
-    {name:"Comcast",total:123,ad:6.8},{name:"Disney",total:91,ad:3.4},
-    {name:"Meta",total:165,ad:164},{name:"Netflix",total:39,ad:2.4},
-    {name:"Spotify",total:15.7,ad:2.1},{name:"Roku",total:4.1,ad:3.8}
-  ]
-};
+/* Year-by-year data — loaded dynamically from Google Sheet */
+const yearData="""
+    + _wr_year_data_json
+    + """;
 const years=Object.keys(yearData).map(Number).sort();
 /* Use 2024 order for consistent column positions */
-const companyOrder=yearData[2024].sort((a,b)=>b.total-a.total).map(c=>c.name);
+const latestYear=years[years.length-1];
+const companyOrder=(yearData[latestYear]||[]).sort((a,b)=>b.total-a.total).map(c=>c.name);
 const globalMax=Math.max(...Object.values(yearData).flatMap(arr=>arr.map(c=>c.total)));
 const maxH=320;
 const grid=document.getElementById('wr-grid');
