@@ -4361,6 +4361,7 @@ try:
             "year": _fi_sig.get("year", int(selected_year)),
             "quarter": _fi_sig.get("quarter", ""),
             "logo": _fi_logo_b64,
+            "color": _company_color(_fi_co),
         })
 
     if _fi_cards:
@@ -4373,97 +4374,66 @@ try:
         _fi_json_str = json.dumps(_fi_cards)
 
         st.components.v1.html(f"""
-<div id="fi-carousel-root" style="width:100%;display:flex;flex-direction:column;align-items:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;position:relative;overflow:hidden;padding:32px 0;">
-  <!-- Floating blobs background -->
-  <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;">
-    <div style="position:absolute;width:420px;height:420px;border-radius:50%;background:#4aaeff;opacity:0.12;filter:blur(60px);mix-blend-mode:screen;top:-80px;left:-120px;animation:fiBlobA 8s ease-in-out infinite alternate;"></div>
-    <div style="position:absolute;width:360px;height:360px;border-radius:50%;background:#f97316;opacity:0.12;filter:blur(60px);mix-blend-mode:screen;bottom:-60px;right:-100px;animation:fiBlobB 10s ease-in-out infinite alternate;"></div>
-    <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:#4aaeff;opacity:0.08;filter:blur(60px);mix-blend-mode:screen;top:50%;left:60%;transform:translate(-50%,-50%);animation:fiBlobC 12s ease-in-out infinite alternate;"></div>
-  </div>
+<div id="fi-root" style="width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;position:relative;overflow:hidden;padding:24px 0 16px;">
   <style>
-    @keyframes fiBlobA {{ 0%{{transform:translate(0,0) scale(1)}} 100%{{transform:translate(40px,30px) scale(1.15)}} }}
-    @keyframes fiBlobB {{ 0%{{transform:translate(0,0) scale(1)}} 100%{{transform:translate(-30px,-40px) scale(1.1)}} }}
-    @keyframes fiBlobC {{ 0%{{transform:translate(-50%,-50%) scale(1)}} 100%{{transform:translate(-40%,-60%) scale(1.2)}} }}
+    #fi-track {{ display:flex; align-items:center; justify-content:center; gap:20px; transition:transform 0.55s cubic-bezier(0.22,1,0.36,1); position:relative; z-index:1; }}
+    .fi-card {{
+      flex-shrink:0; width:340px; min-height:480px;
+      border-radius:20px; padding:24px 26px; box-sizing:border-box;
+      display:flex; flex-direction:column; justify-content:space-between;
+      position:relative; overflow:hidden;
+      transition: transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.55s ease, filter 0.55s ease;
+      transform: scale(0.82); opacity:0.45; filter:blur(3px);
+      cursor:pointer;
+    }}
+    .fi-card.active {{ transform:scale(1); opacity:1; filter:blur(0); z-index:2; }}
+    .fi-card.adjacent {{ transform:scale(0.88); opacity:0.55; filter:blur(2px); }}
+    .fi-card::before {{
+      content:''; position:absolute; inset:0; border-radius:20px;
+      border:1px solid rgba(255,255,255,0.12);
+      pointer-events:none; z-index:1;
+    }}
+    .fi-card::after {{
+      content:''; position:absolute; inset:0; border-radius:20px;
+      background:radial-gradient(ellipse at 30% 20%, var(--brand) 0%, transparent 70%);
+      opacity:0.13; pointer-events:none; z-index:0;
+    }}
+    .fi-card > * {{ position:relative; z-index:2; }}
+    .fi-progress {{ position:absolute;top:0;left:0;width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:20px 20px 0 0;z-index:3; }}
+    .fi-progress-bar {{ height:100%;width:0%;background:linear-gradient(90deg,#4aaeff,#f97316);border-radius:20px 20px 0 0;transition:width 0.4s ease; }}
+    .fi-top {{ display:flex; align-items:center; justify-content:space-between; }}
+    .fi-top-left {{ display:flex; flex-direction:column; gap:6px; }}
+    .fi-badge {{ background:linear-gradient(135deg,#4aaeff,#2563eb);color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;display:inline-block; }}
+    .fi-cat {{ color:rgba(255,255,255,0.45);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase; }}
+    .fi-label {{ color:rgba(74,174,255,0.6);font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-top:2px; }}
+    .fi-logo-top {{ width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0; }}
+    .fi-logo-top img {{ width:32px;height:32px;object-fit:contain; }}
+    .fi-quote {{ font-size:clamp(15px,2.8vw,20px);font-weight:800;color:#fff;line-height:1.35;letter-spacing:-0.2px;flex:1;display:flex;align-items:center; }}
+    .fi-speaker {{ color:#4aaeff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px; }}
+    .fi-role {{ color:rgba(255,255,255,0.3);font-size:10px;font-weight:500; }}
+    .fi-bottom {{ display:flex;align-items:center;justify-content:space-between; }}
+    .fi-co-name {{ color:#fff;font-size:13px;font-weight:700; }}
+    .fi-score-text {{ color:rgba(74,174,255,0.5);font-size:10px;font-weight:600; }}
+    .fi-controls {{ display:flex;align-items:center;gap:18px;margin-top:16px;justify-content:center;position:relative;z-index:3; }}
+    .fi-btn {{ background:rgba(74,174,255,0.1);border:1px solid rgba(74,174,255,0.2);color:#4aaeff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s; }}
+    .fi-btn:hover {{ background:rgba(74,174,255,0.2); }}
+    .fi-btn-play {{ background:linear-gradient(135deg,#4aaeff,#2563eb);border:none;color:#fff;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 4px 16px rgba(74,174,255,0.25); }}
+    .fi-btn-play:hover {{ transform:scale(1.06); }}
+    .fi-dots {{ display:flex;gap:6px;margin-top:10px;justify-content:center;z-index:3;position:relative; }}
+    .fi-dot {{ width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.2);transition:all 0.3s;cursor:pointer; }}
+    .fi-dot.on {{ background:#4aaeff;width:18px;border-radius:3px; }}
   </style>
 
-  <!-- Card container -->
-  <div id="fi-card" style="
-    position:relative;z-index:1;
-    width:100%;max-width:480px;
-    aspect-ratio:9/16;
-    background:rgba(10,22,40,0.95);
-    border:1px solid rgba(74,174,255,0.2);
-    border-radius:20px;
-    display:flex;flex-direction:column;justify-content:space-between;
-    padding:28px 32px;
-    box-sizing:border-box;
-    overflow:hidden;
-    transition:transform 0.8s cubic-bezier(0.16,1,0.3,1),opacity 0.8s cubic-bezier(0.16,1,0.3,1);
-  ">
-    <!-- Progress bar -->
-    <div style="position:absolute;top:0;left:0;width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:0 0 2px 2px;">
-      <div id="fi-progress" style="height:100%;width:0%;background:linear-gradient(90deg,#4aaeff,#f97316);border-radius:0 0 2px 2px;transition:width 0.4s ease;"></div>
-    </div>
-
-    <!-- Top: year badge + label -->
-    <div style="display:flex;flex-direction:column;gap:10px;padding-top:8px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span id="fi-year-badge" style="
-          background:linear-gradient(135deg,#4aaeff,#2563eb);
-          color:#fff;font-size:12px;font-weight:700;
-          padding:4px 14px;border-radius:20px;
-          letter-spacing:0.5px;
-        "></span>
-        <span id="fi-category" style="color:rgba(255,255,255,0.5);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;"></span>
-      </div>
-      <div style="color:rgba(74,174,255,0.7);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Forward Intelligence</div>
-    </div>
-
-    <!-- Middle: quote + speaker -->
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:20px 0;">
-      <div id="fi-quote" style="
-        font-size:clamp(20px,4vw,32px);font-weight:800;
-        color:#fff;line-height:1.3;
-        letter-spacing:-0.3px;
-      "></div>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-        <span id="fi-speaker" style="color:#4aaeff;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;"></span>
-        <span id="fi-role" style="color:rgba(255,255,255,0.35);font-size:11px;font-weight:500;"></span>
-      </div>
-    </div>
-
-    <!-- Bottom: logo + company -->
-    <div style="display:flex;align-items:center;gap:14px;padding-bottom:4px;">
-      <div id="fi-logo-wrap" style="
-        width:60px;height:60px;border-radius:14px;
-        background:rgba(255,255,255,0.06);
-        display:flex;align-items:center;justify-content:center;
-        overflow:hidden;flex-shrink:0;
-      ">
-        <img id="fi-logo" src="" style="width:44px;height:44px;object-fit:contain;" />
-      </div>
-      <div>
-        <div id="fi-company" style="color:#fff;font-size:15px;font-weight:700;"></div>
-        <div id="fi-score" style="color:rgba(74,174,255,0.6);font-size:11px;font-weight:600;margin-top:2px;"></div>
-      </div>
-    </div>
-  </div>
+  <!-- Track of cards -->
+  <div id="fi-track"></div>
 
   <!-- Controls -->
-  <div style="display:flex;align-items:center;gap:24px;margin-top:20px;z-index:2;">
-    <button id="fi-prev" style="background:rgba(74,174,255,0.1);border:1px solid rgba(74,174,255,0.2);color:#4aaeff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
-      onmouseover="this.style.background='rgba(74,174,255,0.2)'"
-      onmouseout="this.style.background='rgba(74,174,255,0.1)'"
-    >&#9664;</button>
-    <button id="fi-play" style="background:linear-gradient(135deg,#4aaeff,#2563eb);border:none;color:#fff;width:52px;height:52px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 4px 20px rgba(74,174,255,0.3);"
-      onmouseover="this.style.transform='scale(1.08)'"
-      onmouseout="this.style.transform='scale(1)'"
-    >&#9654;</button>
-    <button id="fi-next" style="background:rgba(74,174,255,0.1);border:1px solid rgba(74,174,255,0.2);color:#4aaeff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
-      onmouseover="this.style.background='rgba(74,174,255,0.2)'"
-      onmouseout="this.style.background='rgba(74,174,255,0.1)'"
-    >&#9654;</button>
+  <div class="fi-controls">
+    <button class="fi-btn" id="fi-prev">&#9664;</button>
+    <button class="fi-btn-play" id="fi-play">&#9654;</button>
+    <button class="fi-btn" id="fi-next">&#9654;</button>
   </div>
+  <div class="fi-dots" id="fi-dots"></div>
 </div>
 
 <script>
@@ -4471,113 +4441,102 @@ try:
   const cards = {_fi_json_str};
   if (!cards.length) return;
 
-  let idx = 0;
-  let playing = true;
-  let timer = null;
+  let idx = 0, playing = true, timer = null;
+  const track = document.getElementById('fi-track');
+  const dotsC = document.getElementById('fi-dots');
+  const btnPlay = document.getElementById('fi-play');
+  const btnPrev = document.getElementById('fi-prev');
+  const btnNext = document.getElementById('fi-next');
 
-  const card      = document.getElementById('fi-card');
-  const quote     = document.getElementById('fi-quote');
-  const speaker   = document.getElementById('fi-speaker');
-  const role      = document.getElementById('fi-role');
-  const logo      = document.getElementById('fi-logo');
-  const company   = document.getElementById('fi-company');
-  const score     = document.getElementById('fi-score');
-  const yearBadge = document.getElementById('fi-year-badge');
-  const category  = document.getElementById('fi-category');
-  const progress  = document.getElementById('fi-progress');
-  const btnPlay   = document.getElementById('fi-play');
-  const btnPrev   = document.getElementById('fi-prev');
-  const btnNext   = document.getElementById('fi-next');
+  /* — build all card elements once — */
+  cards.forEach((c, i) => {{
+    const el = document.createElement('div');
+    el.className = 'fi-card';
+    el.style.setProperty('--brand', c.color || '#4aaeff');
+    el.style.background = 'linear-gradient(160deg, rgba(10,22,40,0.92), rgba(10,22,40,0.97))';
+    const logoHtml = c.logo
+      ? '<div class="fi-logo-top"><img src="data:image/png;base64,' + c.logo + '"/></div>'
+      : '';
+    const qTxt = c.quote.length > 220 ? c.quote.substring(0, 217) + '...' : c.quote;
+    el.innerHTML =
+      '<div class="fi-progress"><div class="fi-progress-bar" data-bar></div></div>' +
+      '<div class="fi-top">' +
+        '<div class="fi-top-left">' +
+          '<div><span class="fi-badge">' + (c.quarter ? c.quarter + ' ' : '') + c.year + '</span> <span class="fi-cat">' + (c.category || 'Outlook') + '</span></div>' +
+          '<div class="fi-label">Forward Intelligence</div>' +
+        '</div>' +
+        logoHtml +
+      '</div>' +
+      '<div class="fi-quote">\\u201C' + qTxt + '\\u201D</div>' +
+      '<div><div class="fi-speaker">' + (c.speaker || 'Executive') + '</div><div class="fi-role">' + (c.role || '') + '</div></div>' +
+      '<div class="fi-bottom">' +
+        '<div><div class="fi-co-name">' + c.company + '</div><div class="fi-score-text">Confidence ' + (c.score * 100).toFixed(0) + '%</div></div>' +
+      '</div>';
+    el.addEventListener('click', () => {{ stopPlay(); goTo(i); }});
+    track.appendChild(el);
+    /* dot */
+    const dot = document.createElement('div');
+    dot.className = 'fi-dot';
+    dot.addEventListener('click', () => {{ stopPlay(); goTo(i); }});
+    dotsC.appendChild(dot);
+  }});
 
-  function renderCard(i) {{
-    const c = cards[i];
-    // Transition out
-    card.style.transform = 'perspective(800px) rotateY(45deg) scale(0.8)';
-    card.style.opacity = '0';
-    setTimeout(() => {{
-      quote.textContent = '\\u201C' + c.quote + '\\u201D';
-      speaker.textContent = c.speaker || 'Executive';
-      role.textContent = c.role || '';
-      yearBadge.textContent = (c.quarter ? c.quarter + ' ' : '') + c.year;
-      category.textContent = c.category || 'Outlook';
-      company.textContent = c.company;
-      score.textContent = 'Confidence: ' + (c.score * 100).toFixed(0) + '%';
-      if (c.logo) {{
-        logo.src = 'data:image/png;base64,' + c.logo;
-        logo.style.display = 'block';
-      }} else {{
-        logo.style.display = 'none';
-      }}
-      progress.style.width = ((i + 1) / cards.length * 100) + '%';
-      // Transition in
-      card.style.transform = 'perspective(800px) rotateY(0deg) scale(1)';
-      card.style.opacity = '1';
-    }}, 250);
+  const cardEls = track.querySelectorAll('.fi-card');
+  const dotEls  = dotsC.querySelectorAll('.fi-dot');
+
+  function render() {{
+    cardEls.forEach((el, i) => {{
+      el.classList.remove('active', 'adjacent');
+      if (i === idx) el.classList.add('active');
+      else if (Math.abs(i - idx) === 1) el.classList.add('adjacent');
+    }});
+    dotEls.forEach((d, i) => d.classList.toggle('on', i === idx));
+    /* scroll track so active card is centered */
+    const activeEl = cardEls[idx];
+    const trackRect = track.parentElement.getBoundingClientRect();
+    const off = activeEl.offsetLeft + activeEl.offsetWidth / 2 - trackRect.width / 2;
+    track.style.transform = 'translateX(' + (-off) + 'px)';
+    /* progress bars */
+    cardEls.forEach((el, i) => {{
+      const bar = el.querySelector('[data-bar]');
+      if (bar) bar.style.width = (i <= idx ? '100%' : '0%');
+    }});
   }}
 
-  function goNext() {{
-    if (idx < cards.length - 1) {{
-      idx++;
-      renderCard(idx);
-    }} else {{
-      stopPlay();
-    }}
+  function goTo(i) {{
+    idx = ((i % cards.length) + cards.length) % cards.length;
+    render();
   }}
 
-  function goPrev() {{
-    if (idx > 0) {{
-      idx--;
-      renderCard(idx);
-    }}
-  }}
+  function goNext() {{ goTo(idx + 1); }}
+  function goPrev() {{ goTo(idx - 1); }}
 
   function startPlay() {{
-    playing = true;
-    btnPlay.innerHTML = '&#9208;';
-    timer = setInterval(() => {{
-      if (idx < cards.length - 1) {{
-        idx++;
-        renderCard(idx);
-      }} else {{
-        stopPlay();
-      }}
-    }}, 4000);
+    playing = true; btnPlay.innerHTML = '&#9208;';
+    timer = setInterval(goNext, 2500);
   }}
-
   function stopPlay() {{
-    playing = false;
-    btnPlay.innerHTML = '&#9654;';
+    playing = false; btnPlay.innerHTML = '&#9654;';
     if (timer) {{ clearInterval(timer); timer = null; }}
   }}
-
   function togglePlay() {{
-    if (playing) {{
-      stopPlay();
-    }} else {{
-      if (idx >= cards.length - 1) idx = -1;
-      idx++;
-      renderCard(idx);
-      startPlay();
-    }}
+    if (playing) stopPlay(); else startPlay();
   }}
 
   btnPlay.addEventListener('click', togglePlay);
   btnPrev.addEventListener('click', () => {{ stopPlay(); goPrev(); }});
   btnNext.addEventListener('click', () => {{ stopPlay(); goNext(); }});
-
   document.addEventListener('keydown', (e) => {{
     if (e.key === 'ArrowLeft')  {{ stopPlay(); goPrev(); }}
     if (e.key === 'ArrowRight') {{ stopPlay(); goNext(); }}
     if (e.key === ' ')          {{ e.preventDefault(); togglePlay(); }}
   }});
 
-  // Initial render
-  renderCard(0);
-  // Auto-play after short delay
-  setTimeout(startPlay, 1500);
+  render();
+  setTimeout(startPlay, 1200);
 }})();
 </script>
-""", height=680)
+""", height=600)
 
 except Exception:
     pass
