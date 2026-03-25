@@ -1,0 +1,32 @@
+# Git history — huge, not needed at runtime
+.git
+.gitattributes
+.gitignore
+
+# Virtual environments (local only)
+venv/
+app/.venv/
+.venv/
+
+# Pipeline scripts & transcripts — not needed in the app
+scripts/
+earningscall_transcripts/
+
+# Reports / diagnostics
+reports/
+
+# Dev files
+*.md
+LICENSE
+.claude/
+.dockerignore
+Dockerfile
+
+# OS junk
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+
+# Unused assets
+app/attached_assets/Copy - Cover Layout.gif

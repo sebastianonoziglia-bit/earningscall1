@@ -2,25 +2,37 @@
 Database service module for connecting to PostgreSQL
 """
 import os
-import psycopg
 import logging
 import pandas as pd
+
+try:
+    import psycopg
+    _PSYCOPG_AVAILABLE = True
+except ImportError:
+    try:
+        import psycopg2 as psycopg
+        _PSYCOPG_AVAILABLE = True
+    except ImportError:
+        psycopg = None
+        _PSYCOPG_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
 def get_connection():
     """
     Get a connection to the PostgreSQL database
-    
+
     Returns:
         psycopg.Connection: Database connection object
     """
+    if not _PSYCOPG_AVAILABLE:
+        raise ImportError("psycopg/psycopg2 not installed — PostgreSQL features unavailable")
     try:
         # Get database URL from environment variables
         db_url = os.environ.get("DATABASE_URL")
         if not db_url:
             raise ValueError("DATABASE_URL environment variable not set")
-        
+
         # Create a connection to the database
         conn = psycopg.connect(db_url)
         return conn
