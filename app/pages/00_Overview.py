@@ -3760,6 +3760,7 @@ def render_macro_kpi_panel(
                 xaxis=dict(visible=False),
                 yaxis=dict(visible=False),
             )
+            _apply_light_theme(spark)
             st.plotly_chart(spark, use_container_width=True, config=plotly_config, key="kpi_m2_spark")
     with cols[1]:
         st.metric(
@@ -4052,6 +4053,7 @@ def _render_macro_expansion_sections(
                     legend=_overview_legend_style(),
                 )
                 fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig)
                 st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="macro_monetary_policy")
                 rendered_any = True
 
@@ -4090,6 +4092,7 @@ def _render_macro_expansion_sections(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="macro_gdp_vs_ad")
             rendered_any = True
 
@@ -4137,6 +4140,7 @@ def _render_macro_expansion_sections(
                     legend=_overview_legend_style(),
                 )
                 fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig)
                 st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="macro_unemployment_headcount")
                 rendered_any = True
 
@@ -4188,6 +4192,7 @@ def _render_macro_expansion_sections(
                     legend=_overview_legend_style(),
                 )
                 fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig)
                 st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="macro_currency_intl_revenue")
                 rendered_any = True
 
@@ -4300,6 +4305,7 @@ def _render_macro_expansion_sections(
                     legend=_overview_legend_style(),
                 )
                 fig.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig)
                 st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="macro_wealth_generation")
                 if target_year is not None:
                     st.caption(f"Year shown: {target_year}")
@@ -4329,6 +4335,7 @@ def _render_macro_expansion_sections(
             coloraxis_showscale=False,
         )
         fig.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
+        _apply_light_theme(fig)
         st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="macro_internet_time")
         rendered_any = True
 
@@ -4463,6 +4470,7 @@ def _render_company_financial_deep_dives(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc1")
 
         # Quarterly sparkline row: Revenue QoQ + YoY + TTM for selected companies.
@@ -4541,6 +4549,7 @@ def _render_company_financial_deep_dives(
                         xaxis=dict(visible=False),
                         yaxis=dict(visible=False),
                     )
+                    _apply_light_theme(spark_fig)
                     st.plotly_chart(spark_fig, use_container_width=True, config=plotly_config, key="ov_pc2")
 
     with tabs[1]:
@@ -4564,6 +4573,7 @@ def _render_company_financial_deep_dives(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc3")
 
             heat_df = debt_df.pivot_table(index="Company", columns="Year", values="Debt_to_Revenue", aggfunc="mean")
@@ -4580,6 +4590,7 @@ def _render_company_financial_deep_dives(
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
                 )
+                _apply_light_theme(fig_h)
                 st.plotly_chart(fig_h, use_container_width=True, config=plotly_config, key="ov_pc4")
 
     with tabs[2]:
@@ -4613,6 +4624,7 @@ def _render_company_financial_deep_dives(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc5")
 
             cap_cash = margin_df.groupby("Year", as_index=False)[["CashBalance", "Capex"]].sum(min_count=1)
@@ -4645,6 +4657,7 @@ def _render_company_financial_deep_dives(
                     legend=_overview_legend_style(),
                 )
                 fig2.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig2)
                 st.plotly_chart(fig2, use_container_width=True, config=plotly_config, key="ov_pc6")
                 st.caption("Cash flow is not available in the workbook; cash balance is used as an investment-capacity proxy vs CapEx.")
 
@@ -4669,6 +4682,7 @@ def _render_company_financial_deep_dives(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc7")
 
     with tabs[4]:
@@ -4705,6 +4719,7 @@ def _render_company_financial_deep_dives(
                     legend=_overview_legend_style(),
                 )
                 fig_emp.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig_emp)
                 st.plotly_chart(fig_emp, use_container_width=True, config=plotly_config, key="ov_pc8")
 
                 st.markdown("#### Revenue per Employee")
@@ -4728,6 +4743,7 @@ def _render_company_financial_deep_dives(
                         legend=_overview_legend_style(),
                     )
                     fig_rpe.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                    _apply_light_theme(fig_rpe)
                     st.plotly_chart(fig_rpe, use_container_width=True, config=plotly_config, key="ov_pc9")
 
                     rank = rpe[rpe["Year"] == int(selected_year)].copy()
@@ -4753,6 +4769,7 @@ def _render_company_financial_deep_dives(
                             showlegend=False,
                         )
                         fig_rank.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
+                        _apply_light_theme(fig_rank)
                         st.plotly_chart(fig_rank, use_container_width=True, config=plotly_config, key="ov_pc10")
 
     with tabs[5]:
@@ -4787,6 +4804,7 @@ def _render_company_financial_deep_dives(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc11")
 
         if not subs_df.empty:
@@ -4816,6 +4834,7 @@ def _render_company_financial_deep_dives(
                     legend=_overview_legend_style(),
                 )
                 fig_arpu.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig_arpu)
                 st.plotly_chart(fig_arpu, use_container_width=True, config=plotly_config, key="ov_pc12")
                 st.caption("ARPU proxy = annual revenue (USD millions) / average reported subscribers (millions).")
 
@@ -4846,6 +4865,7 @@ def _render_company_financial_deep_dives(
                 )
                 fig_md.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
                 fig_md.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig_md)
                 st.plotly_chart(fig_md, use_container_width=True, config=plotly_config, key="ov_pc13")
 
         st.caption("Customer acquisition cost trends are not available in current workbook sheets.")
@@ -4933,6 +4953,7 @@ def _render_device_platform_market_share(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc14")
 
             st.markdown("#### Device Market Share Evolution by Manufacturer")
@@ -4952,6 +4973,7 @@ def _render_device_platform_market_share(
                 legend=_overview_legend_style(),
             )
             fig_share.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig_share)
             st.plotly_chart(fig_share, use_container_width=True, config=plotly_config, key="ov_pc15")
             rendered = True
 
@@ -5008,6 +5030,7 @@ def _render_device_platform_market_share(
                     legend=_overview_legend_style(),
                 )
                 fig_reg.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig_reg)
                 st.plotly_chart(fig_reg, use_container_width=True, config=plotly_config, key="ov_pc16")
                 st.caption(f"Year shown: {year_focus}")
                 rendered = True
@@ -5183,6 +5206,7 @@ def _render_country_detail_panel(
                 autorange="reversed",
             ),
         )
+        _apply_light_theme(bar_fig)
         st.plotly_chart(bar_fig, use_container_width=True, config=plotly_config or {}, key="ov_pc17")
 
     # ── Chart 2: Line chart — total ad spend over time ──
@@ -5242,6 +5266,7 @@ def _render_country_detail_panel(
                 title=None,
             ),
         )
+        _apply_light_theme(line_fig)
         st.plotly_chart(line_fig, use_container_width=True, config=plotly_config or {}, key="ov_pc18")
 
     # ── Data table: channel values for all selected countries ──
@@ -5298,6 +5323,7 @@ def _render_global_media_economy_extras(
             legend=_overview_legend_style(),
         )
         fig_trend.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+        _apply_light_theme(fig_trend)
         st.plotly_chart(fig_trend, use_container_width=True, config=plotly_config, key="ov_pc19")
         rendered = True
 
@@ -5337,6 +5363,7 @@ def _render_global_media_economy_extras(
                     coloraxis_showscale=False,
                 )
                 fig_pc.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
+                _apply_light_theme(fig_pc)
                 st.plotly_chart(fig_pc, use_container_width=True, config=plotly_config, key="ov_pc20")
                 rendered = True
 
@@ -5384,6 +5411,7 @@ def _render_global_media_economy_extras(
                 legend=_overview_legend_style(),
             )
             fig_split.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig_split)
             st.plotly_chart(fig_split, use_container_width=True, config=plotly_config, key="ov_pc21")
             rendered = True
 
@@ -5882,6 +5910,7 @@ def _render_macro_bridge_charts(
             legend=_overview_legend_style(),
         )
         fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+        _apply_light_theme(fig)
         st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc22")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -5912,6 +5941,7 @@ def _render_macro_bridge_charts(
         )
         fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
         fig.add_hline(y=0, line_dash="dot", line_color="rgba(15,23,42,0.5)")
+        _apply_light_theme(fig)
         st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc23")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -5947,6 +5977,7 @@ def _render_macro_bridge_charts(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc24")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -5979,6 +6010,7 @@ def _render_macro_bridge_charts(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc25")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -6012,6 +6044,7 @@ def _render_macro_bridge_charts(
             legend=_overview_legend_style(),
         )
         fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+        _apply_light_theme(fig)
         st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc26")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -6034,6 +6067,7 @@ def _render_macro_bridge_charts(
             showlegend=False,
         )
         fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+        _apply_light_theme(fig)
         st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc27")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -6077,6 +6111,7 @@ def _render_macro_bridge_charts(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc28")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -6110,6 +6145,7 @@ def _render_macro_bridge_charts(
             legend=_overview_legend_style(),
         )
         fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+        _apply_light_theme(fig)
         st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc29")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -6154,6 +6190,7 @@ def _render_macro_bridge_charts(
                 legend=_overview_legend_style(),
             )
             fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc30")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -6187,6 +6224,7 @@ def _render_macro_bridge_charts(
             legend=_overview_legend_style(),
         )
         fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+        _apply_light_theme(fig)
         st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc31")
     render_standard_overview_post_comment(title, selected_year)
 
@@ -6251,6 +6289,7 @@ def _render_macro_bridge_charts(
         )
         fig.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
         fig.update_yaxes(gridcolor="rgba(148,163,184,0.22)")
+        _apply_light_theme(fig)
         st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc32")
         st.caption(f"Year shown: {target_year}")
     render_standard_overview_post_comment(title, selected_year)
@@ -6291,6 +6330,7 @@ def _render_macro_bridge_charts(
                 coloraxis_showscale=False,
             )
             fig.update_xaxes(gridcolor="rgba(148,163,184,0.22)")
+            _apply_light_theme(fig)
             st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc33")
             st.caption(f"Year shown: {target_year}")
     render_standard_overview_post_comment(title, selected_year)
@@ -6357,47 +6397,133 @@ def _render_transcript_topic_growth_chart(
 
     st.markdown("<div id='section-topic-signal'></div>", unsafe_allow_html=True)
     st.markdown("### Topic Signal Map")
+    n_companies = int(scoped_df['total_companies'].max()) if not scoped_df['total_companies'].isna().all() else 0
     st.caption(
         f"Source: earningscall_transcripts/topic_metrics.csv · Period: {selected_period} · "
-        f"{int(scoped_df['total_companies'].max()) if not scoped_df['total_companies'].isna().all() else 0} companies"
+        f"{n_companies} companies"
     )
     render_standard_overview_comment("Transcript Topic Growth vs Importance", selected_year)
 
-    fig = px.scatter(
-        scoped_df,
-        x="importance_plot",
-        y="growth_pct",
-        size="mention_count",
-        color="quadrant",
-        color_discrete_map=quadrant_colors,
-        text="topic_label",
-        custom_data=["topic", "importance_pct", "growth_pct", "mention_count", "companies_mentioned", "total_companies"],
-    )
-    fig.update_traces(
-        marker=dict(line=dict(color="rgba(15,23,42,0.18)", width=1)),
-        textposition="top center",
-        textfont=dict(size=12),
-        hovertemplate=(
-            "<b>%{customdata[0]}</b>"
-            "<br>Importance: %{customdata[1]:.1f}% of companies"
-            "<br>Growth vs prior quarter: %{customdata[2]:.1f}%"
-            "<br>Mentions: %{customdata[3]:,.0f}"
-            "<br>Companies mentioning: %{customdata[4]:,.0f} / %{customdata[5]:,.0f}"
-            "<extra></extra>"
-        ),
-    )
+    # ── Cluster definitions for related topics ──
+    _TOPIC_CLUSTERS = {
+        "AI & Machine Learning": ["AI", "Generative AI", "Innovation"],
+        "Cloud & Infrastructure": ["Cloud & infrastructure", "Security & privacy"],
+        "Advertising": ["Advertising", "Retail Media", "Pricing & monetization"],
+        "Streaming & Content": ["Streaming & CTV", "Subscriber Growth", "Creator Economy"],
+        "Cost & Efficiency": ["Cost Reduction", "Cost optimization"],
+        "Regulation & Risk": ["Regulation & Privacy", "Regulation & legal", "Regulatory", "Geopolitical uncertainty"],
+        "Financial Strategy": ["Capital allocation", "Debt & Leverage", "Shareholder Returns", "Financial Health", "Guidance"],
+        "Growth & Expansion": ["Market Expansion", "International", "Customer Metrics", "Consumer demand"],
+    }
+    _CLUSTER_COLORS = {
+        "AI & Machine Learning": "#7C3AED",
+        "Cloud & Infrastructure": "#1D4ED8",
+        "Advertising": "#F97316",
+        "Streaming & Content": "#EC4899",
+        "Cost & Efficiency": "#6B7280",
+        "Regulation & Risk": "#DC2626",
+        "Financial Strategy": "#059669",
+        "Growth & Expansion": "#0EA5E9",
+    }
+    # Map topic → cluster
+    _topic_to_cluster = {}
+    for cluster, topics in _TOPIC_CLUSTERS.items():
+        for t in topics:
+            _topic_to_cluster[t] = cluster
+    scoped_df["cluster"] = scoped_df["topic"].map(_topic_to_cluster).fillna("")
+
+    # ── Build figure ──
+    fig = go.Figure()
+
+    # 1) Individual topic dots (grey, small)
+    for _, row in scoped_df.iterrows():
+        cluster = row["cluster"]
+        q = row["quadrant"]
+        dot_color = _CLUSTER_COLORS.get(cluster, quadrant_colors.get(q, "#94A3B8"))
+        mention_sz = max(6, min(40, float(row["mention_count"]) * 0.6)) if pd.notna(row["mention_count"]) else 8
+        fig.add_trace(go.Scatter(
+            x=[row["importance_plot"]],
+            y=[row["growth_pct"]],
+            mode="markers+text",
+            marker=dict(
+                size=mention_sz,
+                color=dot_color,
+                opacity=0.75,
+                line=dict(color="white", width=1),
+            ),
+            text=[row["topic"]],
+            textposition="top center",
+            textfont=dict(size=10, color="#374151"),
+            customdata=[[row["topic"], row["importance_pct"], row["growth_pct"],
+                         row["mention_count"], row["companies_mentioned"], row["total_companies"], cluster]],
+            hovertemplate=(
+                "<b>%{customdata[0]}</b>"
+                "<br>Cluster: %{customdata[6]}"
+                "<br>Importance: %{customdata[1]:.1f}% of companies"
+                "<br>Growth vs prior quarter: %{customdata[2]:+.1f}%"
+                "<br>Mentions: %{customdata[3]:,.0f}"
+                "<br>Companies: %{customdata[4]:,.0f} / %{customdata[5]:,.0f}"
+                "<extra></extra>"
+            ),
+            showlegend=False,
+        ))
+
+    # 2) Cluster summary bubbles (larger, colored, outlined)
+    for cluster, topics in _TOPIC_CLUSTERS.items():
+        cluster_rows = scoped_df[scoped_df["cluster"] == cluster]
+        if cluster_rows.empty:
+            continue
+        cx = float(cluster_rows["importance_plot"].mean())
+        cy = float(cluster_rows["growth_pct"].mean())
+        c_mentions = float(cluster_rows["mention_count"].sum())
+        c_color = _CLUSTER_COLORS.get(cluster, "#94A3B8")
+        fig.add_trace(go.Scatter(
+            x=[cx], y=[cy],
+            mode="markers+text",
+            marker=dict(
+                size=max(30, min(70, c_mentions * 0.25)),
+                color=c_color,
+                opacity=0.18,
+                line=dict(color=c_color, width=2, dash="dot"),
+            ),
+            text=[f"<b>{cluster}</b>"],
+            textposition="middle center",
+            textfont=dict(size=11, color=c_color, family="DM Sans, Inter, sans-serif"),
+            hovertemplate=f"<b>{cluster}</b><br>Total mentions: {c_mentions:,.0f}<extra></extra>",
+            showlegend=False,
+        ))
+
+    # 3) Quadrant dividers
+    fig.add_hline(y=0, line_dash="dot", line_color="rgba(0,0,0,0.18)", line_width=1)
+    fig.add_vline(x=mid_x, line_dash="dot", line_color="rgba(0,0,0,0.18)", line_width=1)
+
+    # 4) Quadrant corner labels
+    x_range = scoped_df["importance_plot"]
+    y_range = scoped_df["growth_pct"]
+    x_min_log = max(0.05, float(x_range.min()) * 0.5) if not x_range.empty else 0.1
+    x_max_log = min(120, float(x_range.max()) * 1.5) if not x_range.empty else 100
+    y_min = max(-100, float(y_range.min()) - 15)
+    y_max = min(200, float(y_range.max()) + 25)
+    _corner_labels = [
+        (x_min_log * 1.2, y_max - 5, "Small & growing<br>in importance", "#0EA5E9"),
+        (x_max_log * 0.6, y_max - 5, "Big & growing<br>in importance", "#1D4ED8"),
+        (x_min_log * 1.2, y_min + 5, "Small & fading<br>importance", "#94A3B8"),
+        (x_max_log * 0.6, y_min + 5, "Big & fading<br>importance", "#F97316"),
+    ]
+    for lx, ly, ltext, lcolor in _corner_labels:
+        fig.add_annotation(
+            x=np.log10(lx), y=ly, text=ltext,
+            showarrow=False, font=dict(size=10, color=lcolor),
+            xref="x", yref="y", opacity=0.7,
+        )
+
     fig.update_layout(
-        height=560,
-        margin=_overview_chart_margin(left=20, right=20, top=106),
+        height=620,
+        margin=dict(l=60, r=40, t=30, b=70),
         paper_bgcolor="white",
         plot_bgcolor="white",
         font=dict(color="#374151", family="DM Sans, Inter, sans-serif"),
-        legend=dict(
-            font=dict(color="#374151", size=11),
-            bgcolor="rgba(255,255,255,0.95)",
-            bordercolor="rgba(0,0,0,0.08)",
-            borderwidth=1,
-        ),
+        showlegend=False,
     )
     fig.update_xaxes(
         type="log",
@@ -6405,19 +6531,20 @@ def _render_transcript_topic_growth_chart(
         tickvals=[0.1, 0.5, 1, 2, 5, 10, 20, 50, 100],
         ticktext=["0.1%", "0.5%", "1%", "2%", "5%", "10%", "20%", "50%", "100%"],
         tickfont=dict(color="#374151", size=11),
-        gridcolor="rgba(0,0,0,0.06)",
-        zeroline=True, zerolinecolor="rgba(0,0,0,0.15)",
+        gridcolor="rgba(0,0,0,0.05)",
+        zeroline=False,
+        range=[np.log10(max(0.05, x_min_log)), np.log10(x_max_log)],
     )
     fig.update_yaxes(
         title=dict(text="Keyword growth vs prior quarter (%)", font=dict(color="#6b7280", size=12)),
-        range=[-100, 200],
+        range=[y_min, y_max],
+        ticksuffix="%",
         tickfont=dict(color="#374151", size=11),
-        gridcolor="rgba(0,0,0,0.06)",
-        zeroline=True, zerolinecolor="rgba(0,0,0,0.15)",
+        gridcolor="rgba(0,0,0,0.05)",
+        zeroline=False,
     )
-    fig.add_hline(y=0, line_dash="dot", line_color="rgba(0,0,0,0.15)")
-    fig.add_vline(x=mid_x, line_dash="dot", line_color="rgba(0,0,0,0.15)")
 
+    _apply_light_theme(fig)
     st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc34")
     ranked = scoped_df.sort_values(["mention_count", "importance_pct"], ascending=[False, False]).copy()
     ranked = ranked[["topic", "mention_count", "importance_pct", "growth_pct", "companies_mentioned", "total_companies"]]
@@ -6808,6 +6935,7 @@ def _render_quarterly_intelligence_briefing(
                     legend=_overview_legend_style(),
                 )
                 fig_duopoly.update_yaxes(gridcolor="rgba(148,163,184,0.25)")
+                _apply_light_theme(fig_duopoly)
                 st.plotly_chart(fig_duopoly, use_container_width=True, config=plotly_config, key="ov_pc35")
                 rendered_part1_charts += 1
 
@@ -6842,6 +6970,7 @@ def _render_quarterly_intelligence_briefing(
             yaxis_title="Ad spend (USD billions)",
         )
         fig_tv.update_yaxes(gridcolor="rgba(148,163,184,0.25)")
+        _apply_light_theme(fig_tv)
         st.plotly_chart(fig_tv, use_container_width=True, config=plotly_config, key="ov_pc36")
         rendered_part1_charts += 1
 
@@ -6898,6 +7027,7 @@ def _render_quarterly_intelligence_briefing(
                     xaxis_title="Market-cap-per-employee multiplier (2020-2024 vs 2010-2014)",
                     yaxis_title="",
                 )
+                _apply_light_theme(fig_mult)
                 st.plotly_chart(fig_mult, use_container_width=True, config=plotly_config, key="ov_pc37")
                 rendered_part1_charts += 1
 
@@ -6936,6 +7066,7 @@ def _render_quarterly_intelligence_briefing(
                 xaxis_title=f"Debt-to-market-cap ratio (latest <= {selected_year})",
                 yaxis_title="",
             )
+            _apply_light_theme(fig_lev)
             st.plotly_chart(fig_lev, use_container_width=True, config=plotly_config, key="ov_pc38")
             rendered_part1_charts += 1
 
@@ -6990,6 +7121,7 @@ def _render_quarterly_intelligence_briefing(
                         legend=_overview_legend_style(),
                     )
                     fig_fallback.update_yaxes(gridcolor="rgba(148,163,184,0.25)")
+                    _apply_light_theme(fig_fallback)
                     st.plotly_chart(fig_fallback, use_container_width=True, config=plotly_config, key="ov_pc39")
                     rendered_part1_charts += 1
         if rendered_part1_charts == 0:
@@ -7040,6 +7172,8 @@ def _render_overview_area_selector() -> str:
     if active_key not in valid_keys:
         active_key = _key_migration.get(active_key, "macro_geography")
 
+    # Detect click first, update state, then rerun so buttons render with correct highlight
+    clicked_key = None
     row_cols = st.columns(len(_OVERVIEW_AREA_CONFIG))
     for col, item in zip(row_cols, _OVERVIEW_AREA_CONFIG):
         with col:
@@ -7049,9 +7183,12 @@ def _render_overview_area_selector() -> str:
                 use_container_width=True,
                 type="primary" if active_key == item["key"] else "secondary",
             ):
-                active_key = item["key"]
-                st.session_state["overview_active_area"] = active_key
+                clicked_key = item["key"]
             st.caption(item["description"])
+
+    if clicked_key and clicked_key != active_key:
+        st.session_state["overview_active_area"] = clicked_key
+        st.rerun()
 
     st.session_state["overview_active_area"] = active_key
     return active_key
@@ -7099,6 +7236,24 @@ _ov_tpl.layout.coloraxis = dict(
 )
 pio.templates["overview_dark"] = _ov_tpl
 pio.templates.default = "plotly_white+overview_dark"
+
+
+def _apply_light_theme(fig) -> None:
+    """Force dark text on every axis/legend for white-background Overview page.
+
+    Call on every figure before st.plotly_chart to override any leftover
+    dark-theme colors from explicit update_layout calls.
+    """
+    _c = "#374151"
+    _grid = "rgba(0,0,0,0.06)"
+    fig.update_layout(
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(color=_c),
+        legend=dict(font=dict(color=_c)),
+    )
+    fig.update_xaxes(tickfont=dict(color=_c), title_font=dict(color=_c), gridcolor=_grid)
+    fig.update_yaxes(tickfont=dict(color=_c), title_font=dict(color=_c), gridcolor=_grid)
 
 begin_snap_section("overview_summary")
 
@@ -9128,6 +9283,7 @@ if market_cap_data and nasdaq_market_cap:
         showlegend=False,
         uniformtext=dict(minsize=8, mode="hide"),
     )
+    _apply_light_theme(pie_fig)
     st.plotly_chart(pie_fig, use_container_width=True, config=plotly_config, key="ov_pc40")
     render_standard_overview_post_comment("Market Cap Share vs Nasdaq", selected_year)
 else:
@@ -9234,6 +9390,7 @@ if market_cap_data:
         plot_bgcolor="rgba(0,0,0,0)",
         uniformtext=dict(minsize=10, mode="hide"),
     )
+    _apply_light_theme(treemap_fig)
     st.plotly_chart(treemap_fig, use_container_width=True, config=plotly_config, key="ov_pc41")
     render_standard_overview_post_comment("Market Cap Treemap", selected_year)
 else:
@@ -9393,6 +9550,7 @@ if ad_stack_rows:
         tickfont=dict(color=label_color),
         title_font=dict(color=label_color),
     )
+    _apply_light_theme(ad_bar_fig)
     st.plotly_chart(ad_bar_fig, use_container_width=True, config=plotly_config, key="ov_pc42")
     render_standard_overview_post_comment("Advertising Revenue vs Total Revenue", selected_year)
 else:
@@ -9491,6 +9649,7 @@ if market_cap_data:
     )
     
     # Display the chart
+    _apply_light_theme(market_cap_fig)
     st.plotly_chart(market_cap_fig, use_container_width=True, config=plotly_config, key="ov_pc43")
     render_standard_overview_post_comment("Market Capitalization", selected_year)
 else:
@@ -9591,6 +9750,7 @@ if revenue_data:
     )
     
     # Display the chart
+    _apply_light_theme(revenue_fig)
     st.plotly_chart(revenue_fig, use_container_width=True, config=plotly_config, key="ov_pc44")
     render_standard_overview_post_comment("Revenue", selected_year)
 else:
@@ -9691,6 +9851,7 @@ if net_income_data:
     )
     
     # Display the chart
+    _apply_light_theme(net_income_fig)
     st.plotly_chart(net_income_fig, use_container_width=True, config=plotly_config, key="ov_pc45")
     render_standard_overview_post_comment("Net Income", selected_year)
 else:
@@ -9793,6 +9954,7 @@ if assets_data:
     )
     
     # Display the chart
+    _apply_light_theme(assets_fig)
     st.plotly_chart(assets_fig, use_container_width=True, config=plotly_config, key="ov_pc46")
     render_standard_overview_post_comment("Total Assets", selected_year)
 else:
@@ -9893,6 +10055,7 @@ if cash_balance_data:
     )
     
     # Display the chart
+    _apply_light_theme(cash_fig)
     st.plotly_chart(cash_fig, use_container_width=True, config=plotly_config, key="ov_pc47")
     render_standard_overview_post_comment("Cash Balance", selected_year)
 else:
@@ -9993,6 +10156,7 @@ if rd_data:
     )
     
     # Display the chart
+    _apply_light_theme(rd_fig)
     st.plotly_chart(rd_fig, use_container_width=True, config=plotly_config, key="ov_pc48")
     render_standard_overview_post_comment("R&D Spending", selected_year)
 else:
@@ -10101,6 +10265,7 @@ if employee_data:
     )
     
     # Display the chart
+    _apply_light_theme(employee_fig)
     st.plotly_chart(employee_fig, use_container_width=True, config=plotly_config, key="ov_pc49")
     render_standard_overview_post_comment("Employee Count", selected_year)
 else:
@@ -10201,6 +10366,7 @@ if debt_data:
     )
     
     # Display the chart
+    _apply_light_theme(debt_fig)
     st.plotly_chart(debt_fig, use_container_width=True, config=plotly_config, key="ov_pc50")
     render_standard_overview_post_comment("Long-Term Debt", selected_year)
 else:
@@ -10301,6 +10467,7 @@ if operating_income_data:
     )
     
     # Display the chart
+    _apply_light_theme(operating_income_fig)
     st.plotly_chart(operating_income_fig, use_container_width=True, config=plotly_config, key="ov_pc51")
     render_standard_overview_post_comment("Operating Income", selected_year)
 else:
@@ -10401,6 +10568,7 @@ if cost_of_revenue_data:
     )
     
     # Display the chart
+    _apply_light_theme(cost_of_revenue_fig)
     st.plotly_chart(cost_of_revenue_fig, use_container_width=True, config=plotly_config, key="ov_pc52")
     render_standard_overview_post_comment("Cost of Revenue", selected_year)
 else:
@@ -10501,6 +10669,7 @@ if capex_data:
     )
     
     # Display the chart
+    _apply_light_theme(capex_fig)
     st.plotly_chart(capex_fig, use_container_width=True, config=plotly_config, key="ov_pc53")
     render_standard_overview_post_comment("Capital Expenditure (Capex)", selected_year)
 else:
@@ -11332,7 +11501,7 @@ def _hm_build_quarterly_segment_heatmap_data(segments_df, company, year_start, y
 
 
 def _hm_render_plotly(fig, xaxis_is_year=False, light_theme=False, key=None, **kwargs):
-    fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+    _apply_light_theme(fig)
     st.plotly_chart(fig, use_container_width=True, config=_HM_PLOTLY_CONFIG, key=key, **kwargs)
 
 
