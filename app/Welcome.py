@@ -3222,7 +3222,7 @@ io.observe(grid);
 </script>
 </div>
 """,
-    height=740,
+    height=540,
 )
 st.markdown("</div>", unsafe_allow_html=True)
 _deep_dive("earnings", "See full earnings breakdown")
@@ -3439,6 +3439,7 @@ except Exception as _fi_err:
     import logging as _fi_log
     _fi_log.getLogger(__name__).warning("Forward Intelligence carousel: %s", _fi_err)
 
+_deep_dive("overview", "Explore signals in Narrative & Sentiment")
 _separator()
 
 def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str = '[]', logos_json: str = '{}') -> str:
