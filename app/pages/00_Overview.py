@@ -7416,14 +7416,22 @@ if not country_ad_df.empty:
                 df_year = df_year[df_year["Country"].isin(allowed)]
 
         available_countries = sorted(df_year["Country"].dropna().unique().tolist()) if not df_year.empty else []
-        picked_countries = st.multiselect(
-            "Countries (optional)",
-            available_countries,
-            default=[],
-            help="Select countries to focus the map. Leave empty to show all countries in the selected region.",
-        )
-        if picked_countries:
-            df_year = df_year[df_year["Country"].isin(set(picked_countries))]
+        # Country Deep Dive navigation buttons
+        st.markdown("""<div style='margin:8px 0 4px;font-size:0.72rem;color:#6b7280;
+        font-weight:600;text-transform:uppercase;letter-spacing:0.07em;'>
+        Country Deep Dives</div>""", unsafe_allow_html=True)
+        _dd_ncols = min(len(available_countries), 6) if available_countries else 1
+        _dd_cols = st.columns(_dd_ncols)
+        for _ddi, _dd_country in enumerate(available_countries[:30]):
+            with _dd_cols[_ddi % _dd_ncols]:
+                if st.button(
+                    _dd_country,
+                    key=f"dd_country_{_dd_country.replace(' ', '_').replace('.', '')}",
+                    use_container_width=True,
+                ):
+                    st.session_state["deep_dive_country"] = _dd_country
+                    st.switch_page("pages/05_Country.py")
+        picked_countries = []  # Map shows all countries — buttons are navigation only
     else:
         picked_countries = []
 
