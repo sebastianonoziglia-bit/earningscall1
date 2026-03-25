@@ -4329,6 +4329,259 @@ io.observe(grid);
 )
 st.markdown("</div>", unsafe_allow_html=True)
 _deep_dive("earnings", "See full earnings breakdown")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Beat 5.5 — Forward Intelligence CEO Carousel
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from utils.transcript_live import extract_forward_looking_signals
+
+    _FI_COMPANIES = [
+        "Alphabet", "Amazon", "Apple", "Comcast", "Disney",
+        "Meta Platforms", "Microsoft", "Netflix", "Paramount Global",
+        "Roku", "Spotify", "Warner Bros. Discovery", "Samsung", "Tencent",
+    ]
+
+    _fi_cards: list[dict] = []
+    for _fi_co in _FI_COMPANIES:
+        _fi_sigs = extract_forward_looking_signals(
+            excel_path, company=_fi_co, year=int(selected_year), max_signals=1
+        )
+        if not _fi_sigs:
+            continue
+        _fi_sig = _fi_sigs[0]
+        _fi_logo_b64 = _resolve_logo(_fi_co, logos)
+        _fi_cards.append({
+            "company": _fi_co,
+            "quote": _fi_sig.get("quote", ""),
+            "speaker": _fi_sig.get("speaker", ""),
+            "role": _fi_sig.get("role", ""),
+            "score": round(_fi_sig.get("score", 0), 2),
+            "category": _fi_sig.get("category", "Outlook"),
+            "year": _fi_sig.get("year", int(selected_year)),
+            "quarter": _fi_sig.get("quarter", ""),
+            "logo": _fi_logo_b64,
+        })
+
+    if _fi_cards:
+        _section(
+            "FORWARD INTELLIGENCE",
+            "What management teams are betting on.",
+            "The highest-confidence forward-looking statements from the latest earnings calls — scored and verified."
+        )
+
+        _fi_json_str = json.dumps(_fi_cards)
+
+        st.components.v1.html(f"""
+<div id="fi-carousel-root" style="width:100%;display:flex;flex-direction:column;align-items:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;position:relative;overflow:hidden;padding:32px 0;">
+  <!-- Floating blobs background -->
+  <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;">
+    <div style="position:absolute;width:420px;height:420px;border-radius:50%;background:#4aaeff;opacity:0.12;filter:blur(60px);mix-blend-mode:screen;top:-80px;left:-120px;animation:fiBlobA 8s ease-in-out infinite alternate;"></div>
+    <div style="position:absolute;width:360px;height:360px;border-radius:50%;background:#f97316;opacity:0.12;filter:blur(60px);mix-blend-mode:screen;bottom:-60px;right:-100px;animation:fiBlobB 10s ease-in-out infinite alternate;"></div>
+    <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:#4aaeff;opacity:0.08;filter:blur(60px);mix-blend-mode:screen;top:50%;left:60%;transform:translate(-50%,-50%);animation:fiBlobC 12s ease-in-out infinite alternate;"></div>
+  </div>
+  <style>
+    @keyframes fiBlobA {{ 0%{{transform:translate(0,0) scale(1)}} 100%{{transform:translate(40px,30px) scale(1.15)}} }}
+    @keyframes fiBlobB {{ 0%{{transform:translate(0,0) scale(1)}} 100%{{transform:translate(-30px,-40px) scale(1.1)}} }}
+    @keyframes fiBlobC {{ 0%{{transform:translate(-50%,-50%) scale(1)}} 100%{{transform:translate(-40%,-60%) scale(1.2)}} }}
+  </style>
+
+  <!-- Card container -->
+  <div id="fi-card" style="
+    position:relative;z-index:1;
+    width:100%;max-width:480px;
+    aspect-ratio:9/16;
+    background:rgba(10,22,40,0.95);
+    border:1px solid rgba(74,174,255,0.2);
+    border-radius:20px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:28px 32px;
+    box-sizing:border-box;
+    overflow:hidden;
+    transition:transform 0.8s cubic-bezier(0.16,1,0.3,1),opacity 0.8s cubic-bezier(0.16,1,0.3,1);
+  ">
+    <!-- Progress bar -->
+    <div style="position:absolute;top:0;left:0;width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:0 0 2px 2px;">
+      <div id="fi-progress" style="height:100%;width:0%;background:linear-gradient(90deg,#4aaeff,#f97316);border-radius:0 0 2px 2px;transition:width 0.4s ease;"></div>
+    </div>
+
+    <!-- Top: year badge + label -->
+    <div style="display:flex;flex-direction:column;gap:10px;padding-top:8px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="fi-year-badge" style="
+          background:linear-gradient(135deg,#4aaeff,#2563eb);
+          color:#fff;font-size:12px;font-weight:700;
+          padding:4px 14px;border-radius:20px;
+          letter-spacing:0.5px;
+        "></span>
+        <span id="fi-category" style="color:rgba(255,255,255,0.5);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;"></span>
+      </div>
+      <div style="color:rgba(74,174,255,0.7);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Forward Intelligence</div>
+    </div>
+
+    <!-- Middle: quote + speaker -->
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:20px 0;">
+      <div id="fi-quote" style="
+        font-size:clamp(20px,4vw,32px);font-weight:800;
+        color:#fff;line-height:1.3;
+        letter-spacing:-0.3px;
+      "></div>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <span id="fi-speaker" style="color:#4aaeff;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;"></span>
+        <span id="fi-role" style="color:rgba(255,255,255,0.35);font-size:11px;font-weight:500;"></span>
+      </div>
+    </div>
+
+    <!-- Bottom: logo + company -->
+    <div style="display:flex;align-items:center;gap:14px;padding-bottom:4px;">
+      <div id="fi-logo-wrap" style="
+        width:60px;height:60px;border-radius:14px;
+        background:rgba(255,255,255,0.06);
+        display:flex;align-items:center;justify-content:center;
+        overflow:hidden;flex-shrink:0;
+      ">
+        <img id="fi-logo" src="" style="width:44px;height:44px;object-fit:contain;" />
+      </div>
+      <div>
+        <div id="fi-company" style="color:#fff;font-size:15px;font-weight:700;"></div>
+        <div id="fi-score" style="color:rgba(74,174,255,0.6);font-size:11px;font-weight:600;margin-top:2px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div style="display:flex;align-items:center;gap:24px;margin-top:20px;z-index:2;">
+    <button id="fi-prev" style="background:rgba(74,174,255,0.1);border:1px solid rgba(74,174,255,0.2);color:#4aaeff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
+      onmouseover="this.style.background='rgba(74,174,255,0.2)'"
+      onmouseout="this.style.background='rgba(74,174,255,0.1)'"
+    >&#9664;</button>
+    <button id="fi-play" style="background:linear-gradient(135deg,#4aaeff,#2563eb);border:none;color:#fff;width:52px;height:52px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 4px 20px rgba(74,174,255,0.3);"
+      onmouseover="this.style.transform='scale(1.08)'"
+      onmouseout="this.style.transform='scale(1)'"
+    >&#9654;</button>
+    <button id="fi-next" style="background:rgba(74,174,255,0.1);border:1px solid rgba(74,174,255,0.2);color:#4aaeff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
+      onmouseover="this.style.background='rgba(74,174,255,0.2)'"
+      onmouseout="this.style.background='rgba(74,174,255,0.1)'"
+    >&#9654;</button>
+  </div>
+</div>
+
+<script>
+(function() {{
+  const cards = {_fi_json_str};
+  if (!cards.length) return;
+
+  let idx = 0;
+  let playing = true;
+  let timer = null;
+
+  const card      = document.getElementById('fi-card');
+  const quote     = document.getElementById('fi-quote');
+  const speaker   = document.getElementById('fi-speaker');
+  const role      = document.getElementById('fi-role');
+  const logo      = document.getElementById('fi-logo');
+  const company   = document.getElementById('fi-company');
+  const score     = document.getElementById('fi-score');
+  const yearBadge = document.getElementById('fi-year-badge');
+  const category  = document.getElementById('fi-category');
+  const progress  = document.getElementById('fi-progress');
+  const btnPlay   = document.getElementById('fi-play');
+  const btnPrev   = document.getElementById('fi-prev');
+  const btnNext   = document.getElementById('fi-next');
+
+  function renderCard(i) {{
+    const c = cards[i];
+    // Transition out
+    card.style.transform = 'perspective(800px) rotateY(45deg) scale(0.8)';
+    card.style.opacity = '0';
+    setTimeout(() => {{
+      quote.textContent = '\\u201C' + c.quote + '\\u201D';
+      speaker.textContent = c.speaker || 'Executive';
+      role.textContent = c.role || '';
+      yearBadge.textContent = (c.quarter ? c.quarter + ' ' : '') + c.year;
+      category.textContent = c.category || 'Outlook';
+      company.textContent = c.company;
+      score.textContent = 'Confidence: ' + (c.score * 100).toFixed(0) + '%';
+      if (c.logo) {{
+        logo.src = 'data:image/png;base64,' + c.logo;
+        logo.style.display = 'block';
+      }} else {{
+        logo.style.display = 'none';
+      }}
+      progress.style.width = ((i + 1) / cards.length * 100) + '%';
+      // Transition in
+      card.style.transform = 'perspective(800px) rotateY(0deg) scale(1)';
+      card.style.opacity = '1';
+    }}, 250);
+  }}
+
+  function goNext() {{
+    if (idx < cards.length - 1) {{
+      idx++;
+      renderCard(idx);
+    }} else {{
+      stopPlay();
+    }}
+  }}
+
+  function goPrev() {{
+    if (idx > 0) {{
+      idx--;
+      renderCard(idx);
+    }}
+  }}
+
+  function startPlay() {{
+    playing = true;
+    btnPlay.innerHTML = '&#9208;';
+    timer = setInterval(() => {{
+      if (idx < cards.length - 1) {{
+        idx++;
+        renderCard(idx);
+      }} else {{
+        stopPlay();
+      }}
+    }}, 4000);
+  }}
+
+  function stopPlay() {{
+    playing = false;
+    btnPlay.innerHTML = '&#9654;';
+    if (timer) {{ clearInterval(timer); timer = null; }}
+  }}
+
+  function togglePlay() {{
+    if (playing) {{
+      stopPlay();
+    }} else {{
+      if (idx >= cards.length - 1) idx = -1;
+      idx++;
+      renderCard(idx);
+      startPlay();
+    }}
+  }}
+
+  btnPlay.addEventListener('click', togglePlay);
+  btnPrev.addEventListener('click', () => {{ stopPlay(); goPrev(); }});
+  btnNext.addEventListener('click', () => {{ stopPlay(); goNext(); }});
+
+  document.addEventListener('keydown', (e) => {{
+    if (e.key === 'ArrowLeft')  {{ stopPlay(); goPrev(); }}
+    if (e.key === 'ArrowRight') {{ stopPlay(); goNext(); }}
+    if (e.key === ' ')          {{ e.preventDefault(); togglePlay(); }}
+  }});
+
+  // Initial render
+  renderCard(0);
+  // Auto-play after short delay
+  setTimeout(startPlay, 1500);
+}})();
+</script>
+""", height=680)
+
+except Exception:
+    pass
+
 _separator()
 
 # Beat 6 — M2 vs ad spend

@@ -122,6 +122,69 @@ def table_exists(table_name):
         logger.error(f"Error checking if table {table_name} exists: {str(e)}")
         return False
 
+def get_forward_signals(
+    company: str = None,
+    year: int = None,
+    quarter: str = None,
+    limit: int = 10,
+    min_score: float = 0.3,
+) -> list:
+    """
+    Query forward_signals table from the SQLite intelligence DB.
+    If company is None: returns top signals across all companies (for home page carousel).
+    If company is set: returns signals for that company (for Earnings page).
+    Ordered by score DESC.
+
+    NOTE: This queries the local SQLite DB (earningscall_intelligence.db),
+    not the PostgreSQL database — forward_signals live in the local intelligence DB.
+    """
+    import sqlite3
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    db_path = repo_root / "earningscall_intelligence.db"
+    if not db_path.exists():
+        return []
+
+    try:
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            # Check if table exists
+            tables = [r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='forward_signals'"
+            ).fetchall()]
+            if "forward_signals" not in tables:
+                return []
+
+            clauses = ["score >= ?"]
+            params: list = [min_score]
+            if company:
+                clauses.append("LOWER(company) = LOWER(?)")
+                params.append(company.strip())
+            if year:
+                clauses.append("year = ?")
+                params.append(int(year))
+            if quarter:
+                clauses.append("UPPER(quarter) = UPPER(?)")
+                params.append(quarter.strip())
+
+            where = " AND ".join(clauses)
+            query = f"SELECT * FROM forward_signals WHERE {where} ORDER BY score DESC LIMIT ?"
+            params.append(limit)
+
+            rows = conn.execute(query, params).fetchall()
+            return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+# TODO: get_forward_signals could also power:
+# - Automated quarterly briefings across all companies
+# - Insight generation for the Editorial page
+# - Overview forward intelligence cards
+# - Genie scenario planning with cross-company forward signals
+
+
 def get_schema_as_string():
     """
     Get the database schema as a formatted string

@@ -310,6 +310,72 @@ def ingest_highlights(conn: sqlite3.Connection, highlights_csv: Path) -> int:
     return len(payload)
 
 
+def ingest_forward_signals(conn: sqlite3.Connection, repo_root: Path) -> int:
+    """Populate forward_signals table using extract_forward_looking_signals from transcript_live."""
+    # Add app dir to path so we can import transcript_live
+    app_dir = repo_root / "app"
+    if str(app_dir) not in sys.path:
+        sys.path.insert(0, str(app_dir))
+
+    try:
+        from utils.transcript_live import extract_forward_looking_signals
+    except ImportError:
+        print("Warning: could not import extract_forward_looking_signals — skipping forward signals")
+        return 0
+
+    # Find the Excel workbook
+    excel_candidates = [
+        repo_root / "app" / "attached_assets" / "Financial_Data.xlsx",
+        repo_root / "attached_assets" / "Financial_Data.xlsx",
+    ]
+    # Also search for any xlsx in attached_assets
+    for d in [repo_root / "app" / "attached_assets", repo_root / "attached_assets"]:
+        if d.is_dir():
+            for f in d.iterdir():
+                if f.suffix.lower() == ".xlsx" and f not in excel_candidates:
+                    excel_candidates.append(f)
+
+    excel_path = None
+    for p in excel_candidates:
+        if p.exists():
+            excel_path = str(p)
+            break
+    if not excel_path:
+        print("Warning: no Excel workbook found for forward signals extraction")
+        return 0
+
+    # Get all unique company/year/quarter combos from transcripts table
+    rows = conn.execute(
+        "SELECT DISTINCT company, year, quarter FROM transcripts ORDER BY company, year, quarter"
+    ).fetchall()
+
+    conn.execute("DELETE FROM forward_signals")
+    total = 0
+    for company, year, quarter in rows:
+        signals = extract_forward_looking_signals(
+            excel_path, company=company, year=int(year),
+            quarter=str(quarter), max_signals=10,
+        )
+        for sig in signals:
+            conn.execute(
+                """INSERT INTO forward_signals
+                   (company, year, quarter, quote, speaker, role, score, category,
+                    has_number, has_year_ref, future_tense_score)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    sig["company"], sig["year"], sig["quarter"],
+                    sig["quote"], sig.get("speaker", ""), sig.get("role", ""),
+                    sig.get("score", 0), sig.get("category", ""),
+                    int(sig.get("has_number", False)),
+                    int(sig.get("has_year_ref", False)),
+                    sig.get("score", 0),
+                ),
+            )
+            total += 1
+    conn.commit()
+    return total
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build SQLite earningscall intelligence database from extracted CSV files")
     parser.add_argument("--db", default="earningscall_intelligence.db", help="Output SQLite database path")
@@ -335,6 +401,7 @@ def main() -> None:
         topics_count = ingest_topics(conn, (repo_root / args.topics_csv).resolve())
         kpis_count = ingest_kpis(conn, (repo_root / args.kpis_csv).resolve())
         highlights_count = ingest_highlights(conn, (repo_root / args.highlights_csv).resolve())
+        forward_count = ingest_forward_signals(conn, repo_root)
     finally:
         conn.close()
 
@@ -343,6 +410,7 @@ def main() -> None:
     print(f"Loaded transcript topics: {topics_count}")
     print(f"Loaded transcript KPIs: {kpis_count}")
     print(f"Loaded transcript highlights: {highlights_count}")
+    print(f"Loaded forward signals: {forward_count}")
 
 
 if __name__ == "__main__":

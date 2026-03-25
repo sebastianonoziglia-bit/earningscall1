@@ -4124,6 +4124,78 @@ def main():
                             unsafe_allow_html=True,
                         )
 
+    # ── Forward Intelligence Panel ─────────────────────────────────────────
+    try:
+        from utils.transcript_live import extract_forward_looking_signals, SIGNAL_COLORS
+        _fwd_signals = extract_forward_looking_signals(
+            excel_path=str(data_processor.data_path),
+            company=canonical_company,
+            year=int(year),
+            quarter=str(selected_quarter) if selected_quarter and selected_quarter != "Annual" else "",
+            max_signals=6,
+        )
+        # Also try DB merge if available
+        try:
+            from utils.database_service import get_forward_signals as _db_fwd
+            _db_signals = _db_fwd(company=canonical_company, year=int(year), limit=6)
+            if _db_signals:
+                _existing_keys = {s["quote"][:60].lower() for s in _fwd_signals}
+                for ds in _db_signals:
+                    if ds.get("quote", "")[:60].lower() not in _existing_keys:
+                        _fwd_signals.append(ds)
+                _fwd_signals.sort(key=lambda x: -x.get("score", 0))
+                _fwd_signals = _fwd_signals[:6]
+        except Exception:
+            pass
+
+        if _fwd_signals:
+            _period = (
+                f"Q{_parse_quarter_int(selected_quarter)} {year}"
+                if _parse_quarter_int(selected_quarter) else str(year)
+            )
+            st.markdown(
+                f"<div style='margin:1.5rem 0 0.5rem 0;'>"
+                f"<span style='font-weight:700;font-size:1rem;color:#111827;'>Forward Intelligence</span>"
+                f"<span style='color:#6b7280;font-size:0.82rem;margin-left:10px;'>"
+                f"{canonical_company} · {_period} · Scored across 5 verification layers</span></div>",
+                unsafe_allow_html=True,
+            )
+            _fwd_cols = st.columns(2, gap="medium")
+            for _fi, _sig in enumerate(_fwd_signals):
+                with _fwd_cols[_fi % 2]:
+                    _q = str(_sig.get("quote", "")).strip()
+                    _sp = str(_sig.get("speaker", "")).strip()
+                    _rl = str(_sig.get("role", "")).strip()
+                    _sc = float(_sig.get("score", 0))
+                    if len(_q) > 220:
+                        _q = _q[:220].rsplit(" ", 1)[0] + "…"
+                    # Confidence indicator: filled squares
+                    _norm = min(_sc / 15.0, 1.0)  # normalize to 0-1 range
+                    _filled = max(1, int(_norm * 5))
+                    _conf = "■" * _filled + "□" * (5 - _filled)
+                    _sp_html = ""
+                    if _sp and _sp.lower() not in ("", "unknown", "nan"):
+                        _sp_html = (
+                            f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;'>"
+                            f"{html.escape(_sp)}"
+                            + (f" · <span style='color:#1d4ed8'>{html.escape(_rl)}</span>" if _rl else "")
+                            + f" · <span style='color:#3b82f6;font-family:monospace;'>{_conf}</span>"
+                            + "</div>"
+                        )
+                    st.markdown(
+                        f"<div style='background:#eff6ff;border:1px solid #3b82f6;"
+                        f"border-left:3px solid #1d4ed8;border-radius:6px;padding:10px 12px;margin-bottom:8px;'>"
+                        f"<p style='margin:0;font-size:0.83rem;color:#374151;"
+                        f"line-height:1.6;font-style:italic;'>"
+                        f"\"{html.escape(_q)}\"</p>"
+                        f"{_sp_html}</div>",
+                        unsafe_allow_html=True,
+                    )
+    except Exception:
+        pass
+    # TODO: This section could also auto-generate a 3-bullet company outlook summary
+    # using call_ai() from ai_service.py with the top 3 forward signals as input.
+
     company_insights_df = load_company_insights_text(data_processor.data_path)
 
     company_insights_filtered = pd.DataFrame()

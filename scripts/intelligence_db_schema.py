@@ -77,6 +77,25 @@ DDL = [
     "CREATE INDEX IF NOT EXISTS idx_topics_company ON transcript_topics(topic);",
     "CREATE INDEX IF NOT EXISTS idx_kpis_type ON transcript_kpis(kpi_type);",
     "CREATE INDEX IF NOT EXISTS idx_transcripts_company_year ON transcripts(company, year);",
+    """
+    CREATE TABLE IF NOT EXISTS forward_signals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        quarter TEXT NOT NULL,
+        quote TEXT NOT NULL,
+        speaker TEXT,
+        role TEXT,
+        score REAL,
+        category TEXT,
+        has_number INTEGER DEFAULT 0,
+        has_year_ref INTEGER DEFAULT 0,
+        future_tense_score REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_fs_company_year ON forward_signals(company, year, quarter);",
+    "CREATE INDEX IF NOT EXISTS idx_fs_score ON forward_signals(score DESC);",
 ]
 
 

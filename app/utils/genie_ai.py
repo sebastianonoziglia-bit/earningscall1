@@ -202,12 +202,56 @@ def build_genie_messages(
 
     context = build_genie_context_from_db(company=company, year=year, quarter=quarter)
     transcript_excerpt = str(context.get("transcript", "") or "")[:3000]
+
+    # ── Forward signals context (scored and verified) ──────────────────────
+    forward_signals_block = ""
+    try:
+        from utils.database_service import get_forward_signals
+        _fwd = get_forward_signals(company=company, year=year, quarter=quarter, limit=5, min_score=0.3)
+        if not _fwd:
+            # Fallback: try live extraction from Excel
+            from utils.transcript_live import extract_forward_looking_signals
+            _repo = Path(__file__).resolve().parents[2]
+            _excel_candidates = list((_repo / "app" / "attached_assets").glob("*.xlsx")) if (_repo / "app" / "attached_assets").is_dir() else []
+            if _excel_candidates:
+                _fwd_live = extract_forward_looking_signals(
+                    str(_excel_candidates[0]), company=company or "", year=year or 0,
+                    quarter=quarter or "", max_signals=5,
+                )
+                _fwd = [{"quote": s["quote"], "speaker": s.get("speaker", ""), "role": s.get("role", ""),
+                         "score": s.get("score", 0), "category": s.get("category", "")} for s in _fwd_live]
+        if _fwd:
+            _sig_lines = []
+            for _fs in _fwd[:5]:
+                _sig_lines.append(
+                    f"- [{_fs.get('category', 'Outlook')}] \"{_fs.get('quote', '')[:300]}\" "
+                    f"(Speaker: {_fs.get('speaker', 'Unknown')}, Role: {_fs.get('role', 'N/A')}, "
+                    f"Score: {_fs.get('score', 0):.1f})"
+                )
+            forward_signals_block = (
+                "\n\n=== FORWARD-LOOKING SIGNALS (scored and verified) ===\n"
+                "These are the highest-confidence forward-looking statements extracted\n"
+                "from earnings call transcripts. They have been scored across 5 verification\n"
+                "layers. Treat them as high-confidence primary evidence when answering\n"
+                "questions about future plans, investments, or strategy.\n"
+                + "\n".join(_sig_lines)
+                + "\n=== END FORWARD SIGNALS ===\n"
+            )
+    except Exception:
+        pass
+    # TODO: For scenario questions (is_scenario_question), query forward_signals for ALL
+    # major companies with score > 0.5 and prepend as cross-company forward intelligence block.
+    # The forward_signals table could also power automated quarterly briefings —
+    # a one-click "generate Q4 2024 briefing" that summarizes the top forward signals
+    # across all companies using call_ai().
+
     db_context_prompt = (
         "You are a financial analyst assistant. Use the following data to answer the user question. "
         f"Metrics: {context.get('metrics', [])}. "
         f"Top topics from transcripts: {context.get('topic_scores', [])}. "
         f"Auto-generated insights: {context.get('insights', [])}. "
         f"Transcript excerpt: {transcript_excerpt}"
+        + forward_signals_block
     )
 
     # Inject depth mode into system prompt for thought map quality

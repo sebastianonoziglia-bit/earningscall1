@@ -6298,24 +6298,34 @@ def _render_transcript_topic_growth_chart(
     fig.update_layout(
         height=560,
         margin=_overview_chart_margin(left=20, right=20, top=106),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        legend=_overview_legend_style(),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(color="#374151", family="DM Sans, Inter, sans-serif"),
+        legend=dict(
+            font=dict(color="#374151", size=11),
+            bgcolor="rgba(255,255,255,0.95)",
+            bordercolor="rgba(0,0,0,0.08)",
+            borderwidth=1,
+        ),
     )
     fig.update_xaxes(
         type="log",
-        title="Keyword importance (% of tracked companies mentioning topic)",
+        title=dict(text="Keyword importance (% of tracked companies mentioning topic)", font=dict(color="#6b7280", size=12)),
         tickvals=[0.1, 0.5, 1, 2, 5, 10, 20, 50, 100],
         ticktext=["0.1%", "0.5%", "1%", "2%", "5%", "10%", "20%", "50%", "100%"],
-        gridcolor="rgba(148,163,184,0.22)",
+        tickfont=dict(color="#374151", size=11),
+        gridcolor="rgba(0,0,0,0.06)",
+        zeroline=True, zerolinecolor="rgba(0,0,0,0.15)",
     )
     fig.update_yaxes(
-        title="Keyword growth vs prior quarter (%)",
+        title=dict(text="Keyword growth vs prior quarter (%)", font=dict(color="#6b7280", size=12)),
         range=[-100, 200],
-        gridcolor="rgba(148,163,184,0.22)",
+        tickfont=dict(color="#374151", size=11),
+        gridcolor="rgba(0,0,0,0.06)",
+        zeroline=True, zerolinecolor="rgba(0,0,0,0.15)",
     )
-    fig.add_hline(y=0, line_dash="dot", line_color="rgba(15,23,42,0.55)")
-    fig.add_vline(x=mid_x, line_dash="dot", line_color="rgba(15,23,42,0.55)")
+    fig.add_hline(y=0, line_dash="dot", line_color="rgba(0,0,0,0.15)")
+    fig.add_vline(x=mid_x, line_dash="dot", line_color="rgba(0,0,0,0.15)")
 
     st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc34")
     ranked = scoped_df.sort_values(["mention_count", "importance_pct"], ascending=[False, False]).copy()
@@ -6394,6 +6404,105 @@ def _render_excel_overview_layers(
             "No transcript topic metrics found. Run `python3 scripts/extract_transcript_topics.py` "
             "after adding new quarter transcript files."
         )
+
+    # ── Transcript Signal Explorer ──────────────────────────────────────────
+    try:
+        st.markdown("---")
+        st.subheader("Transcript Signal Explorer")
+        st.caption("Browse extracted intelligence signals across all companies. Select company, period, and categories.")
+
+        _exp_excel_path = getattr(data_processor, "data_path", "") or ""
+        _exp_all_companies = sorted(data_processor.get_companies()) if hasattr(data_processor, "get_companies") else []
+        if not _exp_all_companies:
+            _exp_all_companies = [
+                "Alphabet", "Amazon", "Apple", "Comcast", "Disney",
+                "Meta Platforms", "Microsoft", "Netflix", "Paramount Global",
+                "Pinterest", "Roku", "Spotify", "Warner Bros. Discovery",
+            ]
+        _exp_available_years = sorted(get_available_years(data_processor)) if get_available_years(data_processor) else [selected_year]
+
+        # Row 1 — filters
+        _exp_col1, _exp_col2, _exp_col3 = st.columns([2, 1, 1])
+        with _exp_col1:
+            _exp_companies = st.multiselect(
+                "Companies", _exp_all_companies, default=_exp_all_companies,
+                key="ov_exp_companies",
+            )
+        with _exp_col2:
+            _exp_year_idx = _exp_available_years.index(selected_year) if selected_year in _exp_available_years else len(_exp_available_years) - 1
+            _exp_year = st.selectbox(
+                "Year", _exp_available_years, index=_exp_year_idx,
+                key="ov_exp_year",
+            )
+        with _exp_col3:
+            _exp_quarter = st.selectbox(
+                "Quarter", ["All", "Q1", "Q2", "Q3", "Q4"],
+                key="ov_exp_quarter",
+            )
+
+        # Row 2 — category filter
+        from utils.transcript_live import SIGNAL_CATEGORIES, extract_all_signals, SIGNAL_COLORS, SIGNAL_ICONS
+        _exp_cats = st.multiselect(
+            "Signal categories", SIGNAL_CATEGORIES,
+            default=["Broadcaster Threats", "Outlook", "Opportunities", "Investment"],
+            key="ov_exp_cats",
+        )
+
+        # Extract button + results
+        if st.button("Extract signals", type="primary", key="ov_exp_extract"):
+            _all_exp_signals = []
+            for co in _exp_companies:
+                sigs = extract_all_signals(
+                    _exp_excel_path, co, _exp_year,
+                    _exp_quarter if _exp_quarter != "All" else "",
+                    max_per_category=3,
+                )
+                _all_exp_signals.extend(sigs)
+            # Filter by selected categories
+            _all_exp_signals = [s for s in _all_exp_signals if s.get("category") in _exp_cats]
+
+            if _all_exp_signals:
+                # Group by company and render
+                from itertools import groupby
+                _all_exp_signals.sort(key=lambda x: (x.get("company", ""), -x.get("score", 0)))
+                for co, group in groupby(_all_exp_signals, key=lambda x: x.get("company", "")):
+                    st.markdown(f"**{co}**")
+                    for sig in group:
+                        _c = SIGNAL_COLORS.get(sig.get("category", ""), {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
+                        _icon = SIGNAL_ICONS.get(sig.get("category", ""), "")
+                        _q = sig.get("quote", "")[:200]
+                        st.markdown(
+                            f"<div style='background:{_c['bg']};border:1px solid {_c['border']};border-left:3px solid {_c['border']};"
+                            f"border-radius:6px;padding:8px 10px;margin-bottom:6px;'>"
+                            f"<span style='font-size:0.7rem;background:{_c['tag']};color:white;padding:2px 6px;border-radius:8px;'>"
+                            f"{_icon} {sig.get('category','')}</span> "
+                            f"<span style='font-size:0.82rem;color:#374151;font-style:italic;'>\"{_q}\"</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                # Summary table
+                st.markdown("#### Cross-Company Summary")
+                _summary = []
+                for co, group in groupby(
+                    sorted(_all_exp_signals, key=lambda x: x.get("company", "")),
+                    key=lambda x: x.get("company", ""),
+                ):
+                    grp = list(group)
+                    if grp:
+                        best = max(grp, key=lambda x: x.get("score", 0))
+                        _summary.append({
+                            "Company": co,
+                            "Top Category": best.get("category", ""),
+                            "Best Score": round(best.get("score", 0), 2),
+                            "Top Quote": best.get("quote", "")[:80] + "...",
+                        })
+                if _summary:
+                    st.dataframe(pd.DataFrame(_summary), use_container_width=True, hide_index=True)
+            else:
+                st.info("No signals found for the selected filters.")
+    except Exception as _exp_err:
+        st.caption(f"Transcript Signal Explorer unavailable: {_exp_err}")
+
     iconic_quotes_rendered = _render_iconic_quote_section(data_processor, selected_year, selected_quarter)
     if not iconic_quotes_rendered:
         st.caption(

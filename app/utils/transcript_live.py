@@ -168,6 +168,77 @@ FINANCIAL_SCORE_TERMS = [
     "record", "accelerat", "expand", "invest",
 ]
 
+# ── FORWARD-LOOKING SIGNAL ENGINE ─────────────────────────────────────────────
+# These keyword lists and scoring layers power the forward intelligence features
+# across: Home CEO carousel, Earnings Forward Intelligence, Overview explorer,
+# and Genie context building.
+
+FUTURE_TENSE_MARKERS = [
+    "we will", "we'll", "we plan to", "we expect", "we anticipate",
+    "we intend", "we aim", "we are targeting", "we are working toward",
+    "we are building", "we are investing", "going forward",
+    "in the coming", "by end of", "over the next", "next quarter",
+    "next year", "in 2025", "in 2026", "in 2027", "by 2025", "by 2026",
+    "we are on track", "we expect to", "we plan on", "we will continue",
+    "we will expand", "we will launch", "we will invest",
+    "our goal is", "our target is", "our ambition is",
+    "we are committed to", "we remain committed",
+]
+
+NEGATION_PREFIXES = [
+    "we do not expect", "we cannot", "we don't expect",
+    "we are not planning", "we have no plans", "we won't",
+    "we will not", "we do not anticipate", "there is no guarantee",
+    "we cannot guarantee", "we are unable to",
+]
+
+BOILERPLATE_PHRASES = [
+    "as we have said before", "as previously mentioned",
+    "as we noted last quarter", "as i mentioned earlier",
+    "safe harbor", "forward-looking statements involve risk",
+    "actual results may differ", "we cannot predict",
+    "subject to change", "no obligation to update",
+]
+
+FORWARD_LOOKING_KEYWORDS = [
+    # Guidance and targets
+    "we expect", "our guidance", "looking ahead", "going forward",
+    "we anticipate", "we project", "we forecast", "we target",
+    "full year guidance", "next quarter guidance", "raised guidance",
+    "updated our outlook", "we are raising", "we are lowering",
+    # Investment and CapEx
+    "capital expenditure", "capex", "we are investing", "we will invest",
+    "infrastructure investment", "we are building", "we are deploying",
+    "data center", "we are expanding capacity", "we are scaling",
+    # Acquisitions and M&A
+    "acquisition", "we acquired", "we are acquiring", "pending acquisition",
+    "we closed the acquisition", "strategic acquisition", "we announced",
+    "merger", "we intend to acquire", "we plan to acquire",
+    # New products and launches
+    "we will launch", "launching in", "coming soon", "planned release",
+    "roadmap", "pipeline", "we are developing", "new product",
+    "new feature", "new capability", "new service", "new market",
+    # Geographic expansion
+    "expanding into", "new markets", "international expansion",
+    "we are entering", "new geographies", "we launched in",
+    "we will expand to", "new region", "growing internationally",
+    # Partnerships and deals
+    "partnership with", "we partnered with", "strategic partnership",
+    "we signed", "multi-year agreement", "we announced a deal",
+    "collaboration with", "joint venture",
+    # Hiring and headcount
+    "we are hiring", "we plan to hire", "headcount growth",
+    "we are growing our team", "new engineering talent",
+    # Revenue and growth targets
+    "revenue target", "we expect revenue", "growth target",
+    "double digit growth", "we expect margins", "margin expansion",
+    "operating leverage", "we expect to achieve",
+    # AI and technology roadmap
+    "ai roadmap", "we are training", "next generation model",
+    "we are releasing", "new ai capability", "we are integrating ai",
+    "autonomous", "agentic", "multimodal roadmap",
+]
+
 
 def score_quote_topics(quote: str) -> list[str]:
     """
@@ -274,7 +345,7 @@ def _score_sentence_advanced(
     # 8. Financial term bonus
     fin_score = sum(0.4 for t in FINANCIAL_SCORE_TERMS if t in s_lower)
 
-    return round(
+    base_score = round(
         (kw_hits + fin_score)
         * specificity_bonus
         * forward_bonus
@@ -283,6 +354,34 @@ def _score_sentence_advanced(
         * len_factor,
         3,
     )
+
+    # ── Additional verification layers (stacked on base score) ────────────
+
+    # Layer 1 — Future tense detection (1.4x)
+    if any(ft in s_lower for ft in FUTURE_TENSE_MARKERS):
+        base_score *= 1.4
+
+    # Layer 2 — Specificity bonus for forward-looking sentences (1.5x)
+    # Fires when sentence has concrete numbers AND is forward-looking
+    _has_concrete = bool(re.search(
+        r'\$[\d,]+[BMbm]?|\d+\.?\d*\s*%|\b20(?:2[4-9]|3[0-9])\b|\bQ[1-4]\b',
+        s, re.IGNORECASE,
+    ))
+    _is_forward = any(ft in s_lower for ft in FUTURE_TENSE_MARKERS)
+    if _has_concrete and _is_forward:
+        base_score *= 1.5
+
+    # Layer 3 — Negation filter (hard penalty 0.1x)
+    if any(neg in s_lower for neg in NEGATION_PREFIXES):
+        base_score *= 0.1
+
+    # Layer 4 — Boilerplate filter (0.05x)
+    if any(bp in s_lower for bp in BOILERPLATE_PHRASES):
+        base_score *= 0.05
+
+    # Layer 5 — Speaker role bonus already applied above (role_bonus)
+
+    return round(base_score, 3)
 
 
 def _parse_speaker_blocks(text: str) -> list[dict]:
@@ -703,3 +802,160 @@ def extract_iconic_quotes(
         if len(rows) >= max_quotes:
             break
     return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def extract_forward_looking_signals(
+    excel_path: str,
+    company: str = "",
+    year: int = 0,
+    quarter: str = "",
+    max_signals: int = 5,
+) -> list[dict]:
+    """
+    Extract the highest-scoring forward-looking signals for a company.
+    Uses multi-layer scoring: future tense + specificity + negation filter.
+    Returns list of dicts with quote, speaker, role, score, year, quarter, company, category.
+    Used by: Home page CEO carousel, Earnings Forward Intelligence panel,
+    Overview cross-company outlook, Genie context building.
+    """
+    if not excel_path:
+        return []
+    try:
+        df = pd.read_excel(excel_path, sheet_name="Transcripts")
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        if not {"company", "year", "transcript_text"}.issubset(set(df.columns)):
+            return []
+    except Exception:
+        return []
+
+    df["_c"] = df["company"].astype(str).str.strip().str.lower()
+    df["_y"] = pd.to_numeric(df["year"], errors="coerce")
+    df = df.dropna(subset=["_y"])
+    df["_y"] = df["_y"].astype(int)
+
+    if company:
+        comp = company.strip().lower()
+        mask = df["_c"] == comp
+        rows = df[mask]
+        if year:
+            yr_rows = rows[rows["_y"] == int(year)]
+            if not yr_rows.empty:
+                rows = yr_rows
+            elif not rows.empty:
+                rows = rows[rows["_y"] == rows["_y"].max()]
+        if rows.empty:
+            return []
+        if quarter and "quarter" in df.columns:
+            q_rows = rows[rows["quarter"].astype(str).str.upper().str.strip() == quarter.upper().strip()]
+            if not q_rows.empty:
+                rows = q_rows
+    else:
+        # Cross-company: use latest year per company
+        if year:
+            rows = df[df["_y"] == int(year)]
+        else:
+            latest_idx = df.groupby("_c")["_y"].idxmax()
+            rows = df.loc[latest_idx]
+
+    # Combined forward keywords for scoring
+    _fwd_kw = FORWARD_LOOKING_KEYWORDS + OUTLOOK_KEYWORDS
+
+    all_signals: list[dict] = []
+    seen_keys: set = set()
+
+    for _, row in rows.iterrows():
+        _company = str(row.get("company", "")).strip()
+        _year = int(row.get("_y", 0))
+        _quarter = str(row.get("quarter", "")).strip()
+        text = str(row.get("transcript_text", "") or "")[:30000]
+        if not text:
+            continue
+
+        blocks = _parse_speaker_blocks(text)
+        _all_sents = [s for b in blocks for s in b.get("sentences", [])]
+        _total = len(_all_sents)
+        _idx = 0
+
+        for block in blocks:
+            for sentence in block.get("sentences", []):
+                s = sentence.strip()
+                _idx += 1
+                if len(s) < 40 or len(s) > 500:
+                    continue
+                # Must contain at least one forward-looking keyword
+                s_lower = s.lower()
+                if not any(kw in s_lower for kw in _fwd_kw):
+                    continue
+
+                score = _score_sentence_advanced(
+                    s, _fwd_kw, block.get("role", ""), _idx, _total
+                )
+                if score < 0.5:
+                    continue
+
+                key = s[:60].lower()
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+
+                # Determine category from signal keywords
+                cat = "Outlook"
+                for _cat, _kws in {
+                    "Investment": INVESTMENT_KEYWORDS,
+                    "Product Shifts": PRODUCT_SHIFT_KEYWORDS,
+                    "Opportunities": OPPORTUNITY_KEYWORDS,
+                    "Strategic Direction": STRATEGIC_DIRECTION_KEYWORDS,
+                }.items():
+                    if any(kw in s_lower for kw in _kws):
+                        cat = _cat
+                        break
+
+                all_signals.append({
+                    "quote": s,
+                    "speaker": block["speaker"],
+                    "role": block.get("role", ""),
+                    "score": round(score, 3),
+                    "year": _year,
+                    "quarter": _quarter,
+                    "company": _company,
+                    "category": cat,
+                    "has_number": bool(re.search(r'\$[\d,]+|\d+\.?\d*\s*%', s)),
+                    "has_year_ref": bool(re.search(r'\b20(?:2[4-9]|3[0-9])\b', s)),
+                })
+
+    all_signals.sort(key=lambda x: -x["score"])
+    return all_signals[:max_signals]
+
+
+# TODO: extract_forward_looking_signals could also power:
+# - Automated quarterly briefing generation (one-click "Q4 2024 briefing")
+# - Editorial page forward-looking content (currently uses simpler keyword matching)
+# - Overview cross-company forward intelligence cards
+# - Automated Genie scenario context for "what if" questions
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def extract_all_signals(
+    excel_path: str,
+    company: str,
+    year: int,
+    quarter: str = "",
+    max_per_category: int = 3,
+) -> list[dict]:
+    """
+    Extract signals across ALL categories for a company.
+    Wrapper around extract_outlook_risks_opportunities that returns flat list.
+    Used by Overview Transcript Signal Explorer.
+    """
+    result = extract_outlook_risks_opportunities(
+        excel_path, company, year, quarter, max_per_category=max_per_category,
+    )
+    flat: list[dict] = []
+    for cat, signals in result.items():
+        for sig in signals:
+            sig["company"] = company
+            sig["year"] = year
+            sig["quarter"] = quarter
+            flat.append(sig)
+    return flat

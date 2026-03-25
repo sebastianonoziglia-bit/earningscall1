@@ -356,6 +356,48 @@ TOPIC_KEYWORDS: Dict[str, list[str]] = {
         "partnership",
         "joint venture",
     ],
+    # Additional topics — also feed into Genie context and automated company insights
+    "Streaming & CTV": [
+        "connected tv", "ctv", "streaming wars", "ad tier",
+        "password sharing", "live sports", "sports rights",
+        "nfl", "nba", "premier league", "live events",
+        "streaming rights", "linear tv",
+    ],
+    "Creator Economy": [
+        "creator economy", "short form video", "reels", "shorts",
+        "podcast advertising", "creator monetization", "influencer",
+        "user generated content", "ugc",
+    ],
+    "Retail Media": [
+        "retail media", "first party data", "shopper data",
+        "commerce media", "retail ad network", "sponsored products",
+    ],
+    "Shareholder Returns": [
+        "share buyback", "dividend", "debt reduction",
+        "free cash flow", "capital return", "share repurchase",
+    ],
+    "Subscriber Growth": [
+        "subscription growth", "churn", "average revenue per user",
+        "arpu", "subscriber additions", "paid members",
+        "premium subscribers",
+    ],
+    "International": [
+        "international expansion", "emerging markets",
+        "new geographies", "apac", "emea", "latin america",
+    ],
+    "Regulation & Privacy": [
+        "regulation", "antitrust", "privacy", "cookie deprecation",
+        "gdpr", "dma", "dsa", "consent", "data protection",
+    ],
+    "Generative AI": [
+        "generative ai", "large language model", "ai agents",
+        "agentic", "foundation model", "llm", "multimodal",
+        "next generation model", "ai inference",
+    ],
+    "Cost Reduction": [
+        "cost cutting", "workforce reduction", "margin expansion",
+        "operating leverage", "restructuring", "efficiency gains",
+    ],
 }
 
 KPI_PATTERNS: Dict[str, str] = {
