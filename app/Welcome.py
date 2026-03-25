@@ -2699,7 +2699,7 @@ if mcap_yoy is not None:
     _a = "&#9650;" if mcap_yoy >= 0 else "&#9660;"
     kpi3_yoy = f"<span style='color:{_c};font-weight:700;font-size:0.88rem;'>{_a} {abs(mcap_yoy):.1f}%</span>"
 
-# Build hero logo strip
+# Build hero logo strip — uses white-variant logos (Amazon/Apple)
 _HERO_COMPANIES = [
     "Alphabet", "Amazon", "Apple", "Meta Platforms", "Microsoft",
     "Netflix", "Disney", "Comcast", "Spotify", "Roku",
@@ -2707,13 +2707,14 @@ _HERO_COMPANIES = [
 ]
 _hero_logo_items = []
 for _hi, _hco in enumerate(_HERO_COMPANIES):
-    _hb64 = _resolve_logo(_hco, logos_original)
+    _hb64 = _resolve_logo(_hco, logos)  # logos has white Amazon/Apple
     if _hb64:
         _hcolor = _company_color(_hco)
         _hero_logo_items.append(
             f"<div class='hl-logo' style='--hl-delay:{_hi * 0.4}s;--hl-brand:{_hcolor};' title='{_hco}'>"
             f"<img src='data:image/png;base64,{_hb64}' alt='{_hco}'/></div>"
         )
+_hero_logo_count = len(_hero_logo_items)
 _hero_logos_html = "".join(_hero_logo_items)
 
 st.components.v1.html(
@@ -2731,7 +2732,7 @@ st.components.v1.html(
     "</style>"
     "<div style='background:transparent;padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
     "<div style='color:#4aaeff;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;'>The Attention Economy</div>"
-    "<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:24px;font-family:Syne,sans-serif;'>14 companies.<br>One dashboard.</div>"
+    f"<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:24px;font-family:Syne,sans-serif;'>{_hero_logo_count} companies.<br>One dashboard.</div>"
     f"<div class='hl-wrap'>{_hero_logos_html}</div>"
     "<div style='display:flex;gap:16px;margin-bottom:40px;flex-wrap:wrap;'>"
     f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"

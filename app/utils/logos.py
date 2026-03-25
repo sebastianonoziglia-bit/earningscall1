@@ -44,6 +44,7 @@ def load_company_logos():
             'Paramount Global': 'attached_assets/Paramount.png',
             'Warner Bros. Discovery': 'attached_assets/adadad.png',
             'Warner Bros Discovery': 'attached_assets/adadad.png',
+            'YouTube': _first_existing('attached_assets/Youtube.png', 'attached_assets/youtube.png', 'attached_assets/youtube_logo.png'),
         }
 
         for company, logo_path in logo_files.items():
