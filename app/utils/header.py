@@ -238,18 +238,21 @@ def _render_nav(active_key: str):
             text-decoration: none !important;
             font-size: 0.82rem; font-weight: 500;
             color: #94a3b8 !important;
-            border: 1px solid rgba(148,163,184,0.15);
-            transition: border-color 0.15s, color 0.15s;
+            border: 1px solid transparent;
+            background: transparent;
+            transition: color 0.2s, text-shadow 0.2s, background 0.2s;
             white-space: nowrap;
           }}
           .bnav-link:hover {{
-            border-color: rgba(148,163,184,0.55) !important;
-            color: #e2e8f0 !important;
+            color: #ffffff !important;
+            text-shadow: 0 0 8px rgba(74,174,255,0.5), 0 0 20px rgba(74,174,255,0.25);
+            background: rgba(74,174,255,0.08);
           }}
           .bnav-active {{
             color: #fff !important;
-            border-color: rgba(99,130,255,0.75) !important;
             font-weight: 700 !important;
+            text-shadow: 0 0 6px rgba(74,174,255,0.4);
+            background: rgba(74,174,255,0.12);
           }}
           .bnav-sep {{
             width: 1px; height: 20px;

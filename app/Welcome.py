@@ -5215,7 +5215,7 @@ st.components.v1.html("""
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:transparent;}
-.cta-row{display:flex;gap:16px;justify-content:center;padding:0 24px;flex-wrap:wrap;}
+.cta-row{display:flex;gap:16px;justify-content:center;padding:12px 24px;flex-wrap:wrap;}
 .cta-btn{
   position:relative;flex:1;min-width:200px;max-width:360px;
   padding:28px 24px;border-radius:16px;cursor:pointer;overflow:hidden;
@@ -5229,6 +5229,7 @@ body{background:transparent;}
   border-color:rgba(74,174,255,0.4);
   transform:translateY(-4px) scale(1.02);
   box-shadow:0 8px 32px rgba(74,174,255,0.2),0 0 60px rgba(74,174,255,0.08);
+  z-index:2;
 }
 /* Glass reflection sweep */
 .cta-btn::before{
@@ -5264,17 +5265,17 @@ body{background:transparent;}
 .cta-btn:hover .cta-arrow{color:#4aaeff;right:16px;}
 </style>
 <div class="cta-row">
-  <a class="cta-btn" id="cta-overview" onclick="window.parent.postMessage({type:'streamlit:setComponentValue',value:'overview'},'*')">
+  <a class="cta-btn" id="cta-overview" onclick="window.parent.location.href=window.parent.location.origin+'/Overview'">
     <div class="cta-title">Overview</div>
     <div class="cta-desc">Macro trends & market signals</div>
     <span class="cta-arrow">&rarr;</span>
   </a>
-  <a class="cta-btn" id="cta-earnings" onclick="window.parent.postMessage({type:'streamlit:setComponentValue',value:'earnings'},'*')">
+  <a class="cta-btn" id="cta-earnings" onclick="window.parent.location.href=window.parent.location.origin+'/Earnings'">
     <div class="cta-title">Earnings</div>
     <div class="cta-desc">Company deep dives & intelligence</div>
     <span class="cta-arrow">&rarr;</span>
   </a>
-  <a class="cta-btn" id="cta-genie" onclick="window.parent.postMessage({type:'streamlit:setComponentValue',value:'genie'},'*')">
+  <a class="cta-btn" id="cta-genie" onclick="window.parent.location.href=window.parent.location.origin+'/Genie'">
     <div class="cta-title">Genie</div>
     <div class="cta-desc">Ask the data anything</div>
     <span class="cta-arrow">&rarr;</span>
@@ -5291,18 +5292,7 @@ function randomPop(){
 }
 setTimeout(randomPop, 1500);
 </script>
-""", height=140, scrolling=False)
-# Streamlit buttons (hidden behind HTML, used for actual navigation)
-_cta_cols = st.columns(3)
-with _cta_cols[0]:
-    if st.button("Overview", use_container_width=True, key="home_gateway_overview"):
-        st.switch_page("pages/00_Overview.py")
-with _cta_cols[1]:
-    if st.button("Earnings", use_container_width=True, key="home_gateway_earnings"):
-        st.switch_page("pages/01_Earnings.py")
-with _cta_cols[2]:
-    if st.button("Genie", use_container_width=True, key="home_gateway_genie"):
-        st.switch_page("pages/04_Genie.py")
+""", height=160, scrolling=False)
 
 source_label = str(workbook_path) if workbook_path else "not found"
 st.markdown(
