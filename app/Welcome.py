@@ -3041,6 +3041,377 @@ st.components.v1.html(_build_ss_html(_ss_data_json), height=540)
 st.markdown("</div>", unsafe_allow_html=True)
 _deep_dive("overview", "Explore the full ad landscape")
 _separator()
+_wr_logos = {}
+for _wr_co in ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "Disney", "Comcast", "Spotify", "Roku"]:
+    _wr_b64 = _resolve_logo(_wr_co, logos)
+    if _wr_b64:
+        _wr_logos[_wr_co] = _wr_b64
+_wr_logos_json = json.dumps(_wr_logos)
+_section("REVENUE ANATOMY", "Not all revenue is advertising.", "Total 2024 revenue per company. Orange = ad revenue. Blue = everything else.")
+st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
+st.components.v1.html(
+    """
+<div id="wm-rev-root">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
+#wm-rev-root{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
+#wm-rev-root *{box-sizing:border-box;}
+.wr-grid{display:flex;gap:0;align-items:flex-end;justify-content:space-between;width:100%;}
+.wr-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;}
+.wr-bars{display:flex;flex-direction:column;align-items:stretch;width:80%;margin:0 auto 6px;}
+.wr-bar{width:100%;position:relative;min-height:2px;}
+.wr-bar-other{background:#1e3a5f;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);border-radius:4px 4px 0 0;}
+.wr-bar-ad{background:#ff5b1f;transition:height 1.0s cubic-bezier(.34,1.1,.64,1);border-radius:0 0 4px 4px;}
+@keyframes wrBreathe{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:0.85;}}
+.wr-logo-img{height:34px;width:auto;max-width:68px;object-fit:contain;margin-bottom:6px;display:block;animation:wrBreathe 3s ease-in-out infinite;}
+.wr-name{font-size:11px;font-weight:700;color:#e6edf3;text-align:center;margin-bottom:4px;font-family:'Syne',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
+.wr-total{font-size:11px;color:#8b949e;text-align:center;margin-top:3px;}
+.wr-legend{display:flex;gap:20px;margin-top:20px;}
+.wr-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
+.wr-leg-dot{width:10px;height:10px;border-radius:2px;}
+</style>
+<div class="wr-grid" id="wr-grid">
+</div>
+<div class="wr-legend">
+  <div class="wr-leg"><div class="wr-leg-dot" style="background:#ff5b1f;"></div>Ad Revenue</div>
+  <div class="wr-leg"><div class="wr-leg-dot" style="background:#1e3a5f;"></div>Other Revenue</div>
+</div>
+<script>
+var WR_LOGOS="""
+    + _wr_logos_json
+    + """;
+/* Year-by-year data — sorted by 2024 total revenue */
+const yearData={
+  2019:[
+    {name:"Amazon",total:280.5,ad:14.1},{name:"Apple",total:260.2,ad:7},
+    {name:"Alphabet",total:161.9,ad:134.8},{name:"Microsoft",total:125.8,ad:7.6},
+    {name:"Comcast",total:108.9,ad:5.2},{name:"Disney",total:69.6,ad:2.0},
+    {name:"Meta",total:70.7,ad:69.7},{name:"Netflix",total:20.2,ad:0},
+    {name:"Spotify",total:7.4,ad:0.8},{name:"Roku",total:1.1,ad:0.7}
+  ],
+  2020:[
+    {name:"Amazon",total:386.1,ad:19.8},{name:"Apple",total:274.5,ad:9},
+    {name:"Alphabet",total:182.5,ad:147},{name:"Microsoft",total:143.0,ad:8.5},
+    {name:"Comcast",total:103.6,ad:4.6},{name:"Disney",total:65.4,ad:1.6},
+    {name:"Meta",total:86.0,ad:84.2},{name:"Netflix",total:25.0,ad:0},
+    {name:"Spotify",total:9.0,ad:1.1},{name:"Roku",total:1.8,ad:1.3}
+  ],
+  2021:[
+    {name:"Amazon",total:469.8,ad:31.2},{name:"Apple",total:365.8,ad:13},
+    {name:"Alphabet",total:257.6,ad:209.5},{name:"Microsoft",total:168.1,ad:10},
+    {name:"Comcast",total:116.4,ad:5.8},{name:"Disney",total:67.4,ad:2.5},
+    {name:"Meta",total:117.9,ad:115.7},{name:"Netflix",total:29.7,ad:0},
+    {name:"Spotify",total:11.4,ad:1.5},{name:"Roku",total:2.8,ad:2.3}
+  ],
+  2022:[
+    {name:"Amazon",total:514.0,ad:37.7},{name:"Apple",total:394.3,ad:15},
+    {name:"Alphabet",total:282.8,ad:224.5},{name:"Microsoft",total:198.3,ad:12},
+    {name:"Comcast",total:121.4,ad:5.9},{name:"Disney",total:82.7,ad:3.0},
+    {name:"Meta",total:116.6,ad:113.6},{name:"Netflix",total:31.6,ad:0.8},
+    {name:"Spotify",total:12.4,ad:1.6},{name:"Roku",total:2.7,ad:2.1}
+  ],
+  2023:[
+    {name:"Amazon",total:574.8,ad:46.9},{name:"Apple",total:383.3,ad:16},
+    {name:"Alphabet",total:307.4,ad:237.9},{name:"Microsoft",total:211.9,ad:15},
+    {name:"Comcast",total:121.6,ad:6.2},{name:"Disney",total:88.9,ad:3.2},
+    {name:"Meta",total:134.9,ad:131.9},{name:"Netflix",total:33.7,ad:1.5},
+    {name:"Spotify",total:14.3,ad:1.8},{name:"Roku",total:3.5,ad:3.1}
+  ],
+  2024:[
+    {name:"Amazon",total:638,ad:56},{name:"Apple",total:391,ad:18},
+    {name:"Alphabet",total:350,ad:237},{name:"Microsoft",total:245,ad:18},
+    {name:"Comcast",total:123,ad:6.8},{name:"Disney",total:91,ad:3.4},
+    {name:"Meta",total:165,ad:164},{name:"Netflix",total:39,ad:2.4},
+    {name:"Spotify",total:15.7,ad:2.1},{name:"Roku",total:4.1,ad:3.8}
+  ]
+};
+const years=Object.keys(yearData).map(Number).sort();
+/* Use 2024 order for consistent column positions */
+const companyOrder=yearData[2024].sort((a,b)=>b.total-a.total).map(c=>c.name);
+const globalMax=Math.max(...Object.values(yearData).flatMap(arr=>arr.map(c=>c.total)));
+const maxH=320;
+const grid=document.getElementById('wr-grid');
+
+/* Year overlay */
+const yrOverlay=document.createElement('div');
+yrOverlay.id='wr-year-overlay';
+yrOverlay.style.cssText='position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:64px;font-weight:800;color:rgba(255,255,255,0.04);font-family:Syne,sans-serif;pointer-events:none;z-index:0;transition:opacity 0.4s;';
+grid.style.position='relative';
+grid.appendChild(yrOverlay);
+
+/* Build columns once (2024 order) */
+companyOrder.forEach((name,idx)=>{
+  const col=document.createElement('div');
+  col.className='wr-col';
+  col.dataset.company=name;
+  const logoHtml=WR_LOGOS[name]
+    ?'<img class="wr-logo-img" style="animation-delay:'+idx*0.3+'s" src="data:image/png;base64,'+WR_LOGOS[name]+'" alt="'+name+'">'
+    :'<div class="wr-name">'+name+'</div>';
+  col.innerHTML=logoHtml+
+    '<div class="wr-bars">'+
+      '<div class="wr-bar wr-bar-other" style="height:0px"></div>'+
+      '<div class="wr-bar wr-bar-ad" style="height:0px"></div>'+
+    '</div>'+
+    '<div class="wr-total" style="min-height:18px"></div>';
+  grid.appendChild(col);
+});
+
+function renderYear(yr){
+  yrOverlay.textContent=yr;
+  const data=yearData[yr]||[];
+  const lookup={};
+  data.forEach(d=>{lookup[d.name]=d;});
+  companyOrder.forEach(name=>{
+    const col=grid.querySelector('[data-company="'+name+'"]');
+    if(!col)return;
+    const d=lookup[name]||{total:0,ad:0};
+    const adH=Math.round((d.ad/globalMax)*maxH);
+    const otherH=Math.round(((d.total-d.ad)/globalMax)*maxH);
+    const adPct=d.total>0?Math.round((d.ad/d.total)*100):0;
+    col.querySelector('.wr-bar-other').style.height=otherH+'px';
+    col.querySelector('.wr-bar-ad').style.height=adH+'px';
+    col.querySelector('.wr-total').textContent='$'+(d.total>=10?Math.round(d.total)+'B':d.total+'B')+' \xb7 '+adPct+'% ad';
+  });
+}
+
+/* Animate through years when visible */
+const io=new IntersectionObserver(entries=>{
+  if(!entries[0].isIntersecting)return;
+  io.unobserve(entries[0].target);
+  let step=0;
+  function playNext(){
+    if(step>=years.length)return;
+    renderYear(years[step]);
+    step++;
+    if(step<years.length){
+      setTimeout(playNext, step===1?1200:900);
+    }
+  }
+  setTimeout(playNext,400);
+},{threshold:0.2});
+io.observe(grid);
+</script>
+</div>
+""",
+    height=740,
+)
+st.markdown("</div>", unsafe_allow_html=True)
+_deep_dive("earnings", "See full earnings breakdown")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Beat 5.5 — Forward Intelligence CEO Carousel
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from utils.transcript_live import extract_forward_looking_signals
+
+    _FI_COMPANIES = [
+        "Alphabet", "Amazon", "Apple", "Comcast", "Disney",
+        "Meta Platforms", "Microsoft", "Netflix", "Paramount Global",
+        "Roku", "Spotify", "Warner Bros. Discovery", "Samsung", "Tencent",
+    ]
+
+    _fi_cards: list[dict] = []
+    for _fi_co in _FI_COMPANIES:
+        _fi_sigs = extract_forward_looking_signals(
+            excel_path, company=_fi_co, year=int(selected_year), max_signals=1
+        )
+        if not _fi_sigs:
+            continue
+        _fi_sig = _fi_sigs[0]
+        _fi_logo_b64 = _resolve_logo(_fi_co, logos)
+        _fi_cards.append({
+            "company": _fi_co,
+            "quote": _fi_sig.get("quote", ""),
+            "speaker": _fi_sig.get("speaker", ""),
+            "role": _fi_sig.get("role", ""),
+            "score": round(_fi_sig.get("score", 0), 2),
+            "category": _fi_sig.get("category", "Outlook"),
+            "year": _fi_sig.get("year", int(selected_year)),
+            "quarter": _fi_sig.get("quarter", ""),
+            "logo": _fi_logo_b64,
+            "color": _company_color(_fi_co),
+        })
+
+    if _fi_cards:
+        _section(
+            "FORWARD INTELLIGENCE",
+            "What management teams are betting on.",
+            "The highest-confidence forward-looking statements from the latest earnings calls — scored and verified."
+        )
+
+        _fi_json_str = json.dumps(_fi_cards)
+
+        st.components.v1.html(f"""
+<div id="fi-root" style="width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;position:relative;overflow:hidden;padding:24px 0 16px;">
+  <style>
+    #fi-track {{ display:flex; align-items:center; justify-content:center; gap:20px; transition:transform 0.55s cubic-bezier(0.22,1,0.36,1); position:relative; z-index:1; }}
+    .fi-card {{
+      flex-shrink:0; width:340px; min-height:480px;
+      border-radius:20px; padding:24px 26px; box-sizing:border-box;
+      display:flex; flex-direction:column; justify-content:space-between;
+      position:relative; overflow:hidden;
+      transition: transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.55s ease, filter 0.55s ease;
+      transform: scale(0.82); opacity:0.45; filter:blur(3px);
+      cursor:pointer;
+    }}
+    .fi-card.active {{ transform:scale(1); opacity:1; filter:blur(0); z-index:2; }}
+    .fi-card.adjacent {{ transform:scale(0.88); opacity:0.55; filter:blur(2px); }}
+    .fi-card::before {{
+      content:''; position:absolute; inset:0; border-radius:20px;
+      border:1px solid rgba(255,255,255,0.12);
+      pointer-events:none; z-index:1;
+    }}
+    .fi-card::after {{
+      content:''; position:absolute; inset:0; border-radius:20px;
+      background:radial-gradient(ellipse at 30% 20%, var(--brand) 0%, transparent 70%);
+      opacity:0.13; pointer-events:none; z-index:0;
+    }}
+    .fi-card > * {{ position:relative; z-index:2; }}
+    .fi-progress {{ position:absolute;top:0;left:0;width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:20px 20px 0 0;z-index:3; }}
+    .fi-progress-bar {{ height:100%;width:0%;background:linear-gradient(90deg,#4aaeff,#f97316);border-radius:20px 20px 0 0;transition:width 0.4s ease; }}
+    .fi-top {{ display:flex; align-items:center; justify-content:space-between; }}
+    .fi-top-left {{ display:flex; flex-direction:column; gap:6px; }}
+    .fi-badge {{ background:linear-gradient(135deg,#4aaeff,#2563eb);color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;display:inline-block; }}
+    .fi-cat {{ color:rgba(255,255,255,0.45);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase; }}
+    .fi-label {{ color:rgba(74,174,255,0.6);font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-top:2px; }}
+    .fi-logo-top {{ width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0; }}
+    .fi-logo-top img {{ width:32px;height:32px;object-fit:contain; }}
+    .fi-quote {{ font-size:clamp(15px,2.8vw,20px);font-weight:800;color:#fff;line-height:1.35;letter-spacing:-0.2px;flex:1;display:flex;align-items:center; }}
+    .fi-speaker {{ color:#4aaeff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px; }}
+    .fi-role {{ color:rgba(255,255,255,0.3);font-size:10px;font-weight:500; }}
+    .fi-bottom {{ display:flex;align-items:center;justify-content:space-between; }}
+    .fi-co-name {{ color:#fff;font-size:13px;font-weight:700; }}
+    .fi-score-text {{ color:rgba(74,174,255,0.5);font-size:10px;font-weight:600; }}
+    .fi-controls {{ display:flex;align-items:center;gap:18px;margin-top:16px;justify-content:center;position:relative;z-index:3; }}
+    .fi-btn {{ background:rgba(74,174,255,0.1);border:1px solid rgba(74,174,255,0.2);color:#4aaeff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s; }}
+    .fi-btn:hover {{ background:rgba(74,174,255,0.2); }}
+    .fi-btn-play {{ background:linear-gradient(135deg,#4aaeff,#2563eb);border:none;color:#fff;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 4px 16px rgba(74,174,255,0.25); }}
+    .fi-btn-play:hover {{ transform:scale(1.06); }}
+    .fi-dots {{ display:flex;gap:6px;margin-top:10px;justify-content:center;z-index:3;position:relative; }}
+    .fi-dot {{ width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.2);transition:all 0.3s;cursor:pointer; }}
+    .fi-dot.on {{ background:#4aaeff;width:18px;border-radius:3px; }}
+  </style>
+
+  <!-- Track of cards -->
+  <div id="fi-track"></div>
+
+  <!-- Controls -->
+  <div class="fi-controls">
+    <button class="fi-btn" id="fi-prev">&#9664;</button>
+    <button class="fi-btn-play" id="fi-play">&#9654;</button>
+    <button class="fi-btn" id="fi-next">&#9654;</button>
+  </div>
+  <div class="fi-dots" id="fi-dots"></div>
+</div>
+
+<script>
+(function() {{
+  const cards = {_fi_json_str};
+  if (!cards.length) return;
+
+  let idx = 0, playing = true, timer = null;
+  const track = document.getElementById('fi-track');
+  const dotsC = document.getElementById('fi-dots');
+  const btnPlay = document.getElementById('fi-play');
+  const btnPrev = document.getElementById('fi-prev');
+  const btnNext = document.getElementById('fi-next');
+
+  /* — build all card elements once — */
+  cards.forEach((c, i) => {{
+    const el = document.createElement('div');
+    el.className = 'fi-card';
+    el.style.setProperty('--brand', c.color || '#4aaeff');
+    el.style.background = 'linear-gradient(160deg, rgba(10,22,40,0.92), rgba(10,22,40,0.97))';
+    const logoHtml = c.logo
+      ? '<div class="fi-logo-top"><img src="data:image/png;base64,' + c.logo + '"/></div>'
+      : '';
+    const qTxt = c.quote.length > 220 ? c.quote.substring(0, 217) + '...' : c.quote;
+    el.innerHTML =
+      '<div class="fi-progress"><div class="fi-progress-bar" data-bar></div></div>' +
+      '<div class="fi-top">' +
+        '<div class="fi-top-left">' +
+          '<div><span class="fi-badge">' + (c.quarter ? c.quarter + ' ' : '') + c.year + '</span> <span class="fi-cat">' + (c.category || 'Outlook') + '</span></div>' +
+          '<div class="fi-label">Forward Intelligence</div>' +
+        '</div>' +
+        logoHtml +
+      '</div>' +
+      '<div class="fi-quote">\\u201C' + qTxt + '\\u201D</div>' +
+      '<div><div class="fi-speaker">' + (c.speaker || 'Executive') + '</div><div class="fi-role">' + (c.role || '') + '</div></div>' +
+      '<div class="fi-bottom">' +
+        '<div><div class="fi-co-name">' + c.company + '</div><div class="fi-score-text">Confidence ' + (c.score * 100).toFixed(0) + '%</div></div>' +
+      '</div>';
+    el.addEventListener('click', () => {{ stopPlay(); goTo(i); }});
+    track.appendChild(el);
+    /* dot */
+    const dot = document.createElement('div');
+    dot.className = 'fi-dot';
+    dot.addEventListener('click', () => {{ stopPlay(); goTo(i); }});
+    dotsC.appendChild(dot);
+  }});
+
+  const cardEls = track.querySelectorAll('.fi-card');
+  const dotEls  = dotsC.querySelectorAll('.fi-dot');
+
+  function render() {{
+    cardEls.forEach((el, i) => {{
+      el.classList.remove('active', 'adjacent');
+      if (i === idx) el.classList.add('active');
+      else if (Math.abs(i - idx) === 1) el.classList.add('adjacent');
+    }});
+    dotEls.forEach((d, i) => d.classList.toggle('on', i === idx));
+    /* scroll track so active card is centered */
+    const activeEl = cardEls[idx];
+    const trackRect = track.parentElement.getBoundingClientRect();
+    const off = activeEl.offsetLeft + activeEl.offsetWidth / 2 - trackRect.width / 2;
+    track.style.transform = 'translateX(' + (-off) + 'px)';
+    /* progress bars */
+    cardEls.forEach((el, i) => {{
+      const bar = el.querySelector('[data-bar]');
+      if (bar) bar.style.width = (i <= idx ? '100%' : '0%');
+    }});
+  }}
+
+  function goTo(i) {{
+    idx = ((i % cards.length) + cards.length) % cards.length;
+    render();
+  }}
+
+  function goNext() {{ goTo(idx + 1); }}
+  function goPrev() {{ goTo(idx - 1); }}
+
+  function startPlay() {{
+    playing = true; btnPlay.innerHTML = '&#9208;';
+    timer = setInterval(goNext, 3500);
+  }}
+  function stopPlay() {{
+    playing = false; btnPlay.innerHTML = '&#9654;';
+    if (timer) {{ clearInterval(timer); timer = null; }}
+  }}
+  function togglePlay() {{
+    if (playing) stopPlay(); else startPlay();
+  }}
+
+  btnPlay.addEventListener('click', togglePlay);
+  btnPrev.addEventListener('click', () => {{ stopPlay(); goPrev(); }});
+  btnNext.addEventListener('click', () => {{ stopPlay(); goNext(); }});
+  document.addEventListener('keydown', (e) => {{
+    if (e.key === 'ArrowLeft')  {{ stopPlay(); goPrev(); }}
+    if (e.key === 'ArrowRight') {{ stopPlay(); goNext(); }}
+    if (e.key === ' ')          {{ e.preventDefault(); togglePlay(); }}
+  }});
+
+  render();
+  setTimeout(startPlay, 1200);
+}})();
+</script>
+""", height=600)
+
+except Exception as _fi_err:
+    import logging as _fi_log
+    _fi_log.getLogger(__name__).warning("Forward Intelligence carousel: %s", _fi_err)
+
+_separator()
 
 def _build_attn_html(ad_json_str: str, groupm_json_str: str, human_json_str: str = '[]', logos_json: str = '{}') -> str:
     return (
@@ -4171,377 +4542,6 @@ updateYear(currentIdx);
 """, height=560)
 st.markdown("</div>", unsafe_allow_html=True)
 _deep_dive("earnings", "Explore company financials")
-_separator()
-_wr_logos = {}
-for _wr_co in ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "Disney", "Comcast", "Spotify", "Roku"]:
-    _wr_b64 = _resolve_logo(_wr_co, logos)
-    if _wr_b64:
-        _wr_logos[_wr_co] = _wr_b64
-_wr_logos_json = json.dumps(_wr_logos)
-_section("REVENUE ANATOMY", "Not all revenue is advertising.", "Total 2024 revenue per company. Orange = ad revenue. Blue = everything else.")
-st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-st.components.v1.html(
-    """
-<div id="wm-rev-root">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-html,body{margin:0;padding:0;background:#020810;border:none;outline:none;}
-#wm-rev-root{background:transparent;color:#e6edf3;font-family:'DM Sans',sans-serif;width:100%;padding:32px 24px 24px;}
-#wm-rev-root *{box-sizing:border-box;}
-.wr-grid{display:flex;gap:0;align-items:flex-end;justify-content:space-between;width:100%;}
-.wr-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;}
-.wr-bars{display:flex;flex-direction:column;align-items:stretch;width:80%;margin:0 auto 6px;}
-.wr-bar{width:100%;position:relative;min-height:2px;}
-.wr-bar-other{background:#1e3a5f;transition:height 1.2s cubic-bezier(.34,1.1,.64,1);border-radius:4px 4px 0 0;}
-.wr-bar-ad{background:#ff5b1f;transition:height 1.0s cubic-bezier(.34,1.1,.64,1);border-radius:0 0 4px 4px;}
-@keyframes wrBreathe{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:0.85;}}
-.wr-logo-img{height:34px;width:auto;max-width:68px;object-fit:contain;margin-bottom:6px;display:block;animation:wrBreathe 3s ease-in-out infinite;}
-.wr-name{font-size:11px;font-weight:700;color:#e6edf3;text-align:center;margin-bottom:4px;font-family:'Syne',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
-.wr-total{font-size:11px;color:#8b949e;text-align:center;margin-top:3px;}
-.wr-legend{display:flex;gap:20px;margin-top:20px;}
-.wr-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;}
-.wr-leg-dot{width:10px;height:10px;border-radius:2px;}
-</style>
-<div class="wr-grid" id="wr-grid">
-</div>
-<div class="wr-legend">
-  <div class="wr-leg"><div class="wr-leg-dot" style="background:#ff5b1f;"></div>Ad Revenue</div>
-  <div class="wr-leg"><div class="wr-leg-dot" style="background:#1e3a5f;"></div>Other Revenue</div>
-</div>
-<script>
-var WR_LOGOS="""
-    + _wr_logos_json
-    + """;
-/* Year-by-year data — sorted by 2024 total revenue */
-const yearData={
-  2019:[
-    {name:"Amazon",total:280.5,ad:14.1},{name:"Apple",total:260.2,ad:7},
-    {name:"Alphabet",total:161.9,ad:134.8},{name:"Microsoft",total:125.8,ad:7.6},
-    {name:"Comcast",total:108.9,ad:5.2},{name:"Disney",total:69.6,ad:2.0},
-    {name:"Meta",total:70.7,ad:69.7},{name:"Netflix",total:20.2,ad:0},
-    {name:"Spotify",total:7.4,ad:0.8},{name:"Roku",total:1.1,ad:0.7}
-  ],
-  2020:[
-    {name:"Amazon",total:386.1,ad:19.8},{name:"Apple",total:274.5,ad:9},
-    {name:"Alphabet",total:182.5,ad:147},{name:"Microsoft",total:143.0,ad:8.5},
-    {name:"Comcast",total:103.6,ad:4.6},{name:"Disney",total:65.4,ad:1.6},
-    {name:"Meta",total:86.0,ad:84.2},{name:"Netflix",total:25.0,ad:0},
-    {name:"Spotify",total:9.0,ad:1.1},{name:"Roku",total:1.8,ad:1.3}
-  ],
-  2021:[
-    {name:"Amazon",total:469.8,ad:31.2},{name:"Apple",total:365.8,ad:13},
-    {name:"Alphabet",total:257.6,ad:209.5},{name:"Microsoft",total:168.1,ad:10},
-    {name:"Comcast",total:116.4,ad:5.8},{name:"Disney",total:67.4,ad:2.5},
-    {name:"Meta",total:117.9,ad:115.7},{name:"Netflix",total:29.7,ad:0},
-    {name:"Spotify",total:11.4,ad:1.5},{name:"Roku",total:2.8,ad:2.3}
-  ],
-  2022:[
-    {name:"Amazon",total:514.0,ad:37.7},{name:"Apple",total:394.3,ad:15},
-    {name:"Alphabet",total:282.8,ad:224.5},{name:"Microsoft",total:198.3,ad:12},
-    {name:"Comcast",total:121.4,ad:5.9},{name:"Disney",total:82.7,ad:3.0},
-    {name:"Meta",total:116.6,ad:113.6},{name:"Netflix",total:31.6,ad:0.8},
-    {name:"Spotify",total:12.4,ad:1.6},{name:"Roku",total:2.7,ad:2.1}
-  ],
-  2023:[
-    {name:"Amazon",total:574.8,ad:46.9},{name:"Apple",total:383.3,ad:16},
-    {name:"Alphabet",total:307.4,ad:237.9},{name:"Microsoft",total:211.9,ad:15},
-    {name:"Comcast",total:121.6,ad:6.2},{name:"Disney",total:88.9,ad:3.2},
-    {name:"Meta",total:134.9,ad:131.9},{name:"Netflix",total:33.7,ad:1.5},
-    {name:"Spotify",total:14.3,ad:1.8},{name:"Roku",total:3.5,ad:3.1}
-  ],
-  2024:[
-    {name:"Amazon",total:638,ad:56},{name:"Apple",total:391,ad:18},
-    {name:"Alphabet",total:350,ad:237},{name:"Microsoft",total:245,ad:18},
-    {name:"Comcast",total:123,ad:6.8},{name:"Disney",total:91,ad:3.4},
-    {name:"Meta",total:165,ad:164},{name:"Netflix",total:39,ad:2.4},
-    {name:"Spotify",total:15.7,ad:2.1},{name:"Roku",total:4.1,ad:3.8}
-  ]
-};
-const years=Object.keys(yearData).map(Number).sort();
-/* Use 2024 order for consistent column positions */
-const companyOrder=yearData[2024].sort((a,b)=>b.total-a.total).map(c=>c.name);
-const globalMax=Math.max(...Object.values(yearData).flatMap(arr=>arr.map(c=>c.total)));
-const maxH=320;
-const grid=document.getElementById('wr-grid');
-
-/* Year overlay */
-const yrOverlay=document.createElement('div');
-yrOverlay.id='wr-year-overlay';
-yrOverlay.style.cssText='position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:64px;font-weight:800;color:rgba(255,255,255,0.04);font-family:Syne,sans-serif;pointer-events:none;z-index:0;transition:opacity 0.4s;';
-grid.style.position='relative';
-grid.appendChild(yrOverlay);
-
-/* Build columns once (2024 order) */
-companyOrder.forEach((name,idx)=>{
-  const col=document.createElement('div');
-  col.className='wr-col';
-  col.dataset.company=name;
-  const logoHtml=WR_LOGOS[name]
-    ?'<img class="wr-logo-img" style="animation-delay:'+idx*0.3+'s" src="data:image/png;base64,'+WR_LOGOS[name]+'" alt="'+name+'">'
-    :'<div class="wr-name">'+name+'</div>';
-  col.innerHTML=logoHtml+
-    '<div class="wr-bars">'+
-      '<div class="wr-bar wr-bar-other" style="height:0px"></div>'+
-      '<div class="wr-bar wr-bar-ad" style="height:0px"></div>'+
-    '</div>'+
-    '<div class="wr-total" style="min-height:18px"></div>';
-  grid.appendChild(col);
-});
-
-function renderYear(yr){
-  yrOverlay.textContent=yr;
-  const data=yearData[yr]||[];
-  const lookup={};
-  data.forEach(d=>{lookup[d.name]=d;});
-  companyOrder.forEach(name=>{
-    const col=grid.querySelector('[data-company="'+name+'"]');
-    if(!col)return;
-    const d=lookup[name]||{total:0,ad:0};
-    const adH=Math.round((d.ad/globalMax)*maxH);
-    const otherH=Math.round(((d.total-d.ad)/globalMax)*maxH);
-    const adPct=d.total>0?Math.round((d.ad/d.total)*100):0;
-    col.querySelector('.wr-bar-other').style.height=otherH+'px';
-    col.querySelector('.wr-bar-ad').style.height=adH+'px';
-    col.querySelector('.wr-total').textContent='$'+(d.total>=10?Math.round(d.total)+'B':d.total+'B')+' \xb7 '+adPct+'% ad';
-  });
-}
-
-/* Animate through years when visible */
-const io=new IntersectionObserver(entries=>{
-  if(!entries[0].isIntersecting)return;
-  io.unobserve(entries[0].target);
-  let step=0;
-  function playNext(){
-    if(step>=years.length)return;
-    renderYear(years[step]);
-    step++;
-    if(step<years.length){
-      setTimeout(playNext, step===1?1200:900);
-    }
-  }
-  setTimeout(playNext,400);
-},{threshold:0.2});
-io.observe(grid);
-</script>
-</div>
-""",
-    height=740,
-)
-st.markdown("</div>", unsafe_allow_html=True)
-_deep_dive("earnings", "See full earnings breakdown")
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Beat 5.5 — Forward Intelligence CEO Carousel
-# ═══════════════════════════════════════════════════════════════════════════════
-try:
-    from utils.transcript_live import extract_forward_looking_signals
-
-    _FI_COMPANIES = [
-        "Alphabet", "Amazon", "Apple", "Comcast", "Disney",
-        "Meta Platforms", "Microsoft", "Netflix", "Paramount Global",
-        "Roku", "Spotify", "Warner Bros. Discovery", "Samsung", "Tencent",
-    ]
-
-    _fi_cards: list[dict] = []
-    for _fi_co in _FI_COMPANIES:
-        _fi_sigs = extract_forward_looking_signals(
-            excel_path, company=_fi_co, year=int(selected_year), max_signals=1
-        )
-        if not _fi_sigs:
-            continue
-        _fi_sig = _fi_sigs[0]
-        _fi_logo_b64 = _resolve_logo(_fi_co, logos)
-        _fi_cards.append({
-            "company": _fi_co,
-            "quote": _fi_sig.get("quote", ""),
-            "speaker": _fi_sig.get("speaker", ""),
-            "role": _fi_sig.get("role", ""),
-            "score": round(_fi_sig.get("score", 0), 2),
-            "category": _fi_sig.get("category", "Outlook"),
-            "year": _fi_sig.get("year", int(selected_year)),
-            "quarter": _fi_sig.get("quarter", ""),
-            "logo": _fi_logo_b64,
-            "color": _company_color(_fi_co),
-        })
-
-    if _fi_cards:
-        _section(
-            "FORWARD INTELLIGENCE",
-            "What management teams are betting on.",
-            "The highest-confidence forward-looking statements from the latest earnings calls — scored and verified."
-        )
-
-        _fi_json_str = json.dumps(_fi_cards)
-
-        st.components.v1.html(f"""
-<div id="fi-root" style="width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;position:relative;overflow:hidden;padding:24px 0 16px;">
-  <style>
-    #fi-track {{ display:flex; align-items:center; justify-content:center; gap:20px; transition:transform 0.55s cubic-bezier(0.22,1,0.36,1); position:relative; z-index:1; }}
-    .fi-card {{
-      flex-shrink:0; width:340px; min-height:480px;
-      border-radius:20px; padding:24px 26px; box-sizing:border-box;
-      display:flex; flex-direction:column; justify-content:space-between;
-      position:relative; overflow:hidden;
-      transition: transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.55s ease, filter 0.55s ease;
-      transform: scale(0.82); opacity:0.45; filter:blur(3px);
-      cursor:pointer;
-    }}
-    .fi-card.active {{ transform:scale(1); opacity:1; filter:blur(0); z-index:2; }}
-    .fi-card.adjacent {{ transform:scale(0.88); opacity:0.55; filter:blur(2px); }}
-    .fi-card::before {{
-      content:''; position:absolute; inset:0; border-radius:20px;
-      border:1px solid rgba(255,255,255,0.12);
-      pointer-events:none; z-index:1;
-    }}
-    .fi-card::after {{
-      content:''; position:absolute; inset:0; border-radius:20px;
-      background:radial-gradient(ellipse at 30% 20%, var(--brand) 0%, transparent 70%);
-      opacity:0.13; pointer-events:none; z-index:0;
-    }}
-    .fi-card > * {{ position:relative; z-index:2; }}
-    .fi-progress {{ position:absolute;top:0;left:0;width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:20px 20px 0 0;z-index:3; }}
-    .fi-progress-bar {{ height:100%;width:0%;background:linear-gradient(90deg,#4aaeff,#f97316);border-radius:20px 20px 0 0;transition:width 0.4s ease; }}
-    .fi-top {{ display:flex; align-items:center; justify-content:space-between; }}
-    .fi-top-left {{ display:flex; flex-direction:column; gap:6px; }}
-    .fi-badge {{ background:linear-gradient(135deg,#4aaeff,#2563eb);color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;letter-spacing:0.5px;display:inline-block; }}
-    .fi-cat {{ color:rgba(255,255,255,0.45);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase; }}
-    .fi-label {{ color:rgba(74,174,255,0.6);font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-top:2px; }}
-    .fi-logo-top {{ width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0; }}
-    .fi-logo-top img {{ width:32px;height:32px;object-fit:contain; }}
-    .fi-quote {{ font-size:clamp(15px,2.8vw,20px);font-weight:800;color:#fff;line-height:1.35;letter-spacing:-0.2px;flex:1;display:flex;align-items:center; }}
-    .fi-speaker {{ color:#4aaeff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px; }}
-    .fi-role {{ color:rgba(255,255,255,0.3);font-size:10px;font-weight:500; }}
-    .fi-bottom {{ display:flex;align-items:center;justify-content:space-between; }}
-    .fi-co-name {{ color:#fff;font-size:13px;font-weight:700; }}
-    .fi-score-text {{ color:rgba(74,174,255,0.5);font-size:10px;font-weight:600; }}
-    .fi-controls {{ display:flex;align-items:center;gap:18px;margin-top:16px;justify-content:center;position:relative;z-index:3; }}
-    .fi-btn {{ background:rgba(74,174,255,0.1);border:1px solid rgba(74,174,255,0.2);color:#4aaeff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s; }}
-    .fi-btn:hover {{ background:rgba(74,174,255,0.2); }}
-    .fi-btn-play {{ background:linear-gradient(135deg,#4aaeff,#2563eb);border:none;color:#fff;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 4px 16px rgba(74,174,255,0.25); }}
-    .fi-btn-play:hover {{ transform:scale(1.06); }}
-    .fi-dots {{ display:flex;gap:6px;margin-top:10px;justify-content:center;z-index:3;position:relative; }}
-    .fi-dot {{ width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.2);transition:all 0.3s;cursor:pointer; }}
-    .fi-dot.on {{ background:#4aaeff;width:18px;border-radius:3px; }}
-  </style>
-
-  <!-- Track of cards -->
-  <div id="fi-track"></div>
-
-  <!-- Controls -->
-  <div class="fi-controls">
-    <button class="fi-btn" id="fi-prev">&#9664;</button>
-    <button class="fi-btn-play" id="fi-play">&#9654;</button>
-    <button class="fi-btn" id="fi-next">&#9654;</button>
-  </div>
-  <div class="fi-dots" id="fi-dots"></div>
-</div>
-
-<script>
-(function() {{
-  const cards = {_fi_json_str};
-  if (!cards.length) return;
-
-  let idx = 0, playing = true, timer = null;
-  const track = document.getElementById('fi-track');
-  const dotsC = document.getElementById('fi-dots');
-  const btnPlay = document.getElementById('fi-play');
-  const btnPrev = document.getElementById('fi-prev');
-  const btnNext = document.getElementById('fi-next');
-
-  /* — build all card elements once — */
-  cards.forEach((c, i) => {{
-    const el = document.createElement('div');
-    el.className = 'fi-card';
-    el.style.setProperty('--brand', c.color || '#4aaeff');
-    el.style.background = 'linear-gradient(160deg, rgba(10,22,40,0.92), rgba(10,22,40,0.97))';
-    const logoHtml = c.logo
-      ? '<div class="fi-logo-top"><img src="data:image/png;base64,' + c.logo + '"/></div>'
-      : '';
-    const qTxt = c.quote.length > 220 ? c.quote.substring(0, 217) + '...' : c.quote;
-    el.innerHTML =
-      '<div class="fi-progress"><div class="fi-progress-bar" data-bar></div></div>' +
-      '<div class="fi-top">' +
-        '<div class="fi-top-left">' +
-          '<div><span class="fi-badge">' + (c.quarter ? c.quarter + ' ' : '') + c.year + '</span> <span class="fi-cat">' + (c.category || 'Outlook') + '</span></div>' +
-          '<div class="fi-label">Forward Intelligence</div>' +
-        '</div>' +
-        logoHtml +
-      '</div>' +
-      '<div class="fi-quote">\\u201C' + qTxt + '\\u201D</div>' +
-      '<div><div class="fi-speaker">' + (c.speaker || 'Executive') + '</div><div class="fi-role">' + (c.role || '') + '</div></div>' +
-      '<div class="fi-bottom">' +
-        '<div><div class="fi-co-name">' + c.company + '</div><div class="fi-score-text">Confidence ' + (c.score * 100).toFixed(0) + '%</div></div>' +
-      '</div>';
-    el.addEventListener('click', () => {{ stopPlay(); goTo(i); }});
-    track.appendChild(el);
-    /* dot */
-    const dot = document.createElement('div');
-    dot.className = 'fi-dot';
-    dot.addEventListener('click', () => {{ stopPlay(); goTo(i); }});
-    dotsC.appendChild(dot);
-  }});
-
-  const cardEls = track.querySelectorAll('.fi-card');
-  const dotEls  = dotsC.querySelectorAll('.fi-dot');
-
-  function render() {{
-    cardEls.forEach((el, i) => {{
-      el.classList.remove('active', 'adjacent');
-      if (i === idx) el.classList.add('active');
-      else if (Math.abs(i - idx) === 1) el.classList.add('adjacent');
-    }});
-    dotEls.forEach((d, i) => d.classList.toggle('on', i === idx));
-    /* scroll track so active card is centered */
-    const activeEl = cardEls[idx];
-    const trackRect = track.parentElement.getBoundingClientRect();
-    const off = activeEl.offsetLeft + activeEl.offsetWidth / 2 - trackRect.width / 2;
-    track.style.transform = 'translateX(' + (-off) + 'px)';
-    /* progress bars */
-    cardEls.forEach((el, i) => {{
-      const bar = el.querySelector('[data-bar]');
-      if (bar) bar.style.width = (i <= idx ? '100%' : '0%');
-    }});
-  }}
-
-  function goTo(i) {{
-    idx = ((i % cards.length) + cards.length) % cards.length;
-    render();
-  }}
-
-  function goNext() {{ goTo(idx + 1); }}
-  function goPrev() {{ goTo(idx - 1); }}
-
-  function startPlay() {{
-    playing = true; btnPlay.innerHTML = '&#9208;';
-    timer = setInterval(goNext, 2500);
-  }}
-  function stopPlay() {{
-    playing = false; btnPlay.innerHTML = '&#9654;';
-    if (timer) {{ clearInterval(timer); timer = null; }}
-  }}
-  function togglePlay() {{
-    if (playing) stopPlay(); else startPlay();
-  }}
-
-  btnPlay.addEventListener('click', togglePlay);
-  btnPrev.addEventListener('click', () => {{ stopPlay(); goPrev(); }});
-  btnNext.addEventListener('click', () => {{ stopPlay(); goNext(); }});
-  document.addEventListener('keydown', (e) => {{
-    if (e.key === 'ArrowLeft')  {{ stopPlay(); goPrev(); }}
-    if (e.key === 'ArrowRight') {{ stopPlay(); goNext(); }}
-    if (e.key === ' ')          {{ e.preventDefault(); togglePlay(); }}
-  }});
-
-  render();
-  setTimeout(startPlay, 1200);
-}})();
-</script>
-""", height=600)
-
-except Exception as _fi_err:
-    import logging as _fi_log
-    _fi_log.getLogger(__name__).warning("Forward Intelligence carousel: %s", _fi_err)
-
 _separator()
 
 # Beat 6 — M2 vs ad spend
