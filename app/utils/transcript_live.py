@@ -160,6 +160,46 @@ CFO_TITLES = [
     "svp and chief financial",
 ]
 
+# ── SPEAKER EXTRACTION ───────────────────────────────────────────────────────
+KNOWN_ROLE_TITLES = [
+    "Chief Executive Officer", "CEO",
+    "Chief Financial Officer", "CFO",
+    "Chief Operating Officer", "COO",
+    "Chief Technology Officer", "CTO",
+    "Chief Revenue Officer", "CRO",
+    "Chief Marketing Officer", "CMO",
+    "Chief Product Officer", "CPO",
+    "President", "Vice President",
+    "Head of Investor Relations",
+    "Investor Relations",
+    "Senior Vice President",
+    "Executive Vice President",
+    "Managing Director",
+    "General Counsel",
+    "Analyst", "Operator",
+]
+
+ROLE_NORMALIZER = {
+    "Chief Executive Officer": "CEO",
+    "Chief Financial Officer": "CFO",
+    "Chief Operating Officer": "COO",
+    "Chief Technology Officer": "CTO",
+    "Chief Revenue Officer": "CRO",
+    "Chief Marketing Officer": "CMO",
+    "Chief Product Officer": "CPO",
+    "Senior Vice President": "SVP",
+    "Executive Vice President": "EVP",
+    "Vice President": "VP",
+    "Head of Investor Relations": "IR",
+    "Investor Relations": "IR",
+    "President": "President",
+    "Managing Director": "MD",
+    "General Counsel": "GC",
+    "Operator": "Operator",
+    "Analyst": "Analyst",
+    "CEO": "CEO", "CFO": "CFO", "COO": "COO", "CTO": "CTO",
+}
+
 FINANCIAL_SCORE_TERMS = [
     "revenue", "growth", "billion", "million", "margin", "profit",
     "operating income", "eps", "guidance", "quarter", "year",
@@ -387,17 +427,66 @@ def _score_sentence_advanced(
 def _parse_speaker_blocks(text: str) -> list[dict]:
     """
     Parse transcript text into speaker blocks.
-    Handles formats:
-      - "Sundar Pichai -- Chief Executive Officer"
-      - "Ruth Porat - SVP and CFO"
-      - "SUNDAR PICHAI: ..."
+    Handles two formats:
+    Format A (dash/colon): "Sundar Pichai -- Chief Executive Officer ..."
+    Format B (inline):     "Sundar Pichai Chief Executive Officer Good afternoon..."
     Returns list of {speaker, role, sentences}
     """
+    # ── Format A: explicit separator (-- / — / - / :) ──
     speaker_pattern = re.compile(
         r"^([A-Z][A-Za-z\s\.\'\-]{2,50})\s*(?:--|—|-|:)\s*(.{5,100})$"
     )
+    # ── Format B: inline role titles (no separator) ──
+    # Build regex: "FirstName LastName <known role> <speech...>"
+    _role_alts = "|".join(re.escape(r) for r in sorted(KNOWN_ROLE_TITLES, key=len, reverse=True))
+    inline_pattern = re.compile(
+        r"^([A-Z][A-Za-z\.\'\-]+(?:\s+[A-Z][A-Za-z\.\'\-]+){0,3})\s+"
+        r"(" + _role_alts + r")\s+(.{20,})",
+        re.DOTALL,
+    )
+
+    def _save_block(speaker, role, lines_buf, out):
+        if speaker and lines_buf:
+            full_text = " ".join(lines_buf)
+            sents = [
+                s.strip() for s in re.split(r"(?<=[.!?])\s+", full_text)
+                if 40 < len(s.strip()) < 500
+            ]
+            out.append({"speaker": speaker, "role": role, "sentences": sents})
+
+    # First try splitting by double-newline (Format B — inline blocks)
+    raw_blocks = re.split(r"\n\s*\n", text)
+    blocks: list[dict] = []
+
+    if len(raw_blocks) > 3:
+        # Likely Format B (inline blocks separated by blank lines)
+        for raw in raw_blocks:
+            raw = raw.strip()
+            if not raw or len(raw) < 30:
+                continue
+            if raw.startswith("Company:") or raw.startswith("---"):
+                continue
+            m = inline_pattern.match(raw)
+            if m:
+                name = m.group(1).strip()
+                role_raw = m.group(2).strip()
+                speech = m.group(3).strip()
+                role = ROLE_NORMALIZER.get(role_raw, "")
+                if not role:
+                    role = _detect_role(role_raw.lower())
+                if name.lower() in ("operator", "moderator"):
+                    role = "Operator"
+                sents = [
+                    s.strip() for s in re.split(r"(?<=[.!?])\s+", speech)
+                    if 40 < len(s.strip()) < 500
+                ]
+                blocks.append({"speaker": name, "role": role, "sentences": sents})
+
+    if blocks:
+        return blocks
+
+    # Fallback: Format A (line-by-line with separators)
     lines = text.split("\n")
-    blocks = []
     current_speaker = ""
     current_role = ""
     current_lines: list[str] = []
@@ -408,18 +497,7 @@ def _parse_speaker_blocks(text: str) -> list[dict]:
             continue
         match = speaker_pattern.match(line)
         if match:
-            # Save previous block
-            if current_speaker and current_lines:
-                full_text = " ".join(current_lines)
-                sentences = [
-                    s.strip() for s in re.split(r"(?<=[.!?])\s+", full_text)
-                    if 40 < len(s.strip()) < 500
-                ]
-                blocks.append({
-                    "speaker": current_speaker,
-                    "role": current_role,
-                    "sentences": sentences,
-                })
+            _save_block(current_speaker, current_role, current_lines, blocks)
             current_lines = []
             name = match.group(1).strip()
             title = match.group(2).strip().lower()
@@ -437,17 +515,7 @@ def _parse_speaker_blocks(text: str) -> list[dict]:
             if len(line) > 20:
                 current_lines.append(line)
 
-    if current_speaker and current_lines:
-        full_text = " ".join(current_lines)
-        sentences = [
-            s.strip() for s in re.split(r"(?<=[.!?])\s+", full_text)
-            if 40 < len(s.strip()) < 500
-        ]
-        blocks.append({
-            "speaker": current_speaker,
-            "role": current_role,
-            "sentences": sentences,
-        })
+    _save_block(current_speaker, current_role, current_lines, blocks)
     return blocks
 
 
@@ -925,7 +993,23 @@ def extract_forward_looking_signals(
                 })
 
     all_signals.sort(key=lambda x: -x["score"])
-    return all_signals[:max_signals]
+    result = all_signals[:max_signals]
+
+    # Enrich with real speaker names from Company_Speakers sheet
+    for sig in result:
+        _sp = sig.get("speaker", "")
+        _rl = sig.get("role", "")
+        if _rl in ("CEO", "CFO", "COO", "CTO", "CRO", "CMO") and excel_path:
+            _full = get_speaker_name(sig["company"], _rl, excel_path)
+            if _full:
+                sig["speaker"] = _full
+                sig["speaker_display"] = f"{_full} \u00b7 {_rl}"
+            else:
+                sig["speaker_display"] = f"{_sp} \u00b7 {_rl}" if _rl else _sp
+        else:
+            sig["speaker_display"] = f"{_sp} \u00b7 {_rl}" if _rl else _sp
+
+    return result
 
 
 # TODO: extract_forward_looking_signals could also power:
@@ -959,3 +1043,137 @@ def extract_all_signals(
             sig["quarter"] = quarter
             flat.append(sig)
     return flat
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SPEAKER REGISTRY — extract, persist, and look up real speaker names
+# ══════════════════════════════════════════════════════════════════════════════
+
+def extract_speakers_from_transcript(
+    transcript_text: str,
+    company: str,
+    year: int,
+    quarter: str,
+) -> list[dict]:
+    """
+    Parse transcript text to extract speaker names and roles.
+    Format: "FirstName LastName RoleTitle Speech..."
+    Returns list of dicts with company, year, quarter, full_name, role_raw,
+    role_normalized, is_executive. Deduplicates per company.
+    """
+    speakers: list[dict] = []
+    seen_names: set = set()
+
+    raw_blocks = re.split(r"\n\s*\n", transcript_text)
+
+    for block in raw_blocks:
+        block = block.strip()
+        if not block or len(block) < 20:
+            continue
+        if block.startswith("Company:") or block.startswith("---"):
+            continue
+
+        for role_title in sorted(KNOWN_ROLE_TITLES, key=len, reverse=True):
+            if role_title in block:
+                idx = block.index(role_title)
+                name_part = block[:idx].strip()
+                name_words = name_part.split()
+                if 1 <= len(name_words) <= 4:
+                    full_name = " ".join(name_words)
+                    if full_name.lower() in ("operator", "moderator", ""):
+                        break
+                    key = f"{company}::{full_name.lower()}"
+                    if key in seen_names:
+                        break
+                    seen_names.add(key)
+
+                    role_normalized = ROLE_NORMALIZER.get(role_title, role_title)
+                    is_executive = role_normalized in (
+                        "CEO", "CFO", "COO", "CTO", "President",
+                        "SVP", "EVP", "VP", "CRO", "CMO", "CPO",
+                    )
+                    speakers.append({
+                        "company": company,
+                        "year": int(year),
+                        "quarter": quarter,
+                        "full_name": full_name,
+                        "role_raw": role_title,
+                        "role_normalized": role_normalized,
+                        "is_executive": is_executive,
+                    })
+                break  # only match first role per block
+
+    return speakers
+
+
+def build_speaker_registry(excel_path: str) -> list[dict]:
+    """
+    Scan ALL transcripts and build a deduplicated speaker registry.
+    Each speaker appears once per company (most recent year wins).
+    """
+    try:
+        df = pd.read_excel(excel_path, sheet_name="Transcripts")
+        df.columns = [str(c).strip().lower() for c in df.columns]
+    except Exception:
+        return []
+
+    all_speakers: dict = {}
+    for _, row in df.iterrows():
+        company = str(row.get("company", "")).strip()
+        year = pd.to_numeric(pd.Series([row.get("year")]), errors="coerce").iloc[0]
+        quarter = str(row.get("quarter", "")).strip()
+        txt = str(row.get("transcript_text", "") or "")
+        if not txt or not company or pd.isna(year):
+            continue
+        for sp in extract_speakers_from_transcript(txt, company, int(year), quarter):
+            key = f"{company}::{sp['full_name'].lower()}"
+            if key not in all_speakers or sp["year"] > all_speakers[key]["year"]:
+                all_speakers[key] = sp
+
+    return list(all_speakers.values())
+
+
+def write_speakers_to_excel(excel_path: str) -> int:
+    """
+    Build speaker registry and write Company_Speakers sheet to workbook.
+    Returns number of speakers written.
+    """
+    from openpyxl import load_workbook
+
+    speakers = build_speaker_registry(excel_path)
+    if not speakers:
+        return 0
+
+    df = pd.DataFrame(speakers)
+    df = df.sort_values(["company", "role_normalized", "full_name"])
+    df = df[["company", "full_name", "role_normalized", "role_raw",
+             "is_executive", "year", "quarter"]]
+    df.columns = ["Company", "Full Name", "Role", "Role (raw)",
+                  "Is Executive", "Last Seen Year", "Last Seen Quarter"]
+
+    wb = load_workbook(excel_path)
+    if "Company_Speakers" in wb.sheetnames:
+        del wb["Company_Speakers"]
+    ws = wb.create_sheet("Company_Speakers")
+    ws.append(list(df.columns))
+    for _, row in df.iterrows():
+        ws.append(list(row))
+    wb.save(excel_path)
+    return len(df)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_speaker_name(company: str, role: str, excel_path: str) -> str | None:
+    """Look up a speaker's full name by company and role from Company_Speakers sheet."""
+    try:
+        df = pd.read_excel(excel_path, sheet_name="Company_Speakers")
+        df.columns = [str(c).strip() for c in df.columns]
+        match = df[
+            (df["Company"].str.lower() == company.lower())
+            & (df["Role"].str.upper() == role.upper())
+        ]
+        if not match.empty:
+            return str(match.iloc[0]["Full Name"])
+    except Exception:
+        pass
+    return None

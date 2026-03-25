@@ -92,6 +92,8 @@ def main() -> None:
     args = parser.parse_args()
 
     _run(["python3", "scripts/generate_dev_manual_assets.py"])
+    print("Building speaker registry...")
+    subprocess.run([sys.executable, "scripts/build_speaker_registry.py"], cwd=str(ROOT), check=False)
     _run(["python3", "scripts/generate_current_bible.py"])
     if not args.skip_pdf:
         _run(["python3", "scripts/generate_current_bible_pdf.py"])
