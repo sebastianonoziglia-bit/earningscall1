@@ -2900,11 +2900,74 @@ _STREAMING_SERVICE_TO_COMPANY = {
 
 @st.cache_data(ttl=3600)
 def _load_company_quarterly_kpis_df(excel_path: str, source_stamp: int = 0) -> pd.DataFrame:
+    """Build quarterly KPI frame from per-company 'X Quarterly Segments' sheets.
+
+    Falls back to a single consolidated sheet if available.
+    """
     if not excel_path:
         return pd.DataFrame()
     path = Path(excel_path)
     if not path.exists():
         return pd.DataFrame()
+
+    # ── Strategy 1: per-company quarterly segment sheets ──
+    try:
+        xls = pd.ExcelFile(path)
+        frames = []
+        for sheet in xls.sheet_names:
+            if "Quarterly Segments" not in sheet or "Gran" in sheet:
+                continue
+            try:
+                sdf = pd.read_excel(xls, sheet_name=sheet)
+            except Exception:
+                continue
+            if sdf is None or sdf.empty:
+                continue
+            company_raw = sheet.replace("Quarterly Segments", "").strip()
+            company_raw = {"Meta": "Meta Platforms", "Paramount": "Paramount Global",
+                           "Warner Bros": "Warner Bros. Discovery", "Warner Bros.": "Warner Bros. Discovery"
+                           }.get(company_raw, company_raw)
+            sdf = sdf.rename(columns={sdf.columns[0]: "Quarter"})
+            sdf = sdf.melt(id_vars=["Quarter"], var_name="segment", value_name="revenue")
+            sdf["segment"] = sdf["segment"].astype(str).str.strip()
+            sdf = sdf[~sdf["segment"].str.contains("total", case=False, na=False)]
+            sdf["revenue"] = pd.to_numeric(sdf["revenue"], errors="coerce")
+            sdf = sdf.dropna(subset=["revenue"])
+            # Parse quarter label → (year, qnum)
+            def _pq(label):
+                import re as _re
+                s = str(label).strip()
+                m = _re.search(r"(\d{4})\s*Q(\d)", s)
+                if m:
+                    return int(m.group(1)), int(m.group(2))
+                m = _re.search(r"Q(\d)\s*(\d{4})", s)
+                if m:
+                    return int(m.group(2)), int(m.group(1))
+                return None, None
+            parsed = sdf["Quarter"].apply(lambda v: _pq(v))
+            sdf["Year"] = parsed.apply(lambda t: t[0])
+            sdf["QuarterNum"] = parsed.apply(lambda t: t[1])
+            sdf = sdf.dropna(subset=["Year", "QuarterNum"])
+            sdf["Year"] = sdf["Year"].astype(int)
+            sdf["QuarterNum"] = sdf["QuarterNum"].astype(int)
+            # Sum all segments per company/quarter → total revenue
+            agg = sdf.groupby(["Year", "QuarterNum"], as_index=False)["revenue"].sum()
+            agg["Company"] = company_raw
+            agg.rename(columns={"revenue": "Revenue"}, inplace=True)
+            ticker = _COMPANY_TO_TICKER.get(company_raw, company_raw[:4].upper())
+            agg["Ticker"] = ticker
+            frames.append(agg)
+        if frames:
+            out = pd.concat(frames, ignore_index=True)
+            out["Quarter"] = "Q" + out["QuarterNum"].astype(int).astype(str)
+            for col in ["Net Income", "Operating Income", "Debt", "Capex", "R&D", "Cash Balance"]:
+                if col not in out.columns:
+                    out[col] = np.nan
+            return out.sort_values(["Company", "Year", "QuarterNum"]).reset_index(drop=True)
+    except Exception:
+        pass
+
+    # ── Strategy 2: single consolidated sheet (legacy) ──
     try:
         df = pd.read_excel(path, sheet_name="Company_Quarterly_segments_valu")
     except Exception:
@@ -5721,7 +5784,7 @@ def _overview_legend_style() -> dict:
         xanchor="left",
         bgcolor="rgba(0,0,0,0)",
         borderwidth=0,
-        font=dict(size=11, color="#e6edf3"),
+        font=dict(size=11, color="#374151"),
     )
 
 

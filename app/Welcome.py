@@ -2453,6 +2453,12 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
             rolebucket=getattr(row, "rolebucket", "") or getattr(row, "role_bucket", ""),
             role=getattr(row, "role", ""),
         )
+        role_bucket = str(getattr(row, "rolebucket", "") or getattr(row, "role_bucket", "") or "").strip()
+        role_label = str(getattr(row, "role", "") or "").strip()
+        title = role_label or role_bucket or ""
+        quarter = str(getattr(row, "quarter", "") or "").strip()
+        year = str(getattr(row, "year", "") or "").strip()
+        period_tag = f"{quarter} {year}".strip() if quarter or year else ""
         quote = str(getattr(row, "quote", "") or "").strip()
         if not quote:
             continue
@@ -2462,12 +2468,18 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
             if logo_b64
             else "<span class='logo' style='display:inline-flex;align-items:center;justify-content:center;'>&#8226;</span>"
         )
+        title_html = f"<span style='opacity:0.5;font-size:0.68rem;'>{escape(title)}</span>" if title else ""
+        period_html = f"<span style='opacity:0.4;font-size:0.65rem;margin-left:auto;'>{escape(period_tag)}</span>" if period_tag else ""
         pulse_items.append(
             "<div class='item'>"
             f"<div class='item-quote'>&ldquo;{escape(quote)}&rdquo;</div>"
             f"<div class='item-meta'>"
-            f"{logo_html}<span style='font-weight:700;'>{escape(company)}</span>"
-            f"<span style='opacity:0.72;'>&#8212; {escape(speaker)}</span></div>"
+            f"{logo_html}<div style='display:flex;flex-direction:column;gap:1px;'>"
+            f"<span style='font-weight:700;'>{escape(company)}</span>"
+            f"<div style='display:flex;align-items:center;gap:6px;'>"
+            f"<span style='opacity:0.72;font-size:0.72rem;'>&#8212; {escape(speaker)}</span>"
+            f"{title_html}</div></div>"
+            f"{period_html}</div>"
             "</div>"
         )
     if not pulse_items:
@@ -2478,15 +2490,15 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
         "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
         ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(74,174,255,0.18);background:#020810;padding:12px 0;}"
-        ".track{display:flex;align-items:flex-start;gap:12px;width:max-content;animation:scroll 42s linear infinite;}"
-        ".item{width:380px;height:170px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;}"
+        ".track{display:flex;align-items:flex-start;gap:12px;width:max-content;animation:scroll 90s linear infinite;}"
+        ".item{width:380px;height:190px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;}"
         ".item-quote{font-style:italic;font-size:0.83rem;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;}"
         ".item-meta{margin-top:8px;display:flex;align-items:center;gap:8px;font-size:0.74rem;flex-shrink:0;}"
         ".logo{width:32px;height:32px;object-fit:contain;border-radius:50%;background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.26);padding:3px;flex-shrink:0;}"
         "@keyframes scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}"
         "</style>"
         f"<div class='strip' style='color:#e2e8f0;font-family:DM Sans,sans-serif;'><div class='track'>{_pulse_track}</div></div>",
-        height=210,
+        height=230,
     )
     if pulse_source:
         st.caption(f"Source: {pulse_source}")

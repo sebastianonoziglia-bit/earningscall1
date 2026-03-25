@@ -1,8 +1,8 @@
 {
-  "generated_at_utc": "2026-03-12T14:24:56Z",
+  "generated_at_utc": "2026-03-21T18:58:22Z",
   "git_branch": "main",
-  "git_head": "304d7a7c3286d888b1274066657059e3ae5fbf9b",
-  "git_head_short": "304d7a7",
+  "git_head": "a8cac382ad6105da4e266f794a2bf02eba1ce518",
+  "git_head_short": "a8cac38",
   "working_tree_dirty": true,
   "generator_scripts": [
     "scripts/generate_dev_manual_assets.py",
@@ -18,38 +18,38 @@
     {
       "path": "reports/Developer_Insights_Bible_CURRENT.md",
       "exists": true,
-      "size_bytes": 36800,
-      "modified_utc": "2026-03-12T14:24:55Z"
+      "size_bytes": 33168,
+      "modified_utc": "2026-03-21T18:58:22Z"
     },
     {
       "path": "reports/Developer_Insights_Bible_CURRENT_Full.pdf",
       "exists": true,
-      "size_bytes": 445523,
-      "modified_utc": "2026-03-12T14:24:56Z"
+      "size_bytes": 440308,
+      "modified_utc": "2026-03-21T18:58:22Z"
     },
     {
       "path": "reports/dev_manual_assets/pipeline_dependency_graph.png",
       "exists": true,
       "size_bytes": 180640,
-      "modified_utc": "2026-03-12T14:24:38Z"
+      "modified_utc": "2026-03-21T18:58:12Z"
     },
     {
       "path": "reports/dev_manual_assets/sheet_usage_heatmap.png",
       "exists": true,
       "size_bytes": 244601,
-      "modified_utc": "2026-03-12T14:24:41Z"
+      "modified_utc": "2026-03-21T18:58:14Z"
     },
     {
       "path": "reports/dev_manual_assets/migration_impact.png",
       "exists": true,
       "size_bytes": 96214,
-      "modified_utc": "2026-03-12T14:24:45Z"
+      "modified_utc": "2026-03-21T18:58:17Z"
     },
     {
       "path": "reports/dev_manual_assets/risk_distribution.png",
       "exists": true,
       "size_bytes": 47084,
-      "modified_utc": "2026-03-12T14:24:48Z"
+      "modified_utc": "2026-03-21T18:58:18Z"
     }
   ]
 }
