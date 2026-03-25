@@ -20,35 +20,43 @@ logger = logging.getLogger(__name__)
 def load_company_logos():
     """Load and cache company logos - reusable across pages."""
     try:
+        # Use absolute path so it works regardless of cwd (HF vs local)
+        _ASSETS = Path(__file__).resolve().parent.parent / "attached_assets"
+
         def _first_existing(*candidates: str):
             for p in candidates:
-                if p and Path(p).exists():
-                    return p
+                full = _ASSETS / p if not Path(p).is_absolute() else Path(p)
+                if full.exists():
+                    return str(full)
             return None
 
+        def _a(name: str) -> str:
+            """Resolve asset path to absolute."""
+            return str(_ASSETS / name)
+
         logo_files = {
-            'Apple': 'attached_assets/8.png',
-            'Microsoft': 'attached_assets/msft.png',
-            'Alphabet': 'attached_assets/10.png',
-            'Netflix': 'attached_assets/9.png',
-            'Meta Platforms': 'attached_assets/12.png',
-            'WhatsApp': _first_existing('attached_assets/Whatsapp.png', 'attached_assets/WhatsApp.png', 'attached_assets/12.png'),
-            'Instagram': _first_existing('attached_assets/Instagram.png', 'attached_assets/12.png'),
-            'Facebook': _first_existing('attached_assets/Facebook.png', 'attached_assets/12.png'),
-            'Amazon': 'attached_assets/Amazon_icon.png',
-            'Disney': 'attached_assets/icons8-logo-disney-240.png',
-            'Roku': 'attached_assets/rokudef.png',
-            'Spotify': 'attached_assets/11.png',
-            'Comcast': 'attached_assets/6.png',
-            'Paramount': 'attached_assets/Paramount.png',
-            'Paramount Global': 'attached_assets/Paramount.png',
-            'Warner Bros. Discovery': 'attached_assets/adadad.png',
-            'Warner Bros Discovery': 'attached_assets/adadad.png',
-            'YouTube': _first_existing('attached_assets/Youtube.png', 'attached_assets/youtube.png', 'attached_assets/youtube_logo.png'),
+            'Apple': _a('8.png'),
+            'Microsoft': _a('msft.png'),
+            'Alphabet': _a('10.png'),
+            'Netflix': _a('9.png'),
+            'Meta Platforms': _a('12.png'),
+            'WhatsApp': _first_existing('Whatsapp.png', 'WhatsApp.png', '12.png'),
+            'Instagram': _first_existing('Instagram.png', '12.png'),
+            'Facebook': _first_existing('Facebook.png', '12.png'),
+            'Amazon': _a('Amazon_icon.png'),
+            'Disney': _a('icons8-logo-disney-240.png'),
+            'Roku': _a('rokudef.png'),
+            'Spotify': _a('11.png'),
+            'Comcast': _a('6.png'),
+            'Paramount': _a('Paramount.png'),
+            'Paramount Global': _a('Paramount.png'),
+            'Warner Bros. Discovery': _a('adadad.png'),
+            'Warner Bros Discovery': _a('adadad.png'),
+            'YouTube': _first_existing('Youtube.png', 'youtube.png', 'youtube_logo.png'),
         }
 
         for company, logo_path in logo_files.items():
-            if os.path.exists(logo_path):
+            if logo_path and os.path.exists(logo_path):
                 logger.info(f"Logo file exists for {company}: {logo_path}")
             else:
                 logger.warning(f"Logo file MISSING for {company}: {logo_path}")

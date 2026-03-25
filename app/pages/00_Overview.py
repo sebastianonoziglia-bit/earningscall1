@@ -37,6 +37,34 @@ from utils.data_granularity import (
 )
 
 st.markdown(get_page_style(), unsafe_allow_html=True)
+# Overview area selector: active button = strong MFE blue
+st.markdown("""<style>
+/* Primary (active) area buttons — strong MFE blue */
+[data-testid="stButton"] button[kind="primary"] {
+    background: linear-gradient(135deg, #1a6fd4 0%, #4aaeff 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(74,174,255,0.5) !important;
+    box-shadow: 0 2px 12px rgba(74,174,255,0.25) !important;
+    font-weight: 700 !important;
+    transition: all 0.3s ease !important;
+}
+[data-testid="stButton"] button[kind="primary"]:hover {
+    box-shadow: 0 4px 20px rgba(74,174,255,0.4) !important;
+    transform: translateY(-1px);
+}
+/* Secondary (inactive) area buttons — subtle dark */
+[data-testid="stButton"] button[kind="secondary"] {
+    background: rgba(255,255,255,0.04) !important;
+    color: #8b949e !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    transition: all 0.3s ease !important;
+}
+[data-testid="stButton"] button[kind="secondary"]:hover {
+    background: rgba(74,174,255,0.08) !important;
+    color: #c9d1d9 !important;
+    border-color: rgba(74,174,255,0.2) !important;
+}
+</style>""", unsafe_allow_html=True)
 display_header()
 
 # Streamlit markdown can treat indented HTML as a code block. Normalize HTML blocks to avoid that.

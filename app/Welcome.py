@@ -2708,11 +2708,18 @@ _HERO_COMPANIES = [
 _hero_logo_items = []
 for _hi, _hco in enumerate(_HERO_COMPANIES):
     _hb64 = _resolve_logo(_hco, logos)  # logos has white Amazon/Apple
+    _hcolor = _company_color(_hco)
     if _hb64:
-        _hcolor = _company_color(_hco)
         _hero_logo_items.append(
             f"<div class='hl-logo' style='--hl-delay:{_hi * 0.4}s;--hl-brand:{_hcolor};' title='{_hco}'>"
             f"<img src='data:image/png;base64,{_hb64}' alt='{_hco}'/></div>"
+        )
+    else:
+        # Fallback: styled initials with company brand color
+        _initials = "".join(w[0] for w in _hco.split() if w[0].isupper())[:2]
+        _hero_logo_items.append(
+            f"<div class='hl-logo' style='--hl-delay:{_hi * 0.4}s;--hl-brand:{_hcolor};' title='{_hco}'>"
+            f"<span style='color:#fff;font-weight:800;font-size:14px;font-family:DM Sans,sans-serif;'>{_initials}</span></div>"
         )
 _hero_logo_count = len(_hero_logo_items)
 _hero_logos_html = "".join(_hero_logo_items)
@@ -5185,15 +5192,99 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.button("Overview — Macro and Market", use_container_width=True, key="home_gateway_overview"):
+# Animated glass CTA buttons
+st.components.v1.html("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:transparent;}
+.cta-row{display:flex;gap:16px;justify-content:center;padding:0 24px;flex-wrap:wrap;}
+.cta-btn{
+  position:relative;flex:1;min-width:200px;max-width:360px;
+  padding:28px 24px;border-radius:16px;cursor:pointer;overflow:hidden;
+  background:rgba(74,174,255,0.06);
+  border:1px solid rgba(74,174,255,0.18);
+  transition:all 0.4s cubic-bezier(0.22,1,0.36,1);
+  text-decoration:none;display:block;
+}
+.cta-btn:hover{
+  background:rgba(74,174,255,0.12);
+  border-color:rgba(74,174,255,0.4);
+  transform:translateY(-4px) scale(1.02);
+  box-shadow:0 8px 32px rgba(74,174,255,0.2),0 0 60px rgba(74,174,255,0.08);
+}
+/* Glass reflection sweep */
+.cta-btn::before{
+  content:'';position:absolute;top:-50%;left:-60%;width:40%;height:200%;
+  background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.08) 45%,rgba(255,255,255,0.15) 50%,rgba(255,255,255,0.08) 55%,transparent 60%);
+  transform:rotate(25deg);transition:none;pointer-events:none;
+}
+.cta-btn:hover::before{
+  animation:glassReflection 0.8s ease-out forwards;
+}
+/* Random pulse pop animation */
+@keyframes glassReflection{
+  0%{left:-60%;}
+  100%{left:120%;}
+}
+@keyframes popPulse{
+  0%,100%{transform:translateY(0) scale(1);box-shadow:none;}
+  50%{transform:translateY(-3px) scale(1.015);box-shadow:0 4px 20px rgba(74,174,255,0.15);}
+}
+.cta-btn.pop{animation:popPulse 0.6s ease-out;}
+.cta-title{
+  color:#4aaeff;font-size:1.1rem;font-weight:700;font-family:'DM Sans',sans-serif;
+  margin-bottom:6px;letter-spacing:0.02em;
+}
+.cta-desc{
+  color:rgba(255,255,255,0.45);font-size:0.78rem;font-family:'DM Sans',sans-serif;
+  line-height:1.4;
+}
+.cta-arrow{
+  position:absolute;right:20px;top:50%;transform:translateY(-50%);
+  color:rgba(74,174,255,0.3);font-size:1.3rem;transition:all 0.3s;
+}
+.cta-btn:hover .cta-arrow{color:#4aaeff;right:16px;}
+</style>
+<div class="cta-row">
+  <a class="cta-btn" id="cta-overview" onclick="window.parent.postMessage({type:'streamlit:setComponentValue',value:'overview'},'*')">
+    <div class="cta-title">Overview</div>
+    <div class="cta-desc">Macro trends & market signals</div>
+    <span class="cta-arrow">&rarr;</span>
+  </a>
+  <a class="cta-btn" id="cta-earnings" onclick="window.parent.postMessage({type:'streamlit:setComponentValue',value:'earnings'},'*')">
+    <div class="cta-title">Earnings</div>
+    <div class="cta-desc">Company deep dives & intelligence</div>
+    <span class="cta-arrow">&rarr;</span>
+  </a>
+  <a class="cta-btn" id="cta-genie" onclick="window.parent.postMessage({type:'streamlit:setComponentValue',value:'genie'},'*')">
+    <div class="cta-title">Genie</div>
+    <div class="cta-desc">Ask the data anything</div>
+    <span class="cta-arrow">&rarr;</span>
+  </a>
+</div>
+<script>
+// Random pop-out animation at different times
+var btns = document.querySelectorAll('.cta-btn');
+function randomPop(){
+  var idx = Math.floor(Math.random()*btns.length);
+  btns[idx].classList.add('pop');
+  btns[idx].addEventListener('animationend',function(){this.classList.remove('pop');},{once:true});
+  setTimeout(randomPop, 2000 + Math.random()*4000);
+}
+setTimeout(randomPop, 1500);
+</script>
+""", height=140, scrolling=False)
+# Streamlit buttons (hidden behind HTML, used for actual navigation)
+_cta_cols = st.columns(3)
+with _cta_cols[0]:
+    if st.button("Overview", use_container_width=True, key="home_gateway_overview"):
         st.switch_page("pages/00_Overview.py")
-with col2:
-    if st.button("Earnings — Company Deep Dives", use_container_width=True, key="home_gateway_earnings"):
+with _cta_cols[1]:
+    if st.button("Earnings", use_container_width=True, key="home_gateway_earnings"):
         st.switch_page("pages/01_Earnings.py")
-with col3:
-    if st.button("Genie — Ask the Data", use_container_width=True, key="home_gateway_genie"):
+with _cta_cols[2]:
+    if st.button("Genie", use_container_width=True, key="home_gateway_genie"):
         st.switch_page("pages/04_Genie.py")
 
 source_label = str(workbook_path) if workbook_path else "not found"
