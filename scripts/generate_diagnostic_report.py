@@ -616,6 +616,166 @@ def _render_raw_keyword_index(topics_df: pd.DataFrame) -> str:
     )
 
 
+def _build_scoring_quality_section(repo_root: Path) -> str:
+    """
+    Build HTML for the Scoring Quality section of the diagnostic report.
+    Reads scored_signals.csv and topics with scores to show:
+    - Score distribution histogram (text-based)
+    - Top 10 / Bottom 10 signals
+    - Category breakdown (count + avg score)
+    - Per-company signal counts
+    - Layer weight configuration display
+    """
+    # Import scoring config for weight display
+    import sys as _sys
+    _app_dir = repo_root / "app"
+    if str(_app_dir) not in _sys.path:
+        _sys.path.insert(0, str(_app_dir))
+    try:
+        from utils.scoring_config import LAYER_WEIGHTS, THRESHOLDS
+    except ImportError:
+        LAYER_WEIGHTS = {}
+        THRESHOLDS = {}
+
+    signals_csv = repo_root / "earningscall_transcripts" / "scored_signals.csv"
+    topics_csv = repo_root / "earningscall_transcripts" / "transcript_topics.csv"
+
+    html_parts = []
+
+    # ── Config display ────────────────────────────────────────────────────
+    if LAYER_WEIGHTS:
+        html_parts.append("<h3 class='subhead'>Layer Weights (scoring_config.py)</h3>")
+        html_parts.append("<table class='diag-table'><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody>")
+        for k, v in sorted(LAYER_WEIGHTS.items()):
+            html_parts.append(f"<tr><td>{escape(k)}</td><td><strong>{v}</strong></td></tr>")
+        html_parts.append("</tbody></table>")
+    if THRESHOLDS:
+        html_parts.append("<h3 class='subhead'>Thresholds</h3>")
+        html_parts.append("<table class='diag-table'><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody>")
+        for k, v in sorted(THRESHOLDS.items()):
+            html_parts.append(f"<tr><td>{escape(k)}</td><td><strong>{v}</strong></td></tr>")
+        html_parts.append("</tbody></table>")
+
+    # ── Scored signals analysis ───────────────────────────────────────────
+    if signals_csv.exists():
+        try:
+            sdf = pd.read_csv(signals_csv)
+        except Exception:
+            sdf = pd.DataFrame()
+    else:
+        sdf = pd.DataFrame()
+
+    if sdf.empty:
+        html_parts.append("<p class='notice'>No scored_signals.csv found. Run the pipeline to generate scored signals.</p>")
+        return "\n".join(html_parts)
+
+    total_signals = len(sdf)
+    score_col = "score" if "score" in sdf.columns else None
+    if not score_col:
+        html_parts.append("<p class='notice'>scored_signals.csv has no 'score' column.</p>")
+        return "\n".join(html_parts)
+
+    sdf["score"] = pd.to_numeric(sdf["score"], errors="coerce").fillna(0)
+
+    # Summary cards
+    avg_score = round(sdf["score"].mean(), 2)
+    median_score = round(sdf["score"].median(), 2)
+    max_score = round(sdf["score"].max(), 2)
+    high_conf = int((sdf["score"] >= 3.0).sum())
+
+    html_parts.append(f"""
+    <div class='summary-grid'>
+      <div class='summary-card'><div class='summary-label'>Total Scored Signals</div><div class='summary-value'>{total_signals}</div></div>
+      <div class='summary-card'><div class='summary-label'>Avg Score</div><div class='summary-value'>{avg_score}</div></div>
+      <div class='summary-card'><div class='summary-label'>Median Score</div><div class='summary-value'>{median_score}</div></div>
+      <div class='summary-card'><div class='summary-label'>Max Score</div><div class='summary-value'>{max_score}</div></div>
+      <div class='summary-card'><div class='summary-label'>High Confidence (≥3.0)</div><div class='summary-value'>{high_conf}</div></div>
+    </div>""")
+
+    # Score distribution (text histogram)
+    bins = [0, 0.5, 1, 2, 3, 5, 10, 50, 999]
+    labels = ["0-0.5", "0.5-1", "1-2", "2-3", "3-5", "5-10", "10-50", "50+"]
+    sdf["_bin"] = pd.cut(sdf["score"], bins=bins, labels=labels, right=False)
+    dist = sdf["_bin"].value_counts().reindex(labels, fill_value=0)
+    max_count = max(dist.max(), 1)
+
+    html_parts.append("<h3 class='subhead'>Score Distribution</h3>")
+    html_parts.append("<table class='diag-table'><thead><tr><th>Range</th><th>Count</th><th>Bar</th></tr></thead><tbody>")
+    for label in labels:
+        cnt = int(dist.get(label, 0))
+        bar_width = int((cnt / max_count) * 200)
+        html_parts.append(f"<tr><td>{label}</td><td>{cnt}</td><td><div style='background:#3b82f6;height:18px;width:{bar_width}px;border-radius:3px;'></div></td></tr>")
+    html_parts.append("</tbody></table>")
+
+    # Category breakdown
+    if "category" in sdf.columns:
+        cat_stats = sdf.groupby("category").agg(
+            count=("score", "size"),
+            avg_score=("score", "mean"),
+            max_score=("score", "max"),
+        ).sort_values("count", ascending=False).reset_index()
+
+        html_parts.append("<h3 class='subhead'>Category Breakdown</h3>")
+        html_parts.append("<table class='diag-table'><thead><tr><th>Category</th><th>Count</th><th>Avg Score</th><th>Max Score</th></tr></thead><tbody>")
+        for _, row in cat_stats.iterrows():
+            html_parts.append(f"<tr><td>{escape(str(row['category']))}</td><td>{int(row['count'])}</td><td>{row['avg_score']:.2f}</td><td>{row['max_score']:.2f}</td></tr>")
+        html_parts.append("</tbody></table>")
+
+    # Per-company signal counts
+    if "company" in sdf.columns:
+        co_stats = sdf.groupby("company").agg(
+            count=("score", "size"),
+            avg_score=("score", "mean"),
+            top_score=("score", "max"),
+        ).sort_values("count", ascending=False).reset_index()
+
+        html_parts.append("<h3 class='subhead'>Per-Company Signal Counts</h3>")
+        html_parts.append("<table class='diag-table'><thead><tr><th>Company</th><th>Signals</th><th>Avg Score</th><th>Top Score</th></tr></thead><tbody>")
+        for _, row in co_stats.iterrows():
+            html_parts.append(f"<tr><td>{escape(str(row['company']))}</td><td>{int(row['count'])}</td><td>{row['avg_score']:.2f}</td><td>{row['top_score']:.2f}</td></tr>")
+        html_parts.append("</tbody></table>")
+
+    # Top 10 signals
+    top10 = sdf.nlargest(10, "score")
+    html_parts.append("<h3 class='subhead'>Top 10 Highest-Scoring Signals</h3>")
+    html_parts.append("<table class='diag-table'><thead><tr><th>Score</th><th>Company</th><th>Category</th><th>Speaker</th><th>Quote</th></tr></thead><tbody>")
+    for _, row in top10.iterrows():
+        q = escape(str(row.get("quote", ""))[:200])
+        html_parts.append(f"<tr><td><strong>{row['score']:.2f}</strong></td><td>{escape(str(row.get('company','')))}</td><td>{escape(str(row.get('category','')))}</td><td>{escape(str(row.get('speaker','')))}</td><td>{q}</td></tr>")
+    html_parts.append("</tbody></table>")
+
+    # Bottom 10 signals (lowest that still passed threshold)
+    bot10 = sdf.nsmallest(10, "score")
+    html_parts.append("<h3 class='subhead'>Bottom 10 Lowest-Scoring Signals (passed threshold)</h3>")
+    html_parts.append("<table class='diag-table'><thead><tr><th>Score</th><th>Company</th><th>Category</th><th>Speaker</th><th>Quote</th></tr></thead><tbody>")
+    for _, row in bot10.iterrows():
+        q = escape(str(row.get("quote", ""))[:200])
+        html_parts.append(f"<tr><td><strong>{row['score']:.2f}</strong></td><td>{escape(str(row.get('company','')))}</td><td>{escape(str(row.get('category','')))}</td><td>{escape(str(row.get('speaker','')))}</td><td>{q}</td></tr>")
+    html_parts.append("</tbody></table>")
+
+    # Topic score analysis (if topics have scores)
+    if topics_csv.exists():
+        try:
+            tdf = pd.read_csv(topics_csv)
+            if "score" in tdf.columns:
+                tdf["score"] = pd.to_numeric(tdf["score"], errors="coerce").fillna(0)
+                scored_topics = tdf[tdf["score"] > 0]
+                if not scored_topics.empty:
+                    ts = scored_topics.groupby("topic").agg(
+                        mentions=("score", "size"),
+                        avg_score=("score", "mean"),
+                    ).sort_values("avg_score", ascending=False).reset_index()
+                    html_parts.append("<h3 class='subhead'>Topic Score Rankings (from transcript_topics.csv)</h3>")
+                    html_parts.append("<table class='diag-table'><thead><tr><th>Topic</th><th>Scored Mentions</th><th>Avg Score</th></tr></thead><tbody>")
+                    for _, row in ts.iterrows():
+                        html_parts.append(f"<tr><td>{escape(str(row['topic']))}</td><td>{int(row['mentions'])}</td><td>{row['avg_score']:.2f}</td></tr>")
+                    html_parts.append("</tbody></table>")
+        except Exception:
+            pass
+
+    return "\n".join(html_parts)
+
+
 def _summary_counts(
     topics_df: pd.DataFrame,
     signals_fired_df: pd.DataFrame,
@@ -653,6 +813,7 @@ def _build_html(
     signals_html: str,
     narratives_html: str,
     keyword_index_html: str,
+    scoring_quality_html: str = "",
 ) -> str:
     generated_text = generated_at.strftime("%Y-%m-%d %H:%M:%S")
     return f"""<!DOCTYPE html>
@@ -728,9 +889,10 @@ body {{ margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
     <h2>Diagnostics</h2>
     <a href="#pipeline-summary">1. Pipeline Summary</a>
     <a href="#topic-debugger">2. Topic Scoring Debugger</a>
-    <a href="#signal-log">3. Signal Detection Log</a>
-    <a href="#narrative-log">4. Narrative Generation Log</a>
-    <a href="#keyword-index">5. Raw Keyword Index</a>
+    <a href="#scoring-quality">3. Scoring Quality</a>
+    <a href="#signal-log">4. Signal Detection Log</a>
+    <a href="#narrative-log">5. Narrative Generation Log</a>
+    <a href="#keyword-index">6. Raw Keyword Index</a>
   </aside>
 
   <main class="content">
@@ -765,18 +927,26 @@ body {{ margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
       </div>
     </section>
 
+    <section class="section" id="scoring-quality">
+      <h2>Section 3 — Scoring Quality</h2>
+      <div class="section-inner">
+        <p>Score distributions, layer weights, and signal quality metrics from the unified 5-layer scoring engine (scoring_config.py).</p>
+        {scoring_quality_html if scoring_quality_html else "<p class='notice'>No scoring data available. Run the pipeline first.</p>"}
+      </div>
+    </section>
+
     <section class="section" id="signal-log">
-      <h2>Section 3 — Signal Detection Log</h2>
+      <h2>Section 4 — Signal Detection Log</h2>
       <div class="section-inner">{signals_html}</div>
     </section>
 
     <section class="section" id="narrative-log">
-      <h2>Section 4 — Narrative Generation Log</h2>
+      <h2>Section 5 — Narrative Generation Log</h2>
       <div class="section-inner">{narratives_html}</div>
     </section>
 
     <section class="section" id="keyword-index">
-      <h2>Section 5 — Raw Keyword Index</h2>
+      <h2>Section 6 — Raw Keyword Index</h2>
       <div class="section-inner">{keyword_index_html}</div>
     </section>
   </main>
@@ -914,6 +1084,7 @@ def main() -> None:
     signals_html = _render_signals_section(signals_df)
     narratives_html = _render_narratives_section(narratives_df)
     keyword_index_html = _render_raw_keyword_index(topics_df)
+    scoring_quality_html = _build_scoring_quality_section(repo_root)
 
     report_html = _build_html(
         generated_at=now,
@@ -924,6 +1095,7 @@ def main() -> None:
         signals_html=signals_html,
         narratives_html=narratives_html,
         keyword_index_html=keyword_index_html,
+        scoring_quality_html=scoring_quality_html,
     )
 
     stamp = now.strftime("%Y%m%d_%H%M")

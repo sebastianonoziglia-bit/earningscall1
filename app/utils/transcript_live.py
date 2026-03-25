@@ -2,6 +2,9 @@
 Live transcript intelligence — reads directly from the Transcripts Excel sheet.
 No pipeline scripts, no SQLite, no CSV files needed.
 Works on HuggingFace with only the workbook available.
+
+All keyword lists, weights, and thresholds are imported from scoring_config.py
+(single source of truth). Update scoring_config.py to tune vocabulary.
 """
 from __future__ import annotations
 import re
@@ -9,275 +12,20 @@ import logging
 import pandas as pd
 import streamlit as st
 
+# ── Import all scoring vocabulary from single source of truth ─────────────────
+from utils.scoring_config import (
+    TOPIC_KEYWORDS, SIGNAL_CATEGORIES, SIGNAL_ICONS, SIGNAL_COLORS,
+    OUTLOOK_KEYWORDS, RISK_KEYWORDS, OPPORTUNITY_KEYWORDS,
+    INVESTMENT_KEYWORDS, PRODUCT_SHIFT_KEYWORDS, USER_BEHAVIOR_KEYWORDS,
+    MONETIZATION_KEYWORDS, STRATEGIC_DIRECTION_KEYWORDS, BROADCASTER_THREAT_KEYWORDS,
+    CATEGORY_KEYWORDS,
+    FINANCIAL_SCORE_TERMS, FUTURE_TENSE_MARKERS, NEGATION_PREFIXES,
+    BOILERPLATE_PHRASES, FORWARD_LOOKING_KEYWORDS,
+    CEO_TITLES, CFO_TITLES, KNOWN_ROLE_TITLES, ROLE_NORMALIZER,
+    LAYER_WEIGHTS, THRESHOLDS,
+)
+
 logger = logging.getLogger(__name__)
-
-# ── TOPIC KEYWORDS ────────────────────────────────────────────────────────────
-TOPIC_KEYWORDS = {
-    "AI & Machine Learning": ["artificial intelligence", "machine learning", "ai model",
-                               "large language model", "llm", "generative ai", "gemini",
-                               "copilot", "gpt", "neural network", "deep learning"],
-    "Advertising": ["advertising revenue", "ad revenue", "ad market", "programmatic",
-                    "sponsored", "cpm", "arpu", "ad spend", "upfront", "scatter market"],
-    "Streaming & Subscriptions": ["streaming", "subscribers", "paid members", "churn",
-                                   "retention", "direct to consumer", "dtc", "password sharing"],
-    "Cloud & Infrastructure": ["cloud revenue", "cloud growth", "aws", "azure", "gcp",
-                                "google cloud", "infrastructure", "data center", "capex"],
-    "Retail & E-Commerce": ["e-commerce", "online stores", "marketplace", "third party",
-                             "prime", "fulfillment", "logistics", "retail media"],
-    "Cost & Efficiency": ["headcount", "restructuring", "cost reduction", "efficiency",
-                          "operating margin", "opex", "layoffs", "workforce"],
-    "Macro & Economy": ["macroeconomic", "recession", "inflation", "interest rate",
-                        "consumer spending", "currency", "foreign exchange", "fx"],
-    "Content & IP": ["original content", "theatrical", "box office", "franchise",
-                     "intellectual property", "licensing", "studio"],
-    "Mobile & Devices": ["smartphone", "iphone", "pixel", "hardware", "wearables",
-                         "connected devices", "mobile"],
-    "Social & Engagement": ["daily active users", "dau", "monthly active users", "mau",
-                            "engagement", "reels", "shorts", "tiktok", "feed"],
-    "Payments & Fintech": ["payments", "fintech", "checkout", "buy now pay later", "bnpl"],
-    "Privacy & Regulation": ["privacy", "regulation", "antitrust", "gdpr", "data protection",
-                              "compliance", "consent"],
-}
-
-SIGNAL_CATEGORIES = [
-    "Outlook",
-    "Risks",
-    "Opportunities",
-    "Investment",
-    "Product Shifts",
-    "User Behavior",
-    "Monetization",
-    "Strategic Direction",
-    "Broadcaster Threats",
-]
-
-SIGNAL_ICONS = {
-    "Outlook":             "🔭",
-    "Risks":               "⚠️",
-    "Opportunities":       "🚀",
-    "Investment":          "💰",
-    "Product Shifts":      "🔧",
-    "User Behavior":       "👥",
-    "Monetization":        "💵",
-    "Strategic Direction": "♟️",
-    "Broadcaster Threats": "📺",
-}
-
-SIGNAL_COLORS = {
-    "Outlook":             {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
-    "Risks":               {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
-    "Opportunities":       {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
-    "Investment":          {"bg": "#faf5ff", "border": "#a855f7", "tag": "#7e22ce"},
-    "Product Shifts":      {"bg": "#f0f9ff", "border": "#0ea5e9", "tag": "#0369a1"},
-    "User Behavior":       {"bg": "#fdf4ff", "border": "#d946ef", "tag": "#a21caf"},
-    "Monetization":        {"bg": "#fffbeb", "border": "#f59e0b", "tag": "#b45309"},
-    "Strategic Direction": {"bg": "#f8fafc", "border": "#64748b", "tag": "#334155"},
-    "Broadcaster Threats": {"bg": "#fff1f2", "border": "#f43f5e", "tag": "#be123c"},
-}
-
-OUTLOOK_KEYWORDS = [
-    "we expect", "we anticipate", "going forward", "next quarter", "full year",
-    "guidance", "we believe", "looking ahead", "heading into", "in the coming",
-    "we remain confident", "we're well positioned", "positioned to", "on track",
-    "our outlook", "we plan to", "we will continue", "for fiscal",
-]
-
-RISK_KEYWORDS = [
-    "headwind", "challenge", "risk", "uncertainty", "slower", "softness",
-    "pressure", "concern", "decline", "difficult", "competitive",
-    "macro", "unfavorable", "weaker", "offset", "loss", "impairment",
-    "caution", "volatility", "drag", "cost increase",
-]
-
-OPPORTUNITY_KEYWORDS = [
-    "opportunity", "growth driver", "tailwind", "accelerate", "invest",
-    "expand", "launch", "new market", "incremental", "upside",
-    "untapped", "scale", "differentiate", "advantage", "momentum",
-    "strong demand", "outperform", "gain share", "monetize",
-]
-
-INVESTMENT_KEYWORDS = [
-    "capital expenditure", "capex", "we are investing",
-    "infrastructure", "data center", "we hired", "headcount",
-    "we acquired", "partnership", "we committed",
-    "billion in", "we are spending", "investment in",
-    "we are building out", "we are expanding capacity",
-    "long term investment", "strategic investment",
-]
-
-PRODUCT_SHIFT_KEYWORDS = [
-    "we launched", "we introduced", "we are building",
-    "new capability", "we are developing", "we released",
-    "artificial intelligence", "machine learning", "agent",
-    "multimodal", "automation", "we integrated",
-    "new feature", "new product", "new platform",
-    "we are rolling out", "we shipped", "now available",
-]
-
-USER_BEHAVIOR_KEYWORDS = [
-    "users are", "engagement", "time spent",
-    "adoption", "daily active", "frequency",
-    "behavior", "younger users", "mobile",
-    "shift to", "increasing demand", "queries",
-    "users come back", "retention", "habit",
-    "watch time", "session", "more frequently",
-]
-
-MONETIZATION_KEYWORDS = [
-    "new commercial", "monetize", "unlock",
-    "new surface", "ad format", "performance",
-    "retail media", "shoppable", "new pathway",
-    "incremental revenue", "expand monetization",
-    "new revenue stream", "commercial opportunity",
-    "monetizable", "new inventory", "yield",
-]
-
-STRATEGIC_DIRECTION_KEYWORDS = [
-    "we are the only", "full stack", "end to end",
-    "vertical", "ecosystem", "we control",
-    "expand into", "new market", "we are positioned",
-    "competitive advantage", "moat", "differentiated",
-    "we are uniquely", "only company", "at scale",
-    "category leader", "market position",
-]
-
-BROADCASTER_THREAT_KEYWORDS = [
-    "live", "sports", "broadcast", "linear tv",
-    "connected tv", "ctv", "streaming rights",
-    "upfront", "scatter", "brand advertising",
-    "video advertising", "youtube tv", "live events",
-    "nfl", "nba", "premier league", "content rights",
-    "original content", "studio", "distribution",
-]
-
-CEO_TITLES = [
-    "chief executive officer", "ceo", "president and chief executive",
-    "co-founder and ceo", "co-founder and chief executive", "president & ceo",
-]
-CFO_TITLES = [
-    "chief financial officer", "cfo", "senior vice president and chief financial",
-    "executive vice president and chief financial", "evp and chief financial",
-    "svp and chief financial",
-]
-
-# ── SPEAKER EXTRACTION ───────────────────────────────────────────────────────
-KNOWN_ROLE_TITLES = [
-    "Chief Executive Officer", "CEO",
-    "Chief Financial Officer", "CFO",
-    "Chief Operating Officer", "COO",
-    "Chief Technology Officer", "CTO",
-    "Chief Revenue Officer", "CRO",
-    "Chief Marketing Officer", "CMO",
-    "Chief Product Officer", "CPO",
-    "President", "Vice President",
-    "Head of Investor Relations",
-    "Investor Relations",
-    "Senior Vice President",
-    "Executive Vice President",
-    "Managing Director",
-    "General Counsel",
-    "Analyst", "Operator",
-]
-
-ROLE_NORMALIZER = {
-    "Chief Executive Officer": "CEO",
-    "Chief Financial Officer": "CFO",
-    "Chief Operating Officer": "COO",
-    "Chief Technology Officer": "CTO",
-    "Chief Revenue Officer": "CRO",
-    "Chief Marketing Officer": "CMO",
-    "Chief Product Officer": "CPO",
-    "Senior Vice President": "SVP",
-    "Executive Vice President": "EVP",
-    "Vice President": "VP",
-    "Head of Investor Relations": "IR",
-    "Investor Relations": "IR",
-    "President": "President",
-    "Managing Director": "MD",
-    "General Counsel": "GC",
-    "Operator": "Operator",
-    "Analyst": "Analyst",
-    "CEO": "CEO", "CFO": "CFO", "COO": "COO", "CTO": "CTO",
-}
-
-FINANCIAL_SCORE_TERMS = [
-    "revenue", "growth", "billion", "million", "margin", "profit",
-    "operating income", "eps", "guidance", "quarter", "year",
-    "advertising", "cloud", "subscribers", "users", "capex",
-    "expect", "increase", "grew", "strong", "momentum", "opportunity",
-    "record", "accelerat", "expand", "invest",
-]
-
-# ── FORWARD-LOOKING SIGNAL ENGINE ─────────────────────────────────────────────
-# These keyword lists and scoring layers power the forward intelligence features
-# across: Home CEO carousel, Earnings Forward Intelligence, Overview explorer,
-# and Genie context building.
-
-FUTURE_TENSE_MARKERS = [
-    "we will", "we'll", "we plan to", "we expect", "we anticipate",
-    "we intend", "we aim", "we are targeting", "we are working toward",
-    "we are building", "we are investing", "going forward",
-    "in the coming", "by end of", "over the next", "next quarter",
-    "next year", "in 2025", "in 2026", "in 2027", "by 2025", "by 2026",
-    "we are on track", "we expect to", "we plan on", "we will continue",
-    "we will expand", "we will launch", "we will invest",
-    "our goal is", "our target is", "our ambition is",
-    "we are committed to", "we remain committed",
-]
-
-NEGATION_PREFIXES = [
-    "we do not expect", "we cannot", "we don't expect",
-    "we are not planning", "we have no plans", "we won't",
-    "we will not", "we do not anticipate", "there is no guarantee",
-    "we cannot guarantee", "we are unable to",
-]
-
-BOILERPLATE_PHRASES = [
-    "as we have said before", "as previously mentioned",
-    "as we noted last quarter", "as i mentioned earlier",
-    "safe harbor", "forward-looking statements involve risk",
-    "actual results may differ", "we cannot predict",
-    "subject to change", "no obligation to update",
-]
-
-FORWARD_LOOKING_KEYWORDS = [
-    # Guidance and targets
-    "we expect", "our guidance", "looking ahead", "going forward",
-    "we anticipate", "we project", "we forecast", "we target",
-    "full year guidance", "next quarter guidance", "raised guidance",
-    "updated our outlook", "we are raising", "we are lowering",
-    # Investment and CapEx
-    "capital expenditure", "capex", "we are investing", "we will invest",
-    "infrastructure investment", "we are building", "we are deploying",
-    "data center", "we are expanding capacity", "we are scaling",
-    # Acquisitions and M&A
-    "acquisition", "we acquired", "we are acquiring", "pending acquisition",
-    "we closed the acquisition", "strategic acquisition", "we announced",
-    "merger", "we intend to acquire", "we plan to acquire",
-    # New products and launches
-    "we will launch", "launching in", "coming soon", "planned release",
-    "roadmap", "pipeline", "we are developing", "new product",
-    "new feature", "new capability", "new service", "new market",
-    # Geographic expansion
-    "expanding into", "new markets", "international expansion",
-    "we are entering", "new geographies", "we launched in",
-    "we will expand to", "new region", "growing internationally",
-    # Partnerships and deals
-    "partnership with", "we partnered with", "strategic partnership",
-    "we signed", "multi-year agreement", "we announced a deal",
-    "collaboration with", "joint venture",
-    # Hiring and headcount
-    "we are hiring", "we plan to hire", "headcount growth",
-    "we are growing our team", "new engineering talent",
-    # Revenue and growth targets
-    "revenue target", "we expect revenue", "growth target",
-    "double digit growth", "we expect margins", "margin expansion",
-    "operating leverage", "we expect to achieve",
-    # AI and technology roadmap
-    "ai roadmap", "we are training", "next generation model",
-    "we are releasing", "new ai capability", "we are integrating ai",
-    "autonomous", "agentic", "multimodal roadmap",
-]
 
 
 def score_quote_topics(quote: str) -> list[str]:
@@ -329,7 +77,8 @@ def _score_sentence_advanced(
     sentence_idx: int,
     total_sentences: int,
 ) -> float:
-    """Advanced scorer with negation, specificity, tense, position, and length factors."""
+    """Advanced scorer — all weights from scoring_config.LAYER_WEIGHTS."""
+    W = LAYER_WEIGHTS  # shorthand
     s = sentence.strip()
     s_lower = s.lower()
 
@@ -352,7 +101,7 @@ def _score_sentence_advanced(
         r'\$[\d,]+|\d+[\.,]\d+[BMK%]|\d{1,3}[BMK]\b|\d+\s*(?:billion|million|percent|%)',
         s, re.IGNORECASE
     ))
-    specificity_bonus = 1.4 if has_number else 1.0
+    specificity_bonus = W["specificity_bonus"] if has_number else 1.0
 
     # 4. Forward-looking tense bonus
     forward_phrases = [
@@ -362,28 +111,28 @@ def _score_sentence_advanced(
         "in 2025", "in 2026", "we anticipate",
         "we are positioned", "we believe",
     ]
-    forward_bonus = 1.3 if any(p in s_lower for p in forward_phrases) else 1.0
+    forward_bonus = W["forward_tense_bonus"] if any(p in s_lower for p in forward_phrases) else 1.0
 
     # 5. Role bonus
-    role_bonus = 1.5 if role in ("CEO", "CFO") else 1.0
+    role_bonus = W["role_bonus_ceo_cfo"] if role in ("CEO", "CFO") else 1.0
 
     # 6. Position bonus — early in transcript = strategic opening remarks
     position_ratio = 1 - (sentence_idx / max(total_sentences, 1))
-    position_bonus = 1.0 + (position_ratio * 0.3)
+    position_bonus = 1.0 + (position_ratio * W["position_max_bonus"])
 
     # 7. Length factor — prefer medium sentences
     length = len(s)
     if length < 50:
-        len_factor = 0.6
+        len_factor = W["len_very_short"]
     elif length < 80:
-        len_factor = 0.85
+        len_factor = W["len_short"]
     elif length <= 250:
-        len_factor = 1.0
+        len_factor = W["len_medium"]
     else:
-        len_factor = 0.8
+        len_factor = W["len_long"]
 
     # 8. Financial term bonus
-    fin_score = sum(0.4 for t in FINANCIAL_SCORE_TERMS if t in s_lower)
+    fin_score = sum(W["financial_term_bonus"] for t in FINANCIAL_SCORE_TERMS if t in s_lower)
 
     base_score = round(
         (kw_hits + fin_score)
@@ -397,11 +146,11 @@ def _score_sentence_advanced(
 
     # ── Additional verification layers (stacked on base score) ────────────
 
-    # Layer 1 — Future tense detection (1.4x)
+    # Layer 1 — Future tense detection
     if any(ft in s_lower for ft in FUTURE_TENSE_MARKERS):
-        base_score *= 1.4
+        base_score *= W["future_tense_stack"]
 
-    # Layer 2 — Specificity bonus for forward-looking sentences (1.5x)
+    # Layer 2 — Specificity bonus for forward-looking sentences
     # Fires when sentence has concrete numbers AND is forward-looking
     _has_concrete = bool(re.search(
         r'\$[\d,]+[BMbm]?|\d+\.?\d*\s*%|\b20(?:2[4-9]|3[0-9])\b|\bQ[1-4]\b',
@@ -409,15 +158,15 @@ def _score_sentence_advanced(
     ))
     _is_forward = any(ft in s_lower for ft in FUTURE_TENSE_MARKERS)
     if _has_concrete and _is_forward:
-        base_score *= 1.5
+        base_score *= W["concrete_forward_stack"]
 
-    # Layer 3 — Negation filter (hard penalty 0.1x)
+    # Layer 3 — Negation filter (hard penalty)
     if any(neg in s_lower for neg in NEGATION_PREFIXES):
-        base_score *= 0.1
+        base_score *= W["negation_penalty"]
 
-    # Layer 4 — Boilerplate filter (0.05x)
+    # Layer 4 — Boilerplate filter
     if any(bp in s_lower for bp in BOILERPLATE_PHRASES):
-        base_score *= 0.05
+        base_score *= W["boilerplate_penalty"]
 
     # Layer 5 — Speaker role bonus already applied above (role_bonus)
 

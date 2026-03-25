@@ -311,8 +311,45 @@ def ingest_highlights(conn: sqlite3.Connection, highlights_csv: Path) -> int:
 
 
 def ingest_forward_signals(conn: sqlite3.Connection, repo_root: Path) -> int:
-    """Populate forward_signals table using extract_forward_looking_signals from transcript_live."""
-    # Add app dir to path so we can import transcript_live
+    """
+    Populate forward_signals table.
+    Prefers scored_signals.csv (pre-computed by extract_transcript_topics.py
+    using the unified 5-layer engine from scoring_config.py).
+    Falls back to live extraction from Excel if CSV not found.
+    """
+    # Try pre-scored CSV first (produced by pipeline step 2)
+    csv_path = repo_root / "earningscall_transcripts" / "scored_signals.csv"
+    if csv_path.exists():
+        df = pd.read_csv(csv_path)
+        if not df.empty:
+            conn.execute("DELETE FROM forward_signals")
+            total = 0
+            for _, row in df.iterrows():
+                conn.execute(
+                    """INSERT INTO forward_signals
+                       (company, year, quarter, quote, speaker, role, score, category,
+                        has_number, has_year_ref, future_tense_score)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        str(row.get("company", "")),
+                        int(row.get("year", 0)),
+                        str(row.get("quarter", "")),
+                        str(row.get("quote", ""))[:500],
+                        str(row.get("speaker", "")),
+                        str(row.get("role", "")),
+                        float(row.get("score", 0)),
+                        str(row.get("category", "")),
+                        int(row.get("has_number", 0)),
+                        int(row.get("has_year_ref", 0)),
+                        float(row.get("future_tense_score", 0)),
+                    ),
+                )
+                total += 1
+            conn.commit()
+            print(f"  Ingested {total} pre-scored signals from {csv_path.name}")
+            return total
+
+    # Fallback: live extraction from Excel (slower)
     app_dir = repo_root / "app"
     if str(app_dir) not in sys.path:
         sys.path.insert(0, str(app_dir))
@@ -323,12 +360,10 @@ def ingest_forward_signals(conn: sqlite3.Connection, repo_root: Path) -> int:
         print("Warning: could not import extract_forward_looking_signals — skipping forward signals")
         return 0
 
-    # Find the Excel workbook
     excel_candidates = [
         repo_root / "app" / "attached_assets" / "Financial_Data.xlsx",
         repo_root / "attached_assets" / "Financial_Data.xlsx",
     ]
-    # Also search for any xlsx in attached_assets
     for d in [repo_root / "app" / "attached_assets", repo_root / "attached_assets"]:
         if d.is_dir():
             for f in d.iterdir():
@@ -344,7 +379,6 @@ def ingest_forward_signals(conn: sqlite3.Connection, repo_root: Path) -> int:
         print("Warning: no Excel workbook found for forward signals extraction")
         return 0
 
-    # Get all unique company/year/quarter combos from transcripts table
     rows = conn.execute(
         "SELECT DISTINCT company, year, quarter FROM transcripts ORDER BY company, year, quarter"
     ).fetchall()

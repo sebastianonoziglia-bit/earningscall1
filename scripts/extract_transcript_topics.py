@@ -2,12 +2,32 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 from pathlib import Path
 import re
 from typing import Dict, Iterable
 
 import numpy as np
 import pandas as pd
+
+# ── Make scoring_config importable from app/utils ────────────────────────────
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _SCRIPT_DIR.parent
+_APP_DIR = _REPO_ROOT / "app"
+if str(_APP_DIR) not in sys.path:
+    sys.path.insert(0, str(_APP_DIR))
+
+from utils.scoring_config import (
+    FINANCIAL_SCORE_TERMS as _CFG_FIN_TERMS,
+    FUTURE_TENSE_MARKERS as _CFG_FUTURE,
+    NEGATION_PREFIXES as _CFG_NEGATION,
+    BOILERPLATE_PHRASES as _CFG_BOILERPLATE,
+    LAYER_WEIGHTS as _CFG_WEIGHTS,
+    THRESHOLDS as _CFG_THRESHOLDS,
+    CATEGORY_KEYWORDS as _CFG_CATEGORY_KW,
+    SIGNAL_CATEGORIES as _CFG_SIGNAL_CATS,
+)
 
 
 TRANSCRIPT_FILE_RE = re.compile(r"^Q([1-4])\.txt$", re.IGNORECASE)
@@ -494,6 +514,190 @@ def _parse_value_numeric(value_text: str) -> tuple[float | None, str]:
     return number, raw_unit
 
 
+def score_sentence_pipeline(
+    sentence: str,
+    keywords: list[str],
+    role: str = "",
+    sentence_idx: int = 0,
+    total_sentences: int = 1,
+) -> float:
+    """
+    5-layer scoring engine — mirrors transcript_live._score_sentence_advanced()
+    but runs outside Streamlit (no st.cache). Uses scoring_config weights.
+    """
+    W = _CFG_WEIGHTS
+    s = sentence.strip()
+    s_lower = s.lower()
+
+    # Hard negation kill
+    negation_patterns = [
+        "we are not ", "we don't ", "we do not ",
+        "we have not ", "we haven't ", "not investing",
+        "no longer ", "we stopped ", "we ended ",
+    ]
+    if any(neg in s_lower for neg in negation_patterns):
+        return 0.0
+
+    kw_hits = sum(1 for kw in keywords if kw.lower() in s_lower)
+    if kw_hits == 0:
+        return 0.0
+
+    has_number = bool(re.search(
+        r'\$[\d,]+|\d+[\.,]\d+[BMK%]|\d{1,3}[BMK]\b|\d+\s*(?:billion|million|percent|%)',
+        s, re.IGNORECASE,
+    ))
+    specificity_bonus = W["specificity_bonus"] if has_number else 1.0
+
+    forward_phrases = [
+        "we will", "we expect", "we are going to", "we plan to",
+        "we intend to", "we are targeting", "going forward",
+        "next quarter", "next year", "in 2025", "in 2026",
+        "we anticipate", "we are positioned", "we believe",
+    ]
+    forward_bonus = W["forward_tense_bonus"] if any(p in s_lower for p in forward_phrases) else 1.0
+
+    role_bonus = W["role_bonus_ceo_cfo"] if role in ("CEO", "CFO") else 1.0
+
+    position_ratio = 1 - (sentence_idx / max(total_sentences, 1))
+    position_bonus = 1.0 + (position_ratio * W["position_max_bonus"])
+
+    length = len(s)
+    if length < 50:
+        len_factor = W["len_very_short"]
+    elif length < 80:
+        len_factor = W["len_short"]
+    elif length <= 250:
+        len_factor = W["len_medium"]
+    else:
+        len_factor = W["len_long"]
+
+    fin_score = sum(W["financial_term_bonus"] for t in _CFG_FIN_TERMS if t in s_lower)
+
+    base_score = round(
+        (kw_hits + fin_score) * specificity_bonus * forward_bonus
+        * role_bonus * position_bonus * len_factor, 3,
+    )
+
+    # Stacked verification layers
+    if any(ft in s_lower for ft in _CFG_FUTURE):
+        base_score *= W["future_tense_stack"]
+    _has_concrete = bool(re.search(
+        r'\$[\d,]+[BMbm]?|\d+\.?\d*\s*%|\b20(?:2[4-9]|3[0-9])\b|\bQ[1-4]\b',
+        s, re.IGNORECASE,
+    ))
+    if _has_concrete and any(ft in s_lower for ft in _CFG_FUTURE):
+        base_score *= W["concrete_forward_stack"]
+    if any(neg in s_lower for neg in _CFG_NEGATION):
+        base_score *= W["negation_penalty"]
+    if any(bp in s_lower for bp in _CFG_BOILERPLATE):
+        base_score *= W["boilerplate_penalty"]
+
+    return round(base_score, 3)
+
+
+def extract_scored_signals_from_file(
+    file_path: Path,
+    repo_root: Path,
+) -> list[dict]:
+    """
+    Extract scored forward-looking signals from a single transcript file.
+    Uses the same 5-layer engine as the app, but without Streamlit.
+    Returns list of signal dicts ready for DB insertion.
+    """
+    text = file_path.read_text(encoding="utf-8", errors="ignore")
+    if "---" in text:
+        _, body = text.split("---", 1)
+    else:
+        body = text
+
+    company = normalize_company_name(file_path.parents[1].name)
+    year = int(file_path.parents[0].name)
+    quarter = int(TRANSCRIPT_FILE_RE.match(file_path.name).group(1))
+
+    # Detect speaker roles
+    speaker_re = SPEAKER_RE
+    all_kw = list(set(
+        _CFG_CATEGORY_KW.get("Outlook", [])
+        + _CFG_CATEGORY_KW.get("Opportunities", [])
+        + _CFG_CATEGORY_KW.get("Investment", [])
+        + _CFG_CATEGORY_KW.get("Product Shifts", [])
+        + _CFG_CATEGORY_KW.get("Strategic Direction", [])
+    ))
+
+    signals: list[dict] = []
+    seen_prefixes: set[str] = set()
+
+    for block in re.split(r"\n\s*\n+", body):
+        block = " ".join(block.strip().split())
+        if len(block) < 40:
+            continue
+
+        # Extract speaker and role
+        sp_match = speaker_re.match(block)
+        speaker = sp_match.group(1) if sp_match else "Unknown"
+        text_body = block[sp_match.end():].strip() if sp_match else block
+
+        # Detect CEO/CFO role
+        role = ""
+        sp_lower = block[:80].lower() if len(block) > 80 else block.lower()
+        ceo_titles = ["chief executive officer", "ceo"]
+        cfo_titles = ["chief financial officer", "cfo"]
+        if any(t in sp_lower for t in ceo_titles):
+            role = "CEO"
+        elif any(t in sp_lower for t in cfo_titles):
+            role = "CFO"
+
+        sentences = list(split_sentences(text_body))
+        for idx, sentence in enumerate(sentences):
+            s_lower = sentence.lower()
+            if len(sentence) < 40 or len(sentence) > 500:
+                continue
+
+            # Must contain at least one forward keyword
+            if not any(kw.lower() in s_lower for kw in all_kw):
+                continue
+
+            score = score_sentence_pipeline(
+                sentence, all_kw, role, idx, len(sentences),
+            )
+            if score < _CFG_THRESHOLDS["min_signal_score"]:
+                continue
+
+            prefix = sentence[:_CFG_THRESHOLDS["dedup_prefix_length"]].lower()
+            if prefix in seen_prefixes:
+                continue
+            seen_prefixes.add(prefix)
+
+            # Determine category
+            category = "Outlook"
+            for cat_name, cat_kws in _CFG_CATEGORY_KW.items():
+                if any(kw.lower() in s_lower for kw in cat_kws):
+                    category = cat_name
+                    break
+
+            has_number = bool(re.search(r'\$[\d,]+|\d+%', sentence))
+            has_year_ref = bool(re.search(r'\b20(?:2[4-9]|3[0-9])\b', sentence))
+            future_tense_score = 1.0 if any(ft in s_lower for ft in _CFG_FUTURE) else 0.0
+
+            signals.append({
+                "company": company,
+                "year": year,
+                "quarter": f"Q{quarter}",
+                "quote": sentence[:500],
+                "speaker": speaker,
+                "role": role,
+                "score": score,
+                "category": category,
+                "has_number": int(has_number),
+                "has_year_ref": int(has_year_ref),
+                "future_tense_score": future_tense_score,
+            })
+
+    # Sort by score, take top 10 per file
+    signals.sort(key=lambda x: x["score"], reverse=True)
+    return signals[:10]
+
+
 def _estimate_confidence(sentence: str, value_text: str) -> float:
     score = 0.55
     if "$" in str(value_text):
@@ -533,10 +737,27 @@ def extract_rows_from_file(file_path: Path, repo_root: Path) -> tuple[list[dict]
         if len(text_body) < 20:
             continue
 
-        for sentence in split_sentences(text_body):
+        # Detect role for scoring
+        _role = ""
+        _sp_low = block[:80].lower()
+        if any(t in _sp_low for t in ("chief executive officer", "ceo")):
+            _role = "CEO"
+        elif any(t in _sp_low for t in ("chief financial officer", "cfo")):
+            _role = "CFO"
+
+        _sentences = list(split_sentences(text_body))
+        for _si, sentence in enumerate(_sentences):
             sentence_lower = sentence.lower()
             topics = detect_topics(sentence_lower)
             snippet = sentence[:480]
+
+            # Score using the unified 5-layer engine
+            _topic_kws = []
+            for t in topics:
+                _topic_kws.extend(TOPIC_KEYWORDS.get(t, []))
+            _sent_score = score_sentence_pipeline(
+                sentence, _topic_kws or [""], _role, _si, len(_sentences),
+            ) if topics else 0.0
 
             if topics:
                 for topic in topics:
@@ -549,6 +770,7 @@ def extract_rows_from_file(file_path: Path, repo_root: Path) -> tuple[list[dict]
                             "text": snippet,
                             "speaker": speaker,
                             "file_path": rel_path,
+                            "score": round(_sent_score, 3),
                         }
                     )
 
@@ -708,16 +930,34 @@ def main() -> None:
     topics_df, kpis_df = build_topics_and_kpis_df(transcript_root=transcript_root, repo_root=repo_root)
     metrics_df = build_metrics_df(topics_df=topics_df, transcript_index_df=transcript_index_df)
 
+    # ── Extract scored signals using 5-layer engine ────────────────────────
+    all_signals: list[dict] = []
+    for company_dir in sorted([p for p in transcript_root.iterdir() if p.is_dir()]):
+        for year_dir in sorted([p for p in company_dir.iterdir() if p.is_dir() and p.name.isdigit()]):
+            for q_file in sorted([p for p in year_dir.iterdir() if p.is_file() and p.suffix.lower() == ".txt"]):
+                if not TRANSCRIPT_FILE_RE.match(q_file.name):
+                    continue
+                try:
+                    sigs = extract_scored_signals_from_file(q_file, repo_root)
+                    all_signals.extend(sigs)
+                except Exception as e:
+                    print(f"  Warning: signal extraction failed for {q_file}: {e}")
+    signals_df = pd.DataFrame(all_signals)
+
     topics_out = transcript_root / "transcript_topics.csv"
     metrics_out = transcript_root / "topic_metrics.csv"
     kpis_out = transcript_root / "transcript_kpis.csv"
+    signals_out = transcript_root / "scored_signals.csv"
     topics_df.to_csv(topics_out, index=False)
     metrics_df.to_csv(metrics_out, index=False)
     kpis_df.to_csv(kpis_out, index=False)
+    if not signals_df.empty:
+        signals_df.to_csv(signals_out, index=False)
 
     print(f"Wrote: {topics_out} ({len(topics_df)} rows)")
     print(f"Wrote: {metrics_out} ({len(metrics_df)} rows)")
     print(f"Wrote: {kpis_out} ({len(kpis_df)} rows)")
+    print(f"Wrote: {signals_out} ({len(signals_df)} scored signals)")
 
 
 if __name__ == "__main__":

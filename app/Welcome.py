@@ -2655,15 +2655,15 @@ if groupm_b:
 if rev_yoy is not None:
     if rev_yoy >= 10:
         narrative_parts.append(
-            f"The 14 companies we track grew revenues <strong style='color:#22c55e;'>+{rev_yoy:.1f}%</strong> — a year of strong expansion."
+            f"The {_hero_logo_count} companies we track grew revenues <strong style='color:#22c55e;'>+{rev_yoy:.1f}%</strong> — a year of strong expansion."
         )
     elif rev_yoy >= 0:
         narrative_parts.append(
-            f"The 14 companies we track grew revenues modestly at <strong style='color:#22c55e;'>+{rev_yoy:.1f}%</strong>."
+            f"The {_hero_logo_count} companies we track grew revenues modestly at <strong style='color:#22c55e;'>+{rev_yoy:.1f}%</strong>."
         )
     else:
         narrative_parts.append(
-            f"The 14 companies we track saw revenues contract <strong style='color:#ef4444;'>{rev_yoy:.1f}%</strong> — a difficult macro year."
+            f"The {_hero_logo_count} companies we track saw revenues contract <strong style='color:#ef4444;'>{rev_yoy:.1f}%</strong> — a difficult macro year."
         )
 if mcap_yoy is not None:
     if mcap_yoy >= 15:
@@ -2732,7 +2732,10 @@ st.components.v1.html(
     "</style>"
     "<div style='background:transparent;padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
     "<div style='color:#4aaeff;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;'>The Attention Economy</div>"
-    f"<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:24px;font-family:Syne,sans-serif;'>{_hero_logo_count} companies.<br>One dashboard.</div>"
+    f"<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:24px;font-family:Syne,sans-serif;'>"
+    f"{_hero_logo_count} companies.<br>"
+    + (f"<span style='color:#4aaeff;'>${groupm_b:.0f}B</span> in advertising." if groupm_b else "One dashboard.")
+    + "</div>"
     f"<div class='hl-wrap'>{_hero_logos_html}</div>"
     "<div style='display:flex;gap:16px;margin-bottom:40px;flex-wrap:wrap;'>"
     f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
@@ -2744,12 +2747,12 @@ st.components.v1.html(
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Tracked Revenue</div>"
     f"<div style='color:#4aaeff;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi2_val}</div>"
     f"<div style='margin-top:4px;'>{kpi2_yoy}</div>"
-    f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year} &middot; 14 companies</div></div>"
+    f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year} &middot; {_hero_logo_count} companies</div></div>"
     f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Combined Market Cap</div>"
     f"<div style='color:#4aaeff;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi3_val}</div>"
     f"<div style='margin-top:4px;'>{kpi3_yoy}</div>"
-    f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year} &middot; 14 companies</div></div>"
+    f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year} &middot; {_hero_logo_count} companies</div></div>"
     "</div>"
     f"<div style='font-size:1.05rem;line-height:1.85;color:#c9d1d9;max-width:680px;'>{narrative_html}</div>"
     "<div style='color:#8b949e;font-size:0.85rem;margin-top:48px;letter-spacing:0.1em;'>&#8595; Scroll to explore</div>"
