@@ -2699,12 +2699,40 @@ if mcap_yoy is not None:
     _a = "&#9650;" if mcap_yoy >= 0 else "&#9660;"
     kpi3_yoy = f"<span style='color:{_c};font-weight:700;font-size:0.88rem;'>{_a} {abs(mcap_yoy):.1f}%</span>"
 
+# Build hero logo strip
+_HERO_COMPANIES = [
+    "Alphabet", "Amazon", "Apple", "Meta Platforms", "Microsoft",
+    "Netflix", "Disney", "Comcast", "Spotify", "Roku",
+    "Warner Bros. Discovery", "Paramount Global", "Samsung", "Tencent",
+]
+_hero_logo_items = []
+for _hi, _hco in enumerate(_HERO_COMPANIES):
+    _hb64 = _resolve_logo(_hco, logos_original)
+    if _hb64:
+        _hcolor = _company_color(_hco)
+        _hero_logo_items.append(
+            f"<div class='hl-logo' style='--hl-delay:{_hi * 0.4}s;--hl-brand:{_hcolor};' title='{_hco}'>"
+            f"<img src='data:image/png;base64,{_hb64}' alt='{_hco}'/></div>"
+        )
+_hero_logos_html = "".join(_hero_logo_items)
+
 st.components.v1.html(
     "<style>@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap');"
-    "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}</style>"
+    "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
+    "@keyframes hlPulse{0%,100%{opacity:0.55;transform:scale(1);}50%{opacity:1;transform:scale(1.1);}}"
+    ".hl-wrap{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:36px;align-items:center;}"
+    ".hl-logo{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.04);"
+    "border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;"
+    "cursor:pointer;transition:all 0.3s cubic-bezier(0.22,1,0.36,1);animation:hlPulse 3s ease-in-out infinite;"
+    "animation-delay:var(--hl-delay);}"
+    ".hl-logo:hover{opacity:1!important;transform:scale(1.25)!important;animation:none;"
+    "background:rgba(255,255,255,0.08);border-color:var(--hl-brand);box-shadow:0 0 18px color-mix(in srgb,var(--hl-brand) 40%,transparent);}"
+    ".hl-logo img{width:28px;height:28px;object-fit:contain;pointer-events:none;}"
+    "</style>"
     "<div style='background:transparent;padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
     "<div style='color:#4aaeff;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;'>The Attention Economy</div>"
-    "<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:40px;font-family:Syne,sans-serif;'>14 companies.<br>One dashboard.</div>"
+    "<div style='color:#ffffff;font-size:3.2rem;font-weight:900;line-height:1.05;margin-bottom:24px;font-family:Syne,sans-serif;'>14 companies.<br>One dashboard.</div>"
+    f"<div class='hl-wrap'>{_hero_logos_html}</div>"
     "<div style='display:flex;gap:16px;margin-bottom:40px;flex-wrap:wrap;'>"
     f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Global Ad Spend</div>"
@@ -2725,7 +2753,7 @@ st.components.v1.html(
     f"<div style='font-size:1.05rem;line-height:1.85;color:#c9d1d9;max-width:680px;'>{narrative_html}</div>"
     "<div style='color:#8b949e;font-size:0.85rem;margin-top:48px;letter-spacing:0.1em;'>&#8595; Scroll to explore</div>"
     "</div>",
-    height=560,
+    height=640,
 )
 
 # ── Helper: numeric ISO → alpha-3 mapping for D3 choropleth globe ──
