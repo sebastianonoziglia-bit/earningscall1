@@ -62,15 +62,6 @@ st.session_state["active_nav_page"] = "editorial"
 st.session_state["_active_nav_page"] = "editorial"
 render_header()
 
-# Pre-select company from ?company= query param (e.g. from globe click)
-try:
-    _qp_company = st.query_params.get("company", "")
-    if _qp_company and not st.session_state.get("_company_param_applied"):
-        st.session_state["ti_selected_company"] = str(_qp_company).strip()
-        st.session_state["_company_param_applied"] = True
-except Exception:
-    pass
-
 # Add SQL Assistant in the sidebar
 from utils.sql_assistant_sidebar import render_sql_assistant_sidebar
 if not st.session_state.get("hide_sidebar_nav", False):
@@ -140,11 +131,6 @@ SERVICE_TO_COMPANY = {
 }
 
 
-def _normalize_service_to_company(service_name: str) -> str:
-    """Map a service/platform name to its parent company."""
-    return SERVICE_TO_COMPANY.get(service_name.strip(), service_name.strip())
-
-
 COMPANY_ASSET_MAP = {
     "Alphabet":{"color":"#4285F4","primary_business":"Search & Digital Advertising","key_assets":["Google Search","YouTube","Google Cloud (GCP)","Google Network","Waymo","DeepMind / Gemini AI"],"ad_products":["Search Ads","YouTube Ads","Google Display Network","DV360","Performance Max"],"competitive_note":"Dominant in search (90%+ share) and online video. YouTube is #1 video platform globally by watch time."},
     "Amazon":{"color":"#FF9900","primary_business":"E-Commerce, Cloud & Advertising","key_assets":["AWS","Amazon Ads","Amazon Prime Video","Prime membership","Twitch","Amazon Music","Alexa"],"ad_products":["Amazon Sponsored Products","Amazon DSP","Streaming TV Ads on Prime Video"],"competitive_note":"Fastest-growing major ad platform. AWS funds the consumer business. Prime Video now has ads."},
@@ -162,52 +148,6 @@ COMPANY_ASSET_MAP = {
     "Pinterest":{"color":"#E60023","primary_business":"Visual Discovery & Shopping","key_assets":["Pinterest (image discovery)","Pinterest Shopping","Pinterest Predicts"],"ad_products":["Pinterest Ads (promoted pins)","Shopping Ads","Video Ads","Performance+"],"competitive_note":"480M+ MAU. Unique purchase-intent audience. Growing ARPU internationally."},
     "Nvidia":{"color":"#76B900","primary_business":"Semiconductors & AI Computing","key_assets":["Data Center GPUs (H100/B200)","Gaming GPUs (GeForce RTX)","NVIDIA DRIVE (automotive AI)","Omniverse","CUDA"],"ad_products":[],"competitive_note":"Data Center is now 85%+ of revenue. Every major AI model trains on Nvidia GPUs."},
 }
-
-
-@st.cache_data(ttl=3600)
-def _load_transcript_editorial_insights(max_per_company: int = 5) -> list:
-    try:
-        from utils.workbook_source import resolve_financial_data_xlsx as _rfd
-        excel_path = _rfd([])
-    except Exception:
-        excel_path = None
-    if not excel_path:
-        return []
-    try:
-        raw_df = pd.read_excel(excel_path, sheet_name="Transcripts")
-        if raw_df is None or raw_df.empty:
-            return []
-        TRIGGERS = [
-            "we expect","we anticipate","our outlook","looking ahead","heading into",
-            "next quarter","we believe","going forward","guidance","we plan to",
-            "opportunity","positioned to"
-        ]
-        rows = []
-        for _, row in raw_df.iterrows():
-            comp = str(row.get("company","")).strip()
-            year = pd.to_numeric(row.get("year"), errors="coerce")
-            quarter = str(row.get("quarter","")).strip()
-            text = str(row.get("transcript_text","") or "")
-            if not text or pd.isna(year):
-                continue
-            import re as _re2
-            sentences = _re2.split(r'(?<=[.!?])\s+', text)
-            count = 0
-            for sentence in sentences:
-                s = sentence.strip()
-                if len(s) < 40 or len(s) > 350:
-                    continue
-                if any(t in s.lower() for t in TRIGGERS):
-                    rows.append({
-                        "company": comp, "year": int(year), "quarter": quarter,
-                        "highlight": s, "speaker": "", "category": "Outlook"
-                    })
-                    count += 1
-                    if count >= max_per_company:
-                        break
-        return rows
-    except Exception:
-        return []
 
 
 def _metric_label_for_service(service: str) -> str:
@@ -808,163 +748,6 @@ with tab2:
         st.info("No data available for the selected filters.")
     else:
         st.info("Select services to compare.")
-
-# ── TRANSCRIPT INTELLIGENCE ─────────────────────────────────────────────────
-st.markdown("<hr style='margin: 3rem 0 1.5rem 0;'>", unsafe_allow_html=True)
-st.markdown("## Transcript Intelligence")
-st.markdown(
-    "<p style='color:#6b7280;margin-bottom:1.5rem;'>Management statements from earnings calls — "
-    "organised by theme. Select a company to explore.</p>",
-    unsafe_allow_html=True
-)
-
-_ti_insights = _load_transcript_editorial_insights(max_per_company=20)
-
-_ti_by_company: dict = {}
-if _ti_insights:
-    for _item in _ti_insights:
-        _parent_co = _normalize_service_to_company(_item["company"])
-        if _parent_co not in _ti_by_company:
-            _ti_by_company[_parent_co] = {"signals": []}
-        _ti_by_company[_parent_co]["signals"].append(_item)
-
-_ti_companies = sorted(_ti_by_company.keys()) if _ti_by_company else []
-if not _ti_companies:
-    st.info("No transcript insights loaded. Ensure transcripts are in the Excel Transcripts sheet.")
-else:
-    _selected_ti_co = st.session_state.get("ti_selected_company", _ti_companies[0])
-    if _selected_ti_co not in _ti_companies:
-        _selected_ti_co = _ti_companies[0]
-
-    st.markdown("""
-    <style>
-    div[data-testid="stHorizontalBlock"] .stButton button {
-        border-radius: 20px !important;
-        padding: 4px 14px !important;
-        font-size: 0.82rem !important;
-        font-weight: 500 !important;
-        border: 1px solid #e5e7eb !important;
-        background: transparent !important;
-        color: #374151 !important;
-        white-space: nowrap !important;
-        transition: border-color 0.15s, color 0.15s !important;
-    }
-    div[data-testid="stHorizontalBlock"] .stButton button:hover {
-        border-color: #6b7280 !important;
-        color: #111827 !important;
-    }
-    .ti-pill-active button {
-        background: #111827 !important;
-        color: white !important;
-        border-color: #111827 !important;
-        font-weight: 700 !important;
-    }
-    </style>""", unsafe_allow_html=True)
-
-    _pill_cols = st.columns(len(_ti_companies))
-    for _idx, (_col_obj, _co) in enumerate(zip(_pill_cols, _ti_companies)):
-        _count = len(_ti_by_company.get(_co, {}).get("signals", []))
-        _is_active = _co == _selected_ti_co
-        with _col_obj:
-            if _is_active:
-                st.markdown("<div class='ti-pill-active'>", unsafe_allow_html=True)
-            if st.button(
-                f"{_co} · {_count}",
-                key=f"ti_pill_{_co}",
-                use_container_width=True,
-            ):
-                st.session_state["ti_selected_company"] = _co
-                st.rerun()
-            if _is_active:
-                st.markdown("</div>", unsafe_allow_html=True)
-
-    _selected_ti_co = st.session_state.get("ti_selected_company", _ti_companies[0])
-
-    _co_data = _ti_by_company.get(_selected_ti_co, {})
-    _signals = _co_data.get("signals", [])
-
-    if not _signals:
-        st.info(f"No transcript signals found for {_selected_ti_co}.")
-    else:
-        from collections import defaultdict as _dd
-        _by_cat = _dd(list)
-        for _sig in _signals:
-            _by_cat[_sig.get("category", "General")].append(_sig)
-
-        _cats = sorted(_by_cat.keys())
-        if _cats:
-            _cat_tabs = st.tabs(_cats)
-            for _tab, _cat in zip(_cat_tabs, _cats):
-                with _tab:
-                    _cat_signals = _by_cat[_cat]
-                    _periods = sorted(set(
-                        f"{s.get('year','')} {s.get('quarter','')}".strip()
-                        for s in _cat_signals
-                        if s.get("year")
-                    ), key=lambda p: (
-                        int(p.split()[0]) if p.split()[0].isdigit() else 0,
-                        int(p.split()[1].replace('Q','')) if len(p.split()) > 1 and 'Q' in p.split()[1].upper() else 0
-                    ))
-
-                    if len(_periods) > 1:
-                        _sel_period = st.radio(
-                            "Period",
-                            options=_periods,
-                            index=len(_periods) - 1,
-                            key=f"ti_period_{_selected_ti_co}_{_cat}",
-                            label_visibility="collapsed",
-                            horizontal=True,
-                        )
-                    else:
-                        _sel_period = _periods[0] if _periods else None
-
-                    if _sel_period:
-                        _yr_str, *_q_parts = _sel_period.split()
-                        _q_str = _q_parts[0] if _q_parts else ""
-                        _filtered = [
-                            s for s in _cat_signals
-                            if str(s.get("year", "")) == _yr_str
-                            and (not _q_str or str(s.get("quarter", "")).upper() == _q_str.upper())
-                        ]
-                    else:
-                        _filtered = _cat_signals
-
-                    _sig_cols = st.columns(2)
-                    for _si, _sig in enumerate(_filtered[:20]):
-                        with _sig_cols[_si % 2]:
-                            _quote = str(_sig.get("quote", _sig.get("text", _sig.get("highlight", "")))).strip()
-                            _speaker = str(_sig.get("speaker", "")).strip()
-                            _role = str(_sig.get("role", _sig.get("role_bucket", ""))).strip()
-                            _period = f"{_sig.get('year', '')} {_sig.get('quarter', '')}".strip()
-
-                            if len(_quote) > 200:
-                                _quote = _quote[:200].rsplit(" ", 1)[0] + "…"
-
-                            if not _quote:
-                                continue
-
-                            _speaker_line = ""
-                            if _speaker and _speaker.lower() not in ("", "unknown", "nan"):
-                                _role_html = (
-                                    f"&nbsp;·&nbsp;<span style=\"color:#9ca3af\">{_role}</span>"
-                                    if _role else ""
-                                )
-                                _speaker_line = (
-                                    f"<div style='font-size:0.75rem;color:#6b7280;margin-top:6px;'>"
-                                    f"{_speaker}{_role_html}</div>"
-                                )
-
-                            st.markdown(
-                                f"<div style='border:1px solid #e5e7eb;border-radius:8px;"
-                                f"padding:12px 14px;margin-bottom:8px;background:#fafafa;"
-                                f"border-left:3px solid #111827;'>"
-                                f"<p style='margin:0;font-size:0.85rem;color:#374151;"
-                                f"line-height:1.6;font-style:italic;'>\"{_quote}\"</p>"
-                                f"{_speaker_line}"
-                                f"<div style='font-size:0.7rem;color:#9ca3af;margin-top:4px;'>{_period}</div>"
-                                f"</div>",
-                                unsafe_allow_html=True
-                            )
 
 # Update AI context
 dashboard_state = {
