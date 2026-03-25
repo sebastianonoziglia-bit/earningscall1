@@ -3642,6 +3642,7 @@ def main():
     st.markdown("<hr class='thin-section-divider' />", unsafe_allow_html=True)
 
     # ── Institutional Ownership ───────────────────────────────────────────
+    canonical_company = normalize_company(company)
     st.subheader("Institutional Ownership")
 
     _h_tickers = COMPANY_TICKERS.get(company, COMPANY_TICKERS.get(canonical_company, []))
@@ -3837,6 +3838,8 @@ def main():
 
     # Default to the last 5 years where possible, but keep explorer floor at 2010.
     metrics_floor_year = 2010
+    max_year = int(max(years))
+    min_year = int(min(years))
     metrics_ceiling_year = max(int(max_year), int(max(years)))
     if metrics_ceiling_year < metrics_floor_year:
         metrics_floor_year = metrics_ceiling_year
