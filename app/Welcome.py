@@ -4538,8 +4538,9 @@ try:
 </script>
 """, height=600)
 
-except Exception:
-    pass
+except Exception as _fi_err:
+    import logging as _fi_log
+    _fi_log.getLogger(__name__).warning("Forward Intelligence carousel: %s", _fi_err)
 
 _separator()
 
