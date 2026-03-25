@@ -2,7 +2,13 @@ import streamlit as st
 import os
 import logging
 import pandas as pd
-import psycopg
+try:
+    import psycopg
+except ImportError:
+    try:
+        import psycopg2 as psycopg
+    except ImportError:
+        psycopg = None
 from utils.data_loader import load_advertising_data, get_available_filters
 from openai import OpenAI
 import json

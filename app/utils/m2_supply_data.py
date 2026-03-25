@@ -4,7 +4,13 @@ These functions provide interfaces for retrieving and visualizing M2 data.
 """
 
 import os
-import psycopg
+try:
+    import psycopg
+except ImportError:
+    try:
+        import psycopg2 as psycopg
+    except ImportError:
+        psycopg = None
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime

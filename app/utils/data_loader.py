@@ -289,7 +289,13 @@ def get_available_filters():
         st.session_state.ad_filters = default_filters
         return default_filters
 
-import psycopg
+try:
+    import psycopg
+except ImportError:
+    try:
+        import psycopg2 as psycopg
+    except ImportError:
+        psycopg = None
 import os
 from decimal import Decimal
 

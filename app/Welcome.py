@@ -2647,6 +2647,14 @@ untracked_b = max((global_ad_denom or 0) - total_tracked_b, 0.0)
 market_feed_df = _load_market_feed()
 
 # Hero + KPIs + Narrative block
+# Build hero logo strip — uses white-variant logos (Amazon/Apple)
+_HERO_COMPANIES = [
+    "Alphabet", "Amazon", "Apple", "Meta Platforms", "Microsoft",
+    "Netflix", "Disney", "Comcast", "Spotify", "Roku",
+    "Warner Bros. Discovery", "Paramount Global", "Samsung", "Tencent",
+]
+_hero_logo_count = len(_HERO_COMPANIES)
+
 narrative_parts = []
 if groupm_b:
     narrative_parts.append(
@@ -2699,12 +2707,6 @@ if mcap_yoy is not None:
     _a = "&#9650;" if mcap_yoy >= 0 else "&#9660;"
     kpi3_yoy = f"<span style='color:{_c};font-weight:700;font-size:0.88rem;'>{_a} {abs(mcap_yoy):.1f}%</span>"
 
-# Build hero logo strip — uses white-variant logos (Amazon/Apple)
-_HERO_COMPANIES = [
-    "Alphabet", "Amazon", "Apple", "Meta Platforms", "Microsoft",
-    "Netflix", "Disney", "Comcast", "Spotify", "Roku",
-    "Warner Bros. Discovery", "Paramount Global", "Samsung", "Tencent",
-]
 _hero_logo_items = []
 for _hi, _hco in enumerate(_HERO_COMPANIES):
     _hb64 = _resolve_logo(_hco, logos)  # logos has white Amazon/Apple
@@ -2728,14 +2730,16 @@ st.components.v1.html(
     "<style>@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap');"
     "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
     "@keyframes hlPulse{0%,100%{opacity:0.55;transform:scale(1);}50%{opacity:1;transform:scale(1.1);}}"
+    "@keyframes kpiFadeIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}"
     ".hl-wrap{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:36px;align-items:center;}"
     ".hl-logo{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.04);"
     "border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;"
-    "cursor:pointer;transition:all 0.3s cubic-bezier(0.22,1,0.36,1);animation:hlPulse 3s ease-in-out infinite;"
-    "animation-delay:var(--hl-delay);}"
+    "cursor:pointer;transition:all 0.6s cubic-bezier(0.22,1,0.36,1);opacity:1;}"
+    ".hl-logo.pulsing{animation:hlPulse 3s ease-in-out infinite;animation-delay:var(--hl-delay);}"
     ".hl-logo:hover{opacity:1!important;transform:scale(1.25)!important;animation:none;"
     "background:rgba(255,255,255,0.08);border-color:var(--hl-brand);box-shadow:0 0 18px color-mix(in srgb,var(--hl-brand) 40%,transparent);}"
     ".hl-logo img{width:28px;height:28px;object-fit:contain;pointer-events:none;}"
+    ".kpi-card{opacity:0;animation:kpiFadeIn 0.6s ease forwards;}"
     "</style>"
     "<div style='background:transparent;padding:72px 48px 64px;font-family:DM Sans,sans-serif;'>"
     "<div style='color:#4aaeff;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:20px;'>The Attention Economy</div>"
@@ -2745,25 +2749,26 @@ st.components.v1.html(
     + "</div>"
     f"<div class='hl-wrap'>{_hero_logos_html}</div>"
     "<div style='display:flex;gap:16px;margin-bottom:40px;flex-wrap:wrap;'>"
-    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
+    f"<div class='kpi-card' style='animation-delay:0.3s;flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Global Ad Spend</div>"
     f"<div style='color:#4aaeff;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi1_val}</div>"
     f"<div style='margin-top:4px;'>{kpi1_yoy}</div>"
     f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year_groupm} &middot; Global Aggregates</div></div>"
-    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
+    f"<div class='kpi-card' style='animation-delay:0.6s;flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Tracked Revenue</div>"
     f"<div style='color:#4aaeff;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi2_val}</div>"
     f"<div style='margin-top:4px;'>{kpi2_yoy}</div>"
     f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year} &middot; {_hero_logo_count} companies</div></div>"
-    f"<div style='flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
+    f"<div class='kpi-card' style='animation-delay:0.9s;flex:1;min-width:150px;background:rgba(255,255,255,0.05);border:1px solid rgba(74,174,255,0.15);border-radius:10px;padding:20px 16px;'>"
     f"<div style='color:#a8b3c0;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>Combined Market Cap</div>"
     f"<div style='color:#4aaeff;font-size:2rem;font-weight:900;font-family:monospace;line-height:1.1;'>{kpi3_val}</div>"
     f"<div style='margin-top:4px;'>{kpi3_yoy}</div>"
     f"<div style='color:#8b949e;font-size:0.68rem;margin-top:6px;'>{effective_year} &middot; {_hero_logo_count} companies</div></div>"
     "</div>"
-    f"<div style='font-size:1.05rem;line-height:1.85;color:#c9d1d9;max-width:680px;'>{narrative_html}</div>"
+    f"<div class='kpi-card' style='animation-delay:1.2s;font-size:1.05rem;line-height:1.85;color:#c9d1d9;max-width:680px;'>{narrative_html}</div>"
     "<div style='color:#8b949e;font-size:0.85rem;margin-top:48px;letter-spacing:0.1em;'>&#8595; Scroll to explore</div>"
-    "</div>",
+    "</div>"
+    "<script>setTimeout(function(){document.querySelectorAll('.hl-logo').forEach(function(el){el.classList.add('pulsing');});},2000);</script>",
     height=640,
 )
 

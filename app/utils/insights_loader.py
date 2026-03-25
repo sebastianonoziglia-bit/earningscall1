@@ -1,6 +1,12 @@
 import logging
 import os
-import psycopg
+try:
+    import psycopg
+except ImportError:
+    try:
+        import psycopg2 as psycopg
+    except ImportError:
+        psycopg = None
 import streamlit as st
 from collections import defaultdict
 
