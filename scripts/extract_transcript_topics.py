@@ -420,6 +420,32 @@ TOPIC_KEYWORDS: Dict[str, list[str]] = {
     ],
 }
 
+# ── Merge signal keywords from scoring_config.py ──────────────────────────────
+# Map CATEGORY_KEYWORDS (9 signal categories) → TOPIC_KEYWORDS so the Topic
+# Signal Map shows everything the scoring engine tracks.  Keywords that already
+# exist in an existing topic are de-duplicated.
+_SIGNAL_TO_TOPIC_MAP = {
+    "Outlook":             "Guidance",            # outlook keywords overlap with guidance
+    "Risks":               "Geopolitical uncertainty",  # risk, uncertainty, etc.
+    "Opportunities":       "Market Expansion",
+    "Investment":          "Capital allocation",
+    "Product Shifts":      "Innovation",
+    "User Behavior":       "Customer Metrics",
+    "Monetization":        "Pricing & monetization",
+    "Strategic Direction": "Competition",
+    "Broadcaster Threats": "Streaming & CTV",
+}
+
+for _sig_cat, _sig_keywords in _CFG_CATEGORY_KW.items():
+    _target_topic = _SIGNAL_TO_TOPIC_MAP.get(_sig_cat, _sig_cat)
+    if _target_topic not in TOPIC_KEYWORDS:
+        TOPIC_KEYWORDS[_target_topic] = []
+    _existing = {kw.strip().lower() for kw in TOPIC_KEYWORDS[_target_topic]}
+    for _kw in _sig_keywords:
+        if _kw.strip().lower() not in _existing:
+            TOPIC_KEYWORDS[_target_topic].append(_kw)
+            _existing.add(_kw.strip().lower())
+
 KPI_PATTERNS: Dict[str, str] = {
     "Revenue": r"(?:revenue|sales).*?(\$?\d+(?:\.\d+)?\s*(?:trillion|billion|million|thousand|B|M|K))",
     "Operating Income": r"(?:operating income|operating profit).*?(\$?\d+(?:\.\d+)?\s*(?:trillion|billion|million|thousand|B|M|K))",

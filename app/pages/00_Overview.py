@@ -6486,10 +6486,10 @@ def _render_transcript_topic_growth_chart(
         "Cloud & Infrastructure": ["Cloud & infrastructure", "Security & privacy"],
         "Advertising": ["Advertising", "Retail Media", "Pricing & monetization"],
         "Streaming & Content": ["Streaming & CTV", "Subscriber Growth", "Creator Economy"],
-        "Cost & Efficiency": ["Cost Reduction", "Cost optimization"],
-        "Regulation & Risk": ["Regulation & Privacy", "Regulation & legal", "Regulatory", "Geopolitical uncertainty"],
-        "Financial Strategy": ["Capital allocation", "Debt & Leverage", "Shareholder Returns", "Financial Health", "Guidance"],
-        "Growth & Expansion": ["Market Expansion", "International", "Customer Metrics", "Consumer demand"],
+        "Cost & Efficiency": ["Cost Reduction", "Cost optimization", "Inflation", "Supply chain"],
+        "Regulation & Risk": ["Regulation & Privacy", "Regulation & legal", "Regulatory", "Geopolitical uncertainty", "Sustainability"],
+        "Financial Strategy": ["Capital allocation", "Debt & Leverage", "Shareholder Returns", "Financial Health", "Guidance", "Segment performance", "M&A Activity"],
+        "Growth & Expansion": ["Market Expansion", "International", "Customer Metrics", "Consumer demand", "Competition"],
     }
     _CLUSTER_COLORS = {
         "AI & Machine Learning": "#7C3AED",
