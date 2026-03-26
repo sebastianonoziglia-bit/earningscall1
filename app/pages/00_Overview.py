@@ -6396,12 +6396,59 @@ def _render_transcript_topic_growth_chart(
     if metrics_df.empty:
         return False
 
-    scoped_df, selected_period = _pick_rows_for_period(metrics_df, selected_year, selected_quarter)
+    # Normalize columns for filtering
+    metrics_df["_year_int"] = pd.to_numeric(metrics_df.get("year"), errors="coerce")
+    metrics_df["_quarter_norm"] = metrics_df.get("quarter", pd.Series(dtype=str)).apply(_normalize_quarter_label)
+
+    quadrant_colors = {
+        "Big and growing": "#1D4ED8",
+        "Small and growing": "#0EA5E9",
+        "Big and fading": "#F97316",
+        "Small and fading": "#94A3B8",
+    }
+
+    st.markdown("<div id='section-topic-signal'></div>", unsafe_allow_html=True)
+
+    # ── Inline filter bar at title level (these drive the data below) ──
+    _ts_col_title, _ts_col_year, _ts_col_qtr, _ts_col_co = st.columns([3, 1, 1, 2])
+    with _ts_col_title:
+        st.markdown("### Topic Signal Map")
+    with _ts_col_year:
+        _ts_avail_years = sorted(metrics_df["_year_int"].dropna().unique().tolist(), reverse=True)
+        if not _ts_avail_years:
+            _ts_avail_years = [selected_year]
+        _ts_default_year_idx = 0
+        if selected_year in _ts_avail_years:
+            _ts_default_year_idx = _ts_avail_years.index(selected_year)
+        _ts_year = st.selectbox("Year", _ts_avail_years, key="ts_year_filter", label_visibility="collapsed", index=_ts_default_year_idx)
+    with _ts_col_qtr:
+        _ts_quarter_norm = _normalize_quarter_label(selected_quarter) if selected_quarter else ""
+        _ts_qtr_opts = ["All", "Q4", "Q3", "Q2", "Q1"]
+        _ts_qtr_default = 0
+        if _ts_quarter_norm in _ts_qtr_opts:
+            _ts_qtr_default = _ts_qtr_opts.index(_ts_quarter_norm)
+        _ts_quarter = st.selectbox("Quarter", _ts_qtr_opts, key="ts_quarter_filter", label_visibility="collapsed", index=_ts_qtr_default)
+    with _ts_col_co:
+        _ts_all_companies_list = sorted(metrics_df["companies_list"].dropna().str.split(",").explode().str.strip().unique().tolist()) if "companies_list" in metrics_df.columns else []
+        _ts_company_opts = ["All companies"] + _ts_all_companies_list
+        _ts_company = st.selectbox("Company", _ts_company_opts, key="ts_company_filter", label_visibility="collapsed", index=0)
+
+    # ── Apply inline filters to build scoped_df ──
+    scoped_df = metrics_df[metrics_df["_year_int"] == int(_ts_year)].copy()
+    if _ts_quarter != "All":
+        scoped_df = scoped_df[scoped_df["_quarter_norm"] == _ts_quarter].copy()
     if scoped_df.empty:
+        st.info("No topic data for this period.")
+        return False
+    # Company filter: re-aggregate if a specific company is selected
+    if _ts_company != "All companies" and "companies_list" in scoped_df.columns:
+        scoped_df = scoped_df[scoped_df["companies_list"].fillna("").str.contains(_ts_company, case=False, na=False)].copy()
+    if scoped_df.empty:
+        st.info("No topic data for this company/period combination.")
         return False
     scoped_df = scoped_df.sort_values("topic").copy()
-    if scoped_df.empty:
-        return False
+
+    selected_period = f"{int(_ts_year)}-{_ts_quarter}" if _ts_quarter != "All" else f"{int(_ts_year)}"
 
     scoped_df["importance_pct"] = scoped_df["importance_pct"].fillna(0.0).clip(lower=0.0, upper=100.0)
     scoped_df["importance_plot"] = scoped_df["importance_pct"].clip(lower=0.1)
@@ -6427,30 +6474,6 @@ def _render_transcript_topic_growth_chart(
         return "Small and fading"
 
     scoped_df["quadrant"] = scoped_df.apply(classify_quadrant, axis=1)
-    quadrant_colors = {
-        "Big and growing": "#1D4ED8",
-        "Small and growing": "#0EA5E9",
-        "Big and fading": "#F97316",
-        "Small and fading": "#94A3B8",
-    }
-
-    st.markdown("<div id='section-topic-signal'></div>", unsafe_allow_html=True)
-
-    # ── Inline filter bar at title level ──
-    _ts_col_title, _ts_col_year, _ts_col_qtr, _ts_col_co = st.columns([3, 1, 1, 2])
-    with _ts_col_title:
-        st.markdown("### Topic Signal Map")
-    with _ts_col_year:
-        _ts_avail_years = sorted(scoped_df["year"].dropna().unique().tolist(), reverse=True) if "year" in scoped_df.columns else [selected_year]
-        if not _ts_avail_years:
-            _ts_avail_years = [selected_year]
-        _ts_year = st.selectbox("Year", _ts_avail_years, key="ts_year_filter", label_visibility="collapsed", index=0)
-    with _ts_col_qtr:
-        _ts_quarter = st.selectbox("Quarter", ["All", "Q4", "Q3", "Q2", "Q1"], key="ts_quarter_filter", label_visibility="collapsed", index=0)
-    with _ts_col_co:
-        _ts_all_companies_list = sorted(scoped_df["companies_list"].dropna().str.split(",").explode().str.strip().unique().tolist()) if "companies_list" in scoped_df.columns else []
-        _ts_company_opts = ["All companies"] + _ts_all_companies_list
-        _ts_company = st.selectbox("Company", _ts_company_opts, key="ts_company_filter", label_visibility="collapsed", index=0)
 
     # ── Category toggle pills ──
     try:
