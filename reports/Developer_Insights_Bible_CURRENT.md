@@ -1,8 +1,8 @@
 # Developer Insights Bible — The Attention Economy
 ## Complete Technical Handover Document
 
-**Generated:** 2026-03-25 00:31:04 UTC
-**Git branch:** `main` — commit `0f91ebb`
+**Generated:** 2026-03-26 09:53:02 UTC
+**Git branch:** `main` — commit `7648848`
 **Repository root:** `/Users/sebbo/Desktop/Replit revival`
 **HuggingFace Space:** `https://sebbo89-earningscall2.hf.space/`
 **HF Space repo:** `https://huggingface.co/spaces/sebbo89/Earningscall2`
@@ -87,11 +87,12 @@ with chart text tuned for dark background rendering.
 
 | File | Lines | Description |
 |---|---|---|
-| `app/pages/00_Overview.py` | 11513 | Macro overview — global ad market, duopoly analysis, M2 money supply, concentration bars, landscape bubble chart, market bet. 8-section navigator with per-section st.stop() exits. |
-| `app/pages/01_Earnings.py` | 6208 | Company deep-dive — hero banner, KPI cards, revenue waterfall, segment composition donut, segment evolution chart, transcript highlights, heatmap, AI chat (Genie). |
+| `app/pages/00_Overview.py` | 11890 | Macro overview — global ad market, duopoly analysis, M2 money supply, concentration bars, landscape bubble chart, market bet. 8-section navigator with per-section st.stop() exits. |
+| `app/pages/01_Earnings.py` | 5995 | Company deep-dive — hero banner, KPI cards, revenue waterfall, segment composition donut, segment evolution chart, transcript highlights, heatmap, AI chat (Genie). |
 | `app/pages/02_Stocks.py` | 1206 | Stock price charts, returns, market cap trends, volume, daily/minute OHLCV data sourced from the 'Stocks & Crypto' sheet. |
-| `app/pages/03_Editorial.py` | 977 | Editorial/insight narrative page. Renders auto-generated company and macro insights from the intelligence pipeline. |
+| `app/pages/03_Editorial.py` | 760 | Editorial/insight narrative page. Renders auto-generated company and macro insights from the intelligence pipeline. |
 | `app/pages/04_Genie.py` | 3989 | AI assistant (Genie) — natural-language Q&A about earnings data, powered by OpenAI API with SQLite transcript intelligence DB as context. |
+| `app/pages/05_Country.py` | 466 | — |
 
 ## 4) Home Page Render Order (Welcome.py)
 
@@ -104,19 +105,20 @@ with chart text tuned for dark background rendering.
 7. `Attention + Duopoly` — animated scene (Google+Meta combined share)
 8. `Concentration` — bitcoin-style horizontal bar showing duopoly + human sidebars
 9. `Revenue Anatomy` — full-width flex bars per company (total + ad% breakdown)
-10. `The World` — *Every dollar. Every country.* (`app/Welcome.py:2770`)
-11. `THE STRUCTURAL SHIFT` — *Television had the world's total attention. Then new players came to compete.* (`app/Welcome.py:3038`)
-12. `IF PLATFORMS WERE COUNTRIES` — *If the world were divided by platform, this is how it would look.* (`app/Welcome.py:3837`)
-13. `ATTENTION ECONOMY` — *Who Owns Your Time* (`app/Welcome.py:3868`)
-14. `THE CONCENTRATION` — *Most of it went to very few hands.* (`app/Welcome.py:3977`)
-15. `REVENUE ANATOMY` — *Not all revenue is advertising.* (`app/Welcome.py:4181`)
-16. `The Money Printer` — *When liquidity expands, ad markets follow.* (`app/Welcome.py:4335`)
-17. `The Structural Shift` — *The ad market didn't just grow. It transformed.* (`app/Welcome.py:4387`)
-18. `The Market Bet` — *Starting from the same base of 100, who compounded fastest?* (`app/Welcome.py:4457`)
-19. `The Wealth Machine` — *Market cap, year by year.* (`app/Welcome.py:4546`)
-20. `The Human Voice` — *Here's what management teams are saying.* (`app/Welcome.py:4915`)
-21. Market tape (stock strip, `_render_stock_price_strip`)
-22. Gateway section (→ Overview / Earnings / Genie)
+10. `The World` — *Every dollar. Every country.* (`app/Welcome.py:2876`)
+11. `THE STRUCTURAL SHIFT` — *Television had the world's total attention. Then new players came to compete.* (`app/Welcome.py:3155`)
+12. `REVENUE ANATOMY` — *Not all revenue is advertising.* (`app/Welcome.py:3205`)
+13. `FORWARD INTELLIGENCE` — *What management teams are betting on.* (`app/Welcome.py:3353`)
+14. `IF PLATFORMS WERE COUNTRIES` — *If the world were divided by platform, this is how it would look.* (`app/Welcome.py:4325`)
+15. `ATTENTION ECONOMY` — *Who Owns Your Time* (`app/Welcome.py:4356`)
+16. `THE CONCENTRATION` — *Most of it went to very few hands.* (`app/Welcome.py:4468`)
+17. `The Money Printer` — *When liquidity expands, ad markets follow.* (`app/Welcome.py:4668`)
+18. `The Structural Shift` — *The ad market didn't just grow. It transformed.* (`app/Welcome.py:4995`)
+19. `The Market Bet` — *Starting from the same base of 100, who compounded fastest?* (`app/Welcome.py:5065`)
+20. `The Wealth Machine` — *Market cap, year by year.* (`app/Welcome.py:5154`)
+21. `The Human Voice` — *Here's what management teams are saying.* (`app/Welcome.py:5523`)
+22. Market tape (stock strip, `_render_stock_price_strip`)
+23. Gateway section (→ Overview / Earnings / Genie)
 
 ## 5) Overview Page Architecture (00_Overview.py)
 
@@ -235,11 +237,11 @@ SQLite (earningscall_intelligence.db)
 | `state_management.py` | ✓ | 151 | Provides get_data_processor() — a cached singleton FinancialDataProcessor instance shared across all pages via Streamlit session state. |
 | `data_granularity.py` | ✓ | 256 | Detects available data granularity (annual/quarterly/monthly) per company from the workbook sheets. |
 | `data_availability.py` | ✓ | 143 | Returns available quarters for a given company/year pair from quarterly segment sheets. |
-| `m2_supply_data.py` | ✓ | 471 | Loads M2 money supply data. Supports both old sheet ('M2_values', columns WM2NS/USD observation_date) and new sheet ('M2', columns M2SL/observation_date) with automatic fallback. |
-| `data_loader.py` | ✓ | 399 | Generic data loading helpers used by data_processor.py. |
+| `m2_supply_data.py` | ✓ | 477 | Loads M2 money supply data. Supports both old sheet ('M2_values', columns WM2NS/USD observation_date) and new sheet ('M2', columns M2SL/observation_date) with automatic fallback. |
+| `data_loader.py` | ✓ | 405 | Generic data loading helpers used by data_processor.py. |
 | `auth.py` | ✓ | 18 | Password gate (check_password()). Called on pages that require authentication. |
-| `header.py` | ✓ | 311 | Renders the top navigation header (display_header()). Shared across all pages. |
-| `logos.py` | ✓ | 72 | Loads company logos from attached_assets/ as base64. Used in market tape, Earnings hero, pulse strip. |
+| `header.py` | ✓ | 314 | Renders the top navigation header (display_header()). Shared across all pages. |
+| `logos.py` | ✓ | 81 | Loads company logos from attached_assets/ as base64. Used in market tape, Earnings hero, pulse strip. |
 | `global_fonts.py` | ✓ | 119 | Injects Google Fonts (DM Sans, Syne, Montserrat) via st.markdown. Called at top of every page. |
 | `styles.py` | ✓ | 1370 | CSS + Plotly theme definitions. get_page_style() returns the light-theme CSS used by Earnings/Overview. apply_plotly_theme() sets the default Plotly template ('mfe_blue' based on plotly_white). |
 | `theme.py` | ✓ | 927 | get_theme_mode() — returns current light/dark preference. |
@@ -250,17 +252,17 @@ SQLite (earningscall_intelligence.db)
 | `fed_funds_data.py` | ✓ | 155 | Loads Federal Funds Rate data for macro panel. |
 | `inflation_analysis.py` | ✓ | 368 | Inflation analysis helpers — CPI comparisons, real vs nominal calculations. |
 | `insights.py` | ✓ | 328 | Generates/retrieves insight text for display on Overview and Earnings pages. |
-| `insights_loader.py` | ✓ | 254 | Loads generated_insights_latest.csv for display. |
-| `database_service.py` | ✓ | 181 | SQLite service wrapper for earningscall_intelligence.db. |
+| `insights_loader.py` | ✓ | 260 | Loads generated_insights_latest.csv for display. |
+| `database_service.py` | ✓ | 256 | SQLite service wrapper for earningscall_intelligence.db. |
 | `api_client.py` | ✓ | 195 | API client for external data sources. |
-| `genie_ai.py` | ✓ | 471 | Core Genie AI logic — builds context from transcript DB + sends to OpenAI. |
+| `genie_ai.py` | ✓ | 530 | Core Genie AI logic — builds context from transcript DB + sends to OpenAI. |
 | `openai_service.py` | ✓ | 612 | OpenAI API wrapper used by Genie. |
 | `ai_assistant.py` | ✓ | 340 | AI assistant UI helpers. |
 | `page_transition.py` | ✓ | 71 | Page transition animation helpers. |
 | `helpers.py` | ✓ | 86 | General utility functions shared across pages. |
 
 **Additional utils (not yet catalogued):**
-- `ai_chat.py` (933 lines)
+- `ai_chat.py` (939 lines)
 - `ai_service.py` (129 lines)
 - `animation_helper.py` (382 lines)
 - `anthropic_service.py` (97 lines)
@@ -271,13 +273,14 @@ SQLite (earningscall_intelligence.db)
 - `enhanced_ai_chat.py` (405 lines)
 - `enhanced_chat_interface.py` (401 lines)
 - `inflation_calculator.py` (457 lines)
-- `insights_loader_fixed.py` (254 lines)
+- `insights_loader_fixed.py` (260 lines)
 - `language.py` (368 lines)
 - `optimized_data_loader.py` (136 lines)
+- `scoring_config.py` (362 lines)
 - `sql_assistant_sidebar.py` (534 lines)
 - `thought_map.py` (1906 lines)
 - `time_utils.py` (74 lines)
-- `transcript_live.py` (705 lines)
+- `transcript_live.py` (928 lines)
 - `user_role.py` (289 lines)
 - `workflow_manager.py` (57 lines)
 
@@ -357,11 +360,11 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | File | Lines | Functions | Classes |
 |---|---|---|---|
 | `app.py` | 5 | 0 | 0 |
-| `app/Welcome.py` | 5003 | 67 | 0 |
-| `app/pages/00_Overview.py` | 11513 | 150 | 0 |
-| `app/pages/01_Earnings.py` | 6208 | 1 | 0 |
+| `app/Welcome.py` | 5685 | 68 | 0 |
+| `app/pages/00_Overview.py` | 11890 | 151 | 0 |
+| `app/pages/01_Earnings.py` | 5995 | 1 | 0 |
 | `app/pages/02_Stocks.py` | 1206 | 20 | 0 |
-| `app/pages/03_Editorial.py` | 977 | 7 | 0 |
+| `app/pages/03_Editorial.py` | 760 | 5 | 0 |
 | `app/pages/04_Genie.py` | 3989 | 30 | 0 |
 | `app/data_processor.py` | 1005 | 1 | 1 |
 | `app/stock_processor_fix.py` | 254 | 5 | 1 |
@@ -369,10 +372,10 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | `app/utils/workbook_market_data.py` | 331 | 12 | 0 |
 | `app/utils/transcript_startup_sync.py` | 194 | 9 | 1 |
 | `scripts/rebuild_transcript_index.py` | 199 | 7 | 1 |
-| `scripts/extract_transcript_topics.py` | 682 | 11 | 0 |
+| `scripts/extract_transcript_topics.py` | 964 | 13 | 0 |
 | `scripts/extract_transcript_highlights_from_sheet.py` | 500 | 20 | 0 |
 | `scripts/extract_kpi_values.py` | 38 | 1 | 0 |
-| `scripts/build_intelligence_db.py` | 349 | 11 | 0 |
+| `scripts/build_intelligence_db.py` | 451 | 12 | 0 |
 | `scripts/sync_gsheet_to_sql.py` | 435 | 13 | 0 |
 | `scripts/generate_insights.py` | 808 | 5 | 1 |
 | `scripts/sync_all_intelligence.py` | 42 | 2 | 0 |
@@ -386,15 +389,15 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | `_run_startup_transcript_sync` | 252 | 1 | 2 |
 | `_mount_welcome_liquid_background` | 305 | 1 | 2 |
 | `_format_money_musd` | 452 | 5 | 6 |
-| `_company_color` | 502 | 4 | 5 |
-| `_resolve_logo` | 541 | 10 | 11 |
+| `_company_color` | 502 | 6 | 7 |
+| `_resolve_logo` | 541 | 12 | 13 |
 | `_resolve_workbook_path` | 680 | 1 | 2 |
 | `_normalize_quarter_label` | 736 | 4 | 9 |
 | `_normalize_company_name` | 752 | 6 | 12 |
 | `_company_variants` | 759 | 2 | 3 |
 | `_resolve_speaker_label` | 780 | 2 | 3 |
 | `_split_company_tokens` | 800 | 1 | 2 |
-| `_read_excel_sheet_cached` | 811 | 12 | 13 |
+| `_read_excel_sheet_cached` | 811 | 14 | 15 |
 | `_pick_col` | 826 | 7 | 8 |
 | `_load_company_metrics_sheet` | 837 | 2 | 3 |
 | `_load_overview_macro_sheet` | 876 | 1 | 2 |
@@ -402,33 +405,34 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | `_load_company_employees_sheet` | 949 | 1 | 2 |
 | `_select_latest_quarter_for_year` | 978 | 1 | 2 |
 | `_load_m2_yearly_series` | 991 | 1 | 2 |
-| `_map_ad_column_to_company` | 1169 | 1 | 2 |
-| `_load_ad_revenue_by_company` | 1179 | 2 | 3 |
-| `_format_people` | 1204 | 1 | 2 |
-| `_sqlite_has_column` | 1318 | 2 | 3 |
-| `_normalize_quotes_frame` | 1424 | 2 | 3 |
-| `_load_pulse_quotes_csv` | 1496 | 1 | 2 |
-| `_load_pulse_quotes_sqlite` | 1516 | 1 | 2 |
-| `_load_transcript_pulse_quotes` | 1569 | 1 | 2 |
-| `_load_page_data` | 1612 | 1 | 2 |
-| `_section` | 2269 | 11 | 12 |
-| `_separator` | 2287 | 13 | 14 |
-| `_deep_dive` | 2294 | 9 | 10 |
-| `_find_col` | 2321 | 35 | 36 |
-| `_yr` | 2334 | 1 | 11 |
-| `_yoy` | 2347 | 3 | 4 |
-| `_yoy_vec` | 2353 | 1 | 2 |
-| `_apply_dark_chart_layout` | 2357 | 3 | 4 |
-| `_normalize_market_feed` | 2383 | 1 | 2 |
-| `_load_market_feed` | 2408 | 1 | 2 |
-| `_render_transcript_pulse_strip` | 2433 | 1 | 2 |
-| `_render_stock_price_strip` | 2495 | 1 | 2 |
-| `_build_numeric_iso_map` | 2732 | 2 | 3 |
-| `_build_ss_html` | 2954 | 1 | 2 |
-| `_build_attn_html` | 3045 | 1 | 2 |
-| `_safe_float` | 3238 | 10 | 11 |
-| `_load_platform_subscriber_data` | 3414 | 1 | 2 |
-| `_build_timeline_data` | 3473 | 1 | 2 |
+| `_load_m2_monthly_series` | 1052 | 1 | 2 |
+| `_map_ad_column_to_company` | 1218 | 2 | 3 |
+| `_load_ad_revenue_by_company` | 1228 | 2 | 3 |
+| `_format_people` | 1253 | 1 | 2 |
+| `_sqlite_has_column` | 1367 | 2 | 3 |
+| `_normalize_quotes_frame` | 1473 | 2 | 3 |
+| `_load_pulse_quotes_csv` | 1545 | 1 | 2 |
+| `_load_pulse_quotes_sqlite` | 1565 | 1 | 2 |
+| `_load_transcript_pulse_quotes` | 1618 | 1 | 2 |
+| `_load_page_data` | 1661 | 1 | 2 |
+| `_section` | 2319 | 12 | 13 |
+| `_separator` | 2337 | 13 | 14 |
+| `_deep_dive` | 2344 | 10 | 11 |
+| `_find_col` | 2371 | 35 | 36 |
+| `_yr` | 2384 | 1 | 11 |
+| `_yoy` | 2397 | 3 | 4 |
+| `_yoy_vec` | 2403 | 1 | 2 |
+| `_apply_dark_chart_layout` | 2407 | 2 | 3 |
+| `_normalize_market_feed` | 2433 | 1 | 2 |
+| `_load_market_feed` | 2458 | 1 | 2 |
+| `_render_transcript_pulse_strip` | 2483 | 1 | 2 |
+| `_render_stock_price_strip` | 2557 | 1 | 2 |
+| `_build_numeric_iso_map` | 2838 | 2 | 3 |
+| `_build_ss_html` | 3071 | 1 | 2 |
+| `_build_attn_html` | 3533 | 1 | 2 |
+| `_safe_float` | 3726 | 10 | 11 |
+| `_load_platform_subscriber_data` | 3902 | 1 | 2 |
+| `_build_timeline_data` | 3961 | 1 | 2 |
 
 **Possibly legacy** (call count = 0 within Welcome.py):
 | Function | Line | Internal Calls | Name References |
@@ -443,24 +447,24 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 | `_quarter_sort_value` | 748 | 0 | 5 |
 | `_normalize_text_for_compare` | 805 | 0 | 1 |
 | `_load_auto_insights` | 899 | 0 | 1 |
-| `_build_home_narrative` | 1052 | 0 | 1 |
-| `_macro_comment_is_placeholder` | 1140 | 0 | 1 |
-| `_pick_macro_comment_for_period` | 1147 | 0 | 1 |
-| `_build_bubble_dataset` | 1216 | 0 | 1 |
-| `_pick_primary_company_for_insight` | 1296 | 0 | 1 |
-| `_get_best_quote_for_insight` | 1327 | 0 | 1 |
-| `_build_rank_cards` | 1873 | 0 | 1 |
-| `_parse_human_count_millions` | 3247 | 0 | 2 |
-| `_parse_billions` | 3261 | 0 | 2 |
-| `_parse_trillion_minutes` | 3276 | 0 | 2 |
+| `_build_home_narrative` | 1101 | 0 | 1 |
+| `_macro_comment_is_placeholder` | 1189 | 0 | 1 |
+| `_pick_macro_comment_for_period` | 1196 | 0 | 1 |
+| `_build_bubble_dataset` | 1265 | 0 | 1 |
+| `_pick_primary_company_for_insight` | 1345 | 0 | 1 |
+| `_get_best_quote_for_insight` | 1376 | 0 | 1 |
+| `_build_rank_cards` | 1923 | 0 | 1 |
+| `_parse_human_count_millions` | 3735 | 0 | 2 |
+| `_parse_billions` | 3749 | 0 | 2 |
+| `_parse_trillion_minutes` | 3764 | 0 | 2 |
 
 ## 14) Chart & Component Footprint
 
 | File | Plotly Calls | HTML Components | @st.cache_data | st.stop Calls |
 |---|---|---|---|---|
-| `app/Welcome.py` | 4 | 14 | 17 | 0 |
+| `app/Welcome.py` | 3 | 17 | 17 | 0 |
 | `app/pages/00_Overview.py` | 61 | 0 | 41 | 6 |
-| `app/pages/01_Earnings.py` | 2 | 0 | 18 | 4 |
+| `app/pages/01_Earnings.py` | 2 | 0 | 16 | 4 |
 | `app/pages/04_Genie.py` | 3 | 0 | 18 | 1 |
 
 ## 15) Known Operational Risks
@@ -477,11 +481,11 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 
 | Check | Status | Time | Details |
 |---|---|---|---|
-| `Workbook resolver` | error | 0.10s | ModuleNotFoundError: No module named 'pandas' |
-| `FinancialDataProcessor.load_data()` | error | 0.04s | ModuleNotFoundError: No module named 'pandas' |
-| `SQLite intelligence tables` | ok | 0.05s | db_found=False |
+| `Workbook resolver` | error | 0.23s | ModuleNotFoundError: No module named 'pandas' |
+| `FinancialDataProcessor.load_data()` | error | 0.05s | ModuleNotFoundError: No module named 'pandas' |
+| `SQLite intelligence tables` | ok | 0.08s | db_found=True; db_path=earningscall_intelligence.db |
 
-- Slowest successful probe: **SQLite intelligence tables** at `0.05s`
+- Slowest successful probe: **SQLite intelligence tables** at `0.08s`
 - Checks needing attention:
   - `Workbook resolver` → `error` (ModuleNotFoundError: No module named 'pandas')
   - `FinancialDataProcessor.load_data()` → `error` (ModuleNotFoundError: No module named 'pandas')
@@ -490,21 +494,21 @@ Container wake takes ~30–60s (unavoidable). Data loading is ~2s (local XLSX).
 
 | SHA | Date | Commit Message |
 |---|---|---|
-| 0f91ebb | 2026-03-25 | Fix variable ordering after Earnings section reorder |
-| a94fb40 | 2026-03-25 | Fix expander arrow text, pill clipping, reorder Earnings sections |
-| e37b589 | 2026-03-24 | Fix invisible expander labels, pill clipping, duplicate map panels, elaborate btn |
-| 00bf686 | 2026-03-24 | Fix expander arrows, queued text, pill clipping, segments, Start Genie button |
-| 713575c | 2026-03-24 | Improve thought map: full map on load, visible edges, Clear All, Elaborate, Start Genie |
-| fd0d2da | 2026-03-24 | Fix Overview axis colors, year selector, macro KPIs, plotly duplicate keys; fix Earnings Comcast segments, expander icons, hero blur |
-| 717a49d | 2026-03-24 | Improve Genie thought map: view buttons inside map, merge Fit/Refresh, add New Thought + node removal |
-| 551d879 | 2026-03-24 | Fix Overview data loading, Stocks grid gaps, Earnings UI issues |
-| 17ce512 | 2026-03-24 | Fix Stocks buttons and grid gaps (root cause found) |
-| e0d5e48 | 2026-03-24 | Fix Stocks buttons, Genie formatting, Overview restructure |
-| 0f3ca51 | 2026-03-23 | Add Genie thought map view modes |
-| 1985aef | 2026-03-23 | Polish Genie thought map note flow |
-| a6be452 | 2026-03-23 | Fix Genie chat placeholder and thought map notes |
-| f61c9ff | 2026-03-23 | fix: merge duplicate title keys in Plotly axis configs |
-| 1041a1d | 2026-03-23 | fix: Plotly titlefont ValueError, Stocks button JS injection |
+| 7648848 | 2026-03-25 | refactor: Revenue Anatomy chart pulls data from Google Sheet dynamically |
+| f849712 | 2026-03-25 | fix: remove duplicate grey CTA buttons, fix pop clipping, nav bar glow on hover |
+| e492ee8 | 2026-03-25 | fix: nav active state, topic map redesign, light theme all graphs, Genie pivot response |
+| b527c7d | 2026-03-25 | fix: Overview chart labels visible on white, quarterly sparklines from per-company sheets, year cap 2024 |
+| 51c4a3b | 2026-03-25 | fix: psycopg import crash on HF + hero logo_count NameError + delayed logo blur |
+| d9f5c58 | 2026-03-25 | perf: Compress hero images, add .dockerignore, slim requirements |
+| 966904e | 2026-03-25 | feat: Country Deep Dive page + Overview country buttons |
+| 0da0637 | 2026-03-25 | fix: Logo paths absolute, glass CTA buttons, Overview active button blue |
+| 8d5f769 | 2026-03-25 | feat: Unified scoring engine — single source of truth for all intelligence |
+| 094cd2c | 2026-03-25 | Fix hero logos: use white variants, dynamic count title, add YouTube to logo registry |
+| 0171b1a | 2026-03-25 | feat: Company_Speakers registry — auto-extracted from transcripts |
+| b727e73 | 2026-03-25 | Remove Transcript Intelligence from Earnings page, now in Overview Narrative & Sentiment |
+| 5692957 | 2026-03-25 | Reduce Revenue Anatomy gap, add Forward Intelligence CTA to Overview |
+| eea5d2f | 2026-03-25 | Add pulsing company logos to hero section with hover glow effect |
+| 340b45d | 2026-03-25 | Move Revenue Anatomy + Forward Intelligence after Structural Shift, slow carousel to 3.5s |
 
 ## 18) Regeneration & Artifact Policy
 

@@ -105,23 +105,27 @@ def load_common_styles():
 		    [data-testid="stMarkdownContainer"] h5,
 		    [data-testid="stMarkdownContainer"] h6 { margin: 0.65rem 0 0.4rem 0; }
 
-		    section[data-testid="stSidebar"] *,
-		    [data-testid="stSidebarNav"] * {
-		        font-family: var(--app-font) !important;
+		    /* Hide default Streamlit sidebar — we use custom bottom nav bar */
+		    section[data-testid="stSidebar"] {
+		        display: none !important;
+		        visibility: hidden !important;
+		        width: 0 !important;
+		        min-width: 0 !important;
+		        max-width: 0 !important;
+		        overflow: hidden !important;
+		    }
+		    [data-testid="stSidebarNav"] {
+		        display: none !important;
+		    }
+		    /* Also hide the collapse button */
+		    [data-testid="collapsedControl"] {
+		        display: none !important;
 		    }
 
             /* Remove excessive default top whitespace across pages */
             [data-testid="stAppViewContainer"] > section > div.block-container {
                 padding-top: 0 !important;
             }
-
-	    section[data-testid="stSidebar"] {
-	        resize: horizontal;
-        overflow: auto;
-        min-width: 220px;
-        max-width: 420px;
-        flex: 0 0 auto;
-    }
 
     h1 {
         color: #0073ff !important;
@@ -163,14 +167,21 @@ def load_common_styles():
     [data-testid="stMultiSelect"] [data-baseweb="tag"] {
         overflow: visible !important;
         max-width: none !important;
-        padding-left: 10px !important;
+        padding-left: 8px !important;
+        min-width: 0 !important;
     }
-    [data-testid="stMultiSelect"] [data-baseweb="tag"] > span:first-child {
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] > span {
         overflow: visible !important;
         text-overflow: unset !important;
         white-space: nowrap !important;
         padding-left: 2px !important;
         margin-left: 0 !important;
+        min-width: 0 !important;
+    }
+    /* Close button inside tag — keep it from overlapping text */
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"] {
+        margin-left: 6px !important;
+        flex-shrink: 0 !important;
     }
     /* Ensure the tag container doesn't clip */
     [data-testid="stMultiSelect"] [data-baseweb="input"] {
@@ -178,6 +189,13 @@ def load_common_styles():
     }
     [data-testid="stMultiSelect"] [data-baseweb="select"] > div:first-child {
         overflow: visible !important;
+        flex-wrap: wrap !important;
+    }
+    /* Ensure pill text is fully visible */
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] span[dir="auto"] {
+        overflow: visible !important;
+        text-overflow: unset !important;
+        max-width: none !important;
     }
 
     /* Slider styling */

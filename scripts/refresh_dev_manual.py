@@ -71,6 +71,7 @@ def _build_status(removed_legacy: list[str] | None = None) -> dict:
         "generator_scripts": [
             "scripts/generate_dev_manual_assets.py",
             "scripts/generate_current_bible.py",
+            "scripts/generate_chart_atlas.py",
             "scripts/generate_current_bible_pdf.py",
         ],
         "canonical_bible_files": [
@@ -95,6 +96,8 @@ def main() -> None:
     print("Building speaker registry...")
     subprocess.run([sys.executable, "scripts/build_speaker_registry.py"], cwd=str(ROOT), check=False)
     _run(["python3", "scripts/generate_current_bible.py"])
+    print("Building chart atlas...")
+    _run(["python3", "scripts/generate_chart_atlas.py"])
     if not args.skip_pdf:
         _run(["python3", "scripts/generate_current_bible_pdf.py"])
     removed_legacy = _remove_legacy_duplicates()

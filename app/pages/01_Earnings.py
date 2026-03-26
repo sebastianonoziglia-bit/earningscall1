@@ -1139,14 +1139,16 @@ def main():
         fig.update_xaxes(
             tickfont=dict(color="#374151"),
             title_font=dict(color="#374151"),
-            gridcolor="#21262d",
+            gridcolor="rgba(0,0,0,0.06)",
+            gridwidth=0.5,
             showline=False,
             zeroline=False,
         )
         fig.update_yaxes(
             tickfont=dict(color="#374151"),
             title_font=dict(color="#374151"),
-            gridcolor="#21262d",
+            gridcolor="rgba(0,0,0,0.06)",
+            gridwidth=0.5,
             showline=False,
             zeroline=False,
         )
@@ -3873,7 +3875,7 @@ def main():
         key="metrics_year_range",
     )
 
-    metric_toggle_row = st.columns([0.55, 0.25, 0.2])
+    metric_toggle_row = st.columns([0.40, 0.25, 0.35])
     with metric_toggle_row[1]:
         metrics_freq = st.radio(
             "Frequency",
@@ -5882,7 +5884,7 @@ def main():
     _day_html = _build_stock_table(_cg_day, _all_day_keys, "No daily stock data available.")
 
     _cg_q_years = max((len(_cg_q_vals.get(ml, {})) for ml in _HM_METRICS), default=0)
-    _cg_height = max(500, min(980, 220 + _cg_q_years * 36))
+    _cg_height = max(540, 260 + _cg_q_years * 38)
 
     _cg_html = (
         """<!DOCTYPE html><html><head><meta charset='utf-8'>
@@ -5970,22 +5972,7 @@ function cgMetric(tab,mid,btn){
 </script>
 </body></html>"""
     )
-    components.html(_cg_html, height=_cg_height, scrolling=True)
-
-    # Auto-generated insight for the top 3 metrics
-    _hm_insight_data = {}
-    for _ml in list(_HM_METRICS.keys())[:3]:
-        _yr_dict = _cg_q_vals.get(_ml, {})
-        if _yr_dict:
-            _hm_insight_data[_ml] = {
-                f"{yr} Q{q}": v
-                for yr, qd in _yr_dict.items()
-                for q, v in qd.items()
-                if v is not None
-            }
-    _hm_insight_html = _auto_insight(_hm_insight_data, company)
-    if _hm_insight_html:
-        st.markdown(_hm_insight_html, unsafe_allow_html=True)
+    components.html(_cg_html, height=_cg_height, scrolling=False)
 
 
     # Transcript Intelligence removed — now in Overview Narrative & Sentiment

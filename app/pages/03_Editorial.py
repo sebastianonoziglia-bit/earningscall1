@@ -490,53 +490,122 @@ with tab1:
             with chart_col:
                 _color = _service_color(service)
                 _r, _g, _b = _hex_to_rgb(_color)
-                _fill_color = f"rgba({_r},{_g},{_b},0.08)"
+                _fill_rgba = f"rgba({_r},{_g},{_b},0.08)"
 
-                _y_vals = pd.to_numeric(df_service[column_name], errors="coerce")
+                _y_vals = pd.to_numeric(df_service[column_name], errors="coerce").tolist()
+                _x_labels = df_service["Quarter"].tolist()
+                _unit = service_data.get("unit", "millions")
 
-                fig = go.Figure(
-                    data=[go.Scatter(
-                        x=df_service["Quarter"],
-                        y=_y_vals,
-                        mode="lines",
-                        line=dict(width=2.5, color=_color, shape="spline"),
-                        fill="tozeroy",
-                        fillcolor=_fill_color,
-                        hovertemplate=(
-                            f"<b>{service}</b><br>Quarter: %{{x}}<br>"
-                            f"Value: %{{y:.1f}} {service_data.get('unit','millions')}<extra></extra>"
-                        ),
-                    )],
+                # Build animated Canvas chart — draws line on hover loop
+                import json as _json
+                _chart_id = f"sc_{service.replace(' ','_').replace('+','p').replace('/','s')}"
+                _data_json = _json.dumps({"x": _x_labels, "y": _y_vals})
+                _anim_html = (
+                    "<div id='" + _chart_id + "_wrap' style='width:100%;height:220px;position:relative;cursor:crosshair;'>"
+                    "<canvas id='" + _chart_id + "' style='width:100%;height:100%;display:block;'></canvas>"
+                    "<div id='" + _chart_id + "_tip' style='position:absolute;display:none;pointer-events:none;"
+                    "background:rgba(17,24,39,0.92);color:#f9fafb;font:11px DM Sans,Inter,sans-serif;"
+                    "padding:5px 9px;border-radius:6px;white-space:nowrap;z-index:9;'></div>"
+                    "</div>"
+                    "<script>"
+                    "(function(){"
+                    "var D=" + _data_json + ";"
+                    "var color='" + _color + "';"
+                    "var fillRGBA='" + _fill_rgba + "';"
+                    "var svc='" + service.replace("'", "\\'") + "';"
+                    "var unit='" + _unit.replace("'", "\\'") + "';"
+                    "var wrap=document.getElementById('" + _chart_id + "_wrap');"
+                    "var cvs=document.getElementById('" + _chart_id + "');"
+                    "var tip=document.getElementById('" + _chart_id + "_tip');"
+                    "var ctx=cvs.getContext('2d');"
+                    "var dpr=window.devicePixelRatio||1;"
+                    "var W,H,padL=44,padR=12,padT=14,padB=36;"
+                    "var xs=D.x,ys=D.y,N=xs.length;"
+                    "var yMin=Math.min.apply(null,ys),yMax=Math.max.apply(null,ys);"
+                    "if(yMin===yMax){yMin*=0.9;yMax*=1.1;}"
+                    "var animProg=1,animId=null,speed=0.025;"
+
+                    "function resize(){"
+                    "  W=wrap.clientWidth;H=wrap.clientHeight;"
+                    "  cvs.width=W*dpr;cvs.height=H*dpr;"
+                    "  cvs.style.width=W+'px';cvs.style.height=H+'px';"
+                    "  ctx.setTransform(dpr,0,0,dpr,0,0);"
+                    "}"
+
+                    "function px(i){return padL+(W-padL-padR)*i/(N-1);}"
+                    "function py(v){return padT+(H-padT-padB)*(1-(v-yMin)/(yMax-yMin));}"
+
+                    "function drawGrid(){"
+                    "  ctx.clearRect(0,0,W,H);"
+                    "  ctx.strokeStyle='rgba(0,0,0,0.05)';ctx.lineWidth=0.5;"
+                    "  for(var g=0;g<5;g++){"
+                    "    var gy=padT+(H-padT-padB)*g/4;"
+                    "    ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(W-padR,gy);ctx.stroke();"
+                    "    var val=yMax-(yMax-yMin)*g/4;"
+                    "    ctx.fillStyle='#9ca3af';ctx.font='10px DM Sans,Inter,sans-serif';ctx.textAlign='right';"
+                    "    ctx.fillText(val>=100?Math.round(val).toLocaleString():val.toFixed(1),padL-6,gy+3);"
+                    "  }"
+                    "  ctx.fillStyle='#9ca3af';ctx.font='10px DM Sans,Inter,sans-serif';ctx.textAlign='center';"
+                    "  var step=Math.max(1,Math.floor(N/6));"
+                    "  for(var i=0;i<N;i+=step){"
+                    "    ctx.save();ctx.translate(px(i),H-padB+14);ctx.rotate(-0.65);"
+                    "    ctx.fillText(xs[i],0,0);ctx.restore();"
+                    "  }"
+                    "}"
+
+                    "function drawLine(prog){"
+                    "  drawGrid();"
+                    "  var pts=Math.min(N,Math.floor(prog*N)+1);"
+                    "  if(pts<2)return;"
+                    "  ctx.beginPath();ctx.moveTo(px(0),py(ys[0]));"
+                    "  for(var i=1;i<pts;i++){ctx.lineTo(px(i),py(ys[i]));}"
+                    "  if(prog<1){var frac=prog*N-Math.floor(prog*N);"
+                    "    var li=Math.min(pts-1,N-2),ni=Math.min(li+1,N-1);"
+                    "    ctx.lineTo(px(li)+frac*(px(ni)-px(li)),py(ys[li])+frac*(py(ys[ni])-py(ys[li])));"
+                    "  }"
+                    "  ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();"
+                    "  ctx.lineTo(px(pts-1),H-padB);ctx.lineTo(px(0),H-padB);ctx.closePath();"
+                    "  ctx.fillStyle=fillRGBA;ctx.fill();"
+                    "  if(prog>=1){"
+                    "    ctx.beginPath();ctx.arc(px(N-1),py(ys[N-1]),4,0,Math.PI*2);"
+                    "    ctx.fillStyle=color;ctx.fill();"
+                    "  }"
+                    "}"
+
+                    "function animate(){"
+                    "  animProg+=speed;"
+                    "  if(animProg>=1){animProg=1;drawLine(1);animId=null;return;}"
+                    "  drawLine(animProg);animId=requestAnimationFrame(animate);"
+                    "}"
+
+                    "function startAnim(){"
+                    "  if(animId)cancelAnimationFrame(animId);"
+                    "  animProg=0;animId=requestAnimationFrame(animate);"
+                    "}"
+
+                    "wrap.addEventListener('mouseenter',startAnim);"
+
+                    "wrap.addEventListener('mousemove',function(e){"
+                    "  var rect=cvs.getBoundingClientRect();"
+                    "  var mx=e.clientX-rect.left,my=e.clientY-rect.top;"
+                    "  var idx=Math.round((mx-padL)/(W-padL-padR)*(N-1));"
+                    "  idx=Math.max(0,Math.min(N-1,idx));"
+                    "  var v=ys[idx];"
+                    "  tip.style.display='block';"
+                    "  tip.innerHTML='<b>'+svc+'</b><br>'+xs[idx]+'<br>'+v.toFixed(1)+' '+unit;"
+                    "  var tx=px(idx)+8,ty=py(v)-30;"
+                    "  if(tx+130>W)tx=px(idx)-140;"
+                    "  tip.style.left=tx+'px';tip.style.top=Math.max(0,ty)+'px';"
+                    "});"
+
+                    "wrap.addEventListener('mouseleave',function(){tip.style.display='none';});"
+
+                    "resize();drawLine(1);"
+                    "window.addEventListener('resize',function(){resize();drawLine(animProg);});"
+                    "})();"
+                    "</script>"
                 )
-                fig.update_layout(
-                    margin=dict(l=20, r=20, t=25, b=50),
-                    height=220,
-                    showlegend=False,
-                    template="plotly_white",
-                    xaxis_title=None,
-                    yaxis_title=None,
-                    plot_bgcolor="white",
-                    paper_bgcolor="white",
-                    font=dict(family="DM Sans, Inter, sans-serif", size=11, color="#374151"),
-                    xaxis=dict(
-                        type="category",
-                        categoryorder="array",
-                        categoryarray=df_service["Quarter"].tolist(),
-                        tickangle=45,
-                        showgrid=False,
-                        tickfont=dict(size=10, color="#6b7280"),
-                    ),
-                    yaxis=dict(
-                        showgrid=True,
-                        gridcolor="rgba(0,0,0,0.05)",
-                        tickfont=dict(size=10, color="#6b7280"),
-                    ),
-                )
-
-                _chart_key = f"chart_{service.replace(' ','_').replace('+','plus').replace('/','_').replace(' ','_')}"
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(fig, use_container_width=True, key=_chart_key, config={"displayModeBar": False})
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.components.v1.html(_anim_html, height=220, scrolling=False)
 
             st.markdown("---")
 
