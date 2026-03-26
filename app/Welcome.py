@@ -2791,7 +2791,7 @@ _hero_logos_html = "".join(_hero_logo_items)
 st.components.v1.html(
     "<style>@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap');"
     "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
-    "@keyframes hlPulse{0%,100%{opacity:0.55;transform:scale(1);}50%{opacity:1;transform:scale(1.1);}}"
+    "@keyframes hlPulse{0%,100%{box-shadow:0 0 0 transparent;}50%{box-shadow:0 0 12px color-mix(in srgb,var(--hl-brand) 35%,transparent);}}"
     "@keyframes kpiFadeIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}"
     ".hl-wrap{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:36px;align-items:center;}"
     ".hl-logo{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.04);"
@@ -2830,7 +2830,7 @@ st.components.v1.html(
     f"<div class='kpi-card' style='animation-delay:1.2s;font-size:1.05rem;line-height:1.85;color:#c9d1d9;max-width:680px;'>{narrative_html}</div>"
     "<div style='color:#8b949e;font-size:0.85rem;margin-top:48px;letter-spacing:0.1em;'>&#8595; Scroll to explore</div>"
     "</div>"
-    "<script>setTimeout(function(){document.querySelectorAll('.hl-logo').forEach(function(el){el.classList.add('pulsing');});},2000);</script>",
+    "<script>setTimeout(function(){document.querySelectorAll('.hl-logo').forEach(function(el){el.classList.add('pulsing');});},5000);</script>",
     height=640,
 )
 
