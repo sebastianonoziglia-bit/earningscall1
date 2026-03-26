@@ -1049,6 +1049,55 @@ def _load_m2_yearly_series(excel_path: str, source_stamp: int) -> pd.DataFrame:
     return out
 
 
+def _load_m2_monthly_series(excel_path: str, source_stamp: int) -> pd.DataFrame:
+    """Load M2 at full monthly granularity for the animated chart."""
+    raw = _read_excel_sheet_cached(excel_path, "M2", source_stamp)
+    if raw.empty:
+        raw = _read_excel_sheet_cached(excel_path, "M2_values", source_stamp)
+    if raw.empty:
+        return pd.DataFrame(columns=["date", "m2_value"])
+    df = raw.copy()
+    df.columns = [str(col).strip().lower() for col in df.columns]
+    date_col = ""
+    for candidate in ["observation_date", "observation date", "date", "period", "he"]:
+        if candidate in df.columns:
+            date_col = candidate
+            break
+    if not date_col:
+        for col in df.columns:
+            parsed = pd.to_datetime(df[col], errors="coerce")
+            if parsed.notna().mean() >= 0.7:
+                date_col = col
+                break
+    if not date_col:
+        return pd.DataFrame(columns=["date", "m2_value"])
+    df["_date"] = pd.to_datetime(df[date_col], errors="coerce")
+    value_col = ""
+    preferred = {"m2sl", "wm2ns", "wm2", "m2", "m2value", "value"}
+    for col in df.columns:
+        normalized = re.sub(r"[^a-z0-9]+", "", col.lower())
+        if normalized in preferred:
+            value_col = col
+            break
+    if not value_col:
+        excluded = {date_col, "_date"}
+        for col in df.columns:
+            if col in excluded:
+                continue
+            numeric = pd.to_numeric(df[col], errors="coerce")
+            if numeric.notna().sum() > 0:
+                value_col = col
+                break
+    if not value_col:
+        return pd.DataFrame(columns=["date", "m2_value"])
+    out = pd.DataFrame({
+        "date": df["_date"],
+        "m2_value": pd.to_numeric(df[value_col], errors="coerce"),
+    })
+    out = out.dropna(subset=["date", "m2_value"]).sort_values("date").reset_index(drop=True)
+    return out
+
+
 def _build_home_narrative(
     year: int,
     metrics_df: pd.DataFrame,
@@ -1718,6 +1767,7 @@ home_year_default = int(home_year_options[-1]) if home_year_options else latest_
 macro_df = _load_overview_macro_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
 ad_sheet_df = _load_company_ad_revenue_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
 m2_yearly_df = _load_m2_yearly_series(excel_path, source_stamp) if excel_path else pd.DataFrame()
+m2_monthly_df = _load_m2_monthly_series(excel_path, source_stamp) if excel_path else pd.DataFrame()
 
 # ── Fallback: if M2 sheet is missing, use known US M2 money supply by year ($T) ──
 if m2_yearly_df.empty:
@@ -2929,11 +2979,21 @@ var isoNames="""
 var root=document.getElementById('adglobe-root');
 var tooltip=document.getElementById('adglobe-tooltip');
 var W=root.clientWidth||900,H=600;
-var svg=d3.select('#adglobe-root').append('svg').attr('width',W).attr('height',H).style('position','absolute').style('top','0').style('left','0');
+var svg=d3.select('#adglobe-root').append('svg').attr('width',W).attr('height',H).style('position','absolute').style('top','0').style('left','0').style('filter','drop-shadow(0 0 24px rgba(59,130,246,0.12))');
 var projection=d3.geoOrthographic().scale(Math.min(W,H)*0.42).translate([W/2,H/2]).clipAngle(90).rotate([0,-20]);
 var path=d3.geoPath().projection(projection);
-svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','#0d1f35').attr('stroke','rgba(99,179,237,0.15)').attr('stroke-width',1);
+var defs=svg.append('defs');
+var radGrad=defs.append('radialGradient').attr('id','globeGlow').attr('cx','38%').attr('cy','32%').attr('r','65%');
+radGrad.append('stop').attr('offset','0%').attr('stop-color','#1a3a5c').attr('stop-opacity',1);
+radGrad.append('stop').attr('offset','60%').attr('stop-color','#0d1f35').attr('stop-opacity',1);
+radGrad.append('stop').attr('offset','100%').attr('stop-color','#060d18').attr('stop-opacity',1);
+var shimmerGrad=defs.append('radialGradient').attr('id','globeShimmer').attr('cx','35%').attr('cy','28%').attr('r','50%');
+shimmerGrad.append('stop').attr('offset','0%').attr('stop-color','rgba(147,197,253,0.12)');
+shimmerGrad.append('stop').attr('offset','100%').attr('stop-color','rgba(147,197,253,0)');
+svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','url(#globeGlow)').attr('stroke','rgba(99,179,237,0.15)').attr('stroke-width',1);
 var gCountries=svg.append('g');
+var shimmerCircle=svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','url(#globeShimmer)').attr('pointer-events','none').style('opacity',0.6);
+var shimUp=true;function animShimmer(){var cur=parseFloat(shimmerCircle.style('opacity'));var next=shimUp?cur+0.004:cur-0.004;if(next>=0.7)shimUp=false;if(next<=0.3)shimUp=true;shimmerCircle.style('opacity',next);requestAnimationFrame(animShimmer);}requestAnimationFrame(animShimmer);
 function adColor(v){
   if(!v&&v!==0)return '#1a2744';
   var t=Math.min(v/1.5,1);
@@ -2947,6 +3007,7 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(fun
   gCountries.selectAll('path').data(countries).enter().append('path')
     .attr('d',path)
     .attr('fill',function(d){var a=num2alpha[String(d.id)]||'';var v=adGdpData[a];return adColor(v);})
+    .attr('opacity',0.82)
     .attr('stroke','rgba(255,255,255,0.1)').attr('stroke-width',0.4)
     .style('cursor','pointer')
     .on('mousemove',function(event,d){
@@ -4303,13 +4364,16 @@ _CONC_SEG_ORDER = ["Alphabet", "Meta", "Amazon", "Apple + MSFT",
                    "Search (other)", "Social (other)", "Display (other)", "Video (other)", "Other Digital",
                    "TV (Free + Pay)", "Print", "Radio", "OOH", "Cinema"]
 _CONC_SEG_COLORS = {
-    "Alphabet": "#4285f4", "Meta": "#0082fb", "Amazon": "#ff9900",
-    "Apple + MSFT": "#ff4202",
-    "Search (other)": "#5c6bc0", "Social (other)": "#26a69a",
-    "Display (other)": "#7e57c2", "Video (other)": "#ef5350",
-    "Other Digital": "#4a4a4a",
-    "TV (Free + Pay)": "#444444", "Print": "#333333",
-    "Radio": "#282828", "OOH": "#1e1e1e", "Cinema": "#141414",
+    # Companies — distinct, vivid
+    "Alphabet": "#4285f4", "Meta": "#e040fb", "Amazon": "#ff9900",
+    "Apple + MSFT": "#34d399",
+    # Digital channels — grey gradient (lightest = biggest)
+    "Search (other)": "#6b7280", "Social (other)": "#5b616b",
+    "Display (other)": "#4b5058", "Video (other)": "#3b3f46",
+    "Other Digital": "#2d3138",
+    # Traditional media — darker greys
+    "TV (Free + Pay)": "#252830", "Print": "#1e2028",
+    "Radio": "#181a20", "OOH": "#131518", "Cinema": "#0e1012",
 }
 _CONC_DIG_PATTERNS = ["Search", "Social", "Display", "Video", "Digital OOH", "Other Desktop", "Other Mobile"]
 
@@ -4432,7 +4496,7 @@ html,body{{margin:0;padding:0;background:#020810;}}
 /* bar */
 .bar-container{{width:100%;height:130px;display:flex;position:relative;z-index:2;
   border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;}}
-.bar-segment{{height:100%;position:relative;border-right:2px solid rgba(255,255,255,0.18);
+.bar-segment{{height:100%;position:relative;border-right:1px solid rgba(255,255,255,0.12);opacity:0.88;
   flex-shrink:0;overflow:hidden;transition:width 0.7s cubic-bezier(.4,0,.2,1);}}
 .bar-segment:first-child{{border-radius:8px 0 0 8px;}}
 .bar-segment:last-child{{border-right:none;border-radius:0 8px 8px 0;}}
@@ -4600,54 +4664,329 @@ st.markdown("</div>", unsafe_allow_html=True)
 _deep_dive("earnings", "Explore company financials")
 _separator()
 
-# Beat 6 — M2 vs ad spend
+# Beat 6 — M2 vs ad spend (animated)
 _section(
     "The Money Printer",
     "When liquidity expands, ad markets follow.",
-    "Both lines are indexed to 2010 = 100. The relationship between M2 and ad spend remains structurally tight through multiple cycles."
+    "Both lines are indexed to first common year = 100. M2 shown at monthly granularity. The relationship between M2 and ad spend remains structurally tight through multiple cycles."
 )
 try:
-    import plotly.graph_objects as go
-    if m2_yearly_df.empty or _global_adv_totals.empty:
+    # Determine first year with ad data
+    _m2_anim_first_ad_year = int(_global_adv_totals.index.min()) if not _global_adv_totals.empty else 1999
+    # Prepare M2 monthly, scoped from first ad year
+    _m2_monthly_scoped = pd.DataFrame()
+    if not m2_monthly_df.empty:
+        _m2_ms = m2_monthly_df.copy()
+        _m2_ms["year"] = _m2_ms["date"].dt.year
+        _m2_ms = _m2_ms[_m2_ms["year"] >= _m2_anim_first_ad_year].sort_values("date")
+        if not _m2_ms.empty:
+            _m2_monthly_scoped = _m2_ms
+    # Prepare ad spend yearly, scoped
+    _ad_yearly_scoped = pd.DataFrame()
+    if not _global_adv_totals.empty:
+        _gm = _global_adv_totals.reset_index()
+        _gm.columns = ["year", "ad_total"]
+        _gm = _gm[_gm["year"] >= _m2_anim_first_ad_year].sort_values("year")
+        if not _gm.empty:
+            _ad_yearly_scoped = _gm
+
+    if _m2_monthly_scoped.empty or _ad_yearly_scoped.empty:
         st.info("M2 vs Ad Spend chart unavailable.")
     else:
-        m2_scoped = m2_yearly_df.copy()
-        m2_scoped["year"] = pd.to_numeric(m2_scoped["year"], errors="coerce")
-        m2_scoped["m2_value"] = pd.to_numeric(m2_scoped["m2_value"], errors="coerce")
-        m2_scoped = m2_scoped.dropna(subset=["year", "m2_value"])
-        gm = _global_adv_totals.reset_index()
-        gm.columns = ["year", "ad_total"]
-        merged = m2_scoped.merge(gm, on="year", how="inner")
-        merged = merged[merged["year"] >= 2010].sort_values("year")
-        if merged.empty:
+        # Index both to the first common year = 100
+        _base_yr = max(_m2_anim_first_ad_year, int(_ad_yearly_scoped["year"].min()))
+        _base_m2_rows = _m2_monthly_scoped[_m2_monthly_scoped["year"] == _base_yr]
+        _base_m2_val = float(_base_m2_rows["m2_value"].mean()) if not _base_m2_rows.empty else 1.0
+        _base_ad_val = float(_ad_yearly_scoped[_ad_yearly_scoped["year"] == _base_yr]["ad_total"].iloc[0]) if (_ad_yearly_scoped["year"] == _base_yr).any() else 1.0
+
+        if _base_m2_val <= 0 or _base_ad_val <= 0:
             st.info("M2 vs Ad Spend chart unavailable.")
         else:
-            base_year = 2010 if (merged["year"] == 2010).any() else int(merged["year"].min())
-            base_m2 = float(merged[merged["year"] == base_year]["m2_value"].iloc[0])
-            base_ad = float(merged[merged["year"] == base_year]["ad_total"].iloc[0])
-            if base_m2 <= 0 or base_ad <= 0:
-                st.info("M2 vs Ad Spend chart unavailable.")
-            else:
-                merged["m2_idx"] = merged["m2_value"] / base_m2 * 100
-                merged["ad_idx"] = merged["ad_total"] / base_ad * 100
-                m2_fig = go.Figure()
-                m2_fig.add_trace(go.Scatter(x=merged["year"], y=merged["m2_idx"], name="M2 Money Supply (indexed)", line=dict(color="#3b82f6", width=2.5)))
-                m2_fig.add_trace(go.Scatter(x=merged["year"], y=merged["ad_idx"], name="Global Ad Spend (indexed)", line=dict(color="#ff9900", width=2.5), yaxis="y2"))
-                m2_fig.add_vrect(x0=2020, x1=2021, fillcolor="rgba(255,255,255,0.05)", line_width=0, annotation_text="2020 stimulus", annotation_font_color="rgba(255,255,255,0.4)")
-                _apply_dark_chart_layout(
-                    m2_fig,
-                    height=370,
-                    margin=dict(l=0, r=60, t=32, b=40),
-                    extra_layout=dict(
-                        yaxis=dict(title="M2 (indexed, 2010=100)", color="rgba(255,255,255,0.35)", gridcolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.08)"),
-                        yaxis2=dict(title="Ad Spend (indexed)", overlaying="y", side="right", color="rgba(255,255,255,0.35)"),
-                    ),
-                )
-                st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-                st.plotly_chart(m2_fig, use_container_width=True, config={"displayModeBar": False})
-                st.markdown("</div>", unsafe_allow_html=True)
-                st.caption("Both M2 money supply and global ad spend are indexed to 2010 = 100.")
-except Exception:
+            # Build JSON arrays for JS
+            _m2_points = []
+            for _, row in _m2_monthly_scoped.iterrows():
+                _m2_points.append({
+                    "d": row["date"].strftime("%Y-%m"),
+                    "v": round(float(row["m2_value"]) / _base_m2_val * 100, 1),
+                    "y": int(row["year"]),
+                })
+            _ad_points = []
+            for _, row in _ad_yearly_scoped.iterrows():
+                _ad_points.append({
+                    "y": int(row["year"]),
+                    "v": round(float(row["ad_total"]) / _base_ad_val * 100, 1),
+                })
+            import json as _json
+            _m2_json = _json.dumps(_m2_points)
+            _ad_json = _json.dumps(_ad_points)
+
+            _m2_anim_html = """
+<div id="m2-chart-wrap" style="position:relative;width:100%;height:420px;background:transparent;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
+  <canvas id="m2Canvas" style="width:100%;height:100%;"></canvas>
+  <div id="m2Tooltip" style="position:absolute;display:none;background:rgba(13,17,23,0.92);color:#e6edf3;padding:8px 12px;border-radius:8px;font-size:12px;pointer-events:none;border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(8px);z-index:10;"></div>
+  <div id="m2Year" style="position:absolute;top:12px;right:16px;font-size:40px;font-weight:800;color:rgba(255,255,255,0.08);pointer-events:none;"></div>
+  <div id="m2Legend" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:24px;font-size:12px;color:#aaa;">
+    <span><span style="display:inline-block;width:12px;height:3px;background:#3b82f6;border-radius:2px;margin-right:6px;vertical-align:middle;"></span>M2 Money Supply (monthly)</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:#ff9900;border-radius:50%;margin-right:6px;vertical-align:middle;"></span>Global Ad Spend (yearly)</span>
+  </div>
+</div>
+<script>
+(function(){
+var m2Data = """ + _m2_json + """;
+var adData = """ + _ad_json + """;
+var canvas = document.getElementById('m2Canvas');
+var wrap = document.getElementById('m2-chart-wrap');
+var tooltip = document.getElementById('m2Tooltip');
+var yearLabel = document.getElementById('m2Year');
+var dpr = window.devicePixelRatio || 1;
+function resize(){
+  var r = wrap.getBoundingClientRect();
+  canvas.width = r.width * dpr;
+  canvas.height = r.height * dpr;
+  canvas.style.width = r.width + 'px';
+  canvas.style.height = r.height + 'px';
+}
+resize();
+var ctx = canvas.getContext('2d');
+ctx.scale(dpr, dpr);
+
+var PAD = {l:56, r:56, t:24, b:48};
+var W, H;
+function dims(){ var r=wrap.getBoundingClientRect(); W=r.width; H=r.height; }
+dims();
+
+// Compute ranges
+var allVals = m2Data.map(function(p){return p.v;}).concat(adData.map(function(p){return p.v;}));
+var minV = Math.min.apply(null, allVals) * 0.95;
+var maxV = Math.max.apply(null, allVals) * 1.05;
+var minYear = m2Data[0].y;
+var maxYear = m2Data[m2Data.length-1].y;
+// Total months for x-axis
+var totalPts = m2Data.length;
+
+function xPos(i){ return PAD.l + (i / (totalPts-1)) * (W - PAD.l - PAD.r); }
+function yPos(v){ return PAD.t + (1 - (v - minV) / (maxV - minV)) * (H - PAD.t - PAD.b); }
+
+// Map ad yearly data to m2 index positions
+var adMapped = [];
+adData.forEach(function(ad){
+  // Find the m2 index closest to Jan of that year
+  for(var i=0;i<m2Data.length;i++){
+    if(m2Data[i].y === ad.y){ adMapped.push({i:i, y:ad.y, v:ad.v}); break; }
+  }
+});
+
+// Animation state
+var frame = 0;
+var speed = 3; // points per frame
+var animDone = false;
+
+function drawGrid(){
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  // Horizontal grid + labels
+  var nGrid = 5;
+  ctx.font = '11px -apple-system,BlinkMacSystemFont,sans-serif';
+  ctx.textAlign = 'right';
+  for(var g=0;g<=nGrid;g++){
+    var gv = minV + (maxV - minV) * g / nGrid;
+    var gy = yPos(gv);
+    ctx.beginPath(); ctx.moveTo(PAD.l, gy); ctx.lineTo(W-PAD.r, gy); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillText(Math.round(gv), PAD.l - 8, gy + 4);
+  }
+  // Year labels on x-axis
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  var prevLabel = -1;
+  for(var i=0;i<m2Data.length;i++){
+    var yr = m2Data[i].y;
+    if(yr !== prevLabel && yr % 5 === 0){
+      ctx.fillText(yr, xPos(i), H - PAD.b + 18);
+      prevLabel = yr;
+    }
+  }
+  // Axis labels
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = '10px -apple-system,BlinkMacSystemFont,sans-serif';
+  ctx.translate(14, H/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Indexed (""" + str(_base_yr) + """ = 100)', 0, 0);
+  ctx.restore();
+}
+
+// 2020 stimulus highlight
+var stimStart = -1, stimEnd = -1;
+for(var i=0;i<m2Data.length;i++){
+  if(m2Data[i].y === 2020 && stimStart < 0) stimStart = i;
+  if(m2Data[i].y === 2021) stimEnd = i;
+}
+
+function drawFrame(){
+  dims();
+  resize();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawGrid();
+
+  var show = Math.min(frame, totalPts);
+
+  // 2020 stimulus band
+  if(stimStart >= 0 && stimEnd >= 0 && show > stimStart){
+    var sx0 = xPos(stimStart), sx1 = xPos(Math.min(stimEnd, show));
+    ctx.fillStyle = 'rgba(239,68,68,0.06)';
+    ctx.fillRect(sx0, PAD.t, sx1-sx0, H-PAD.t-PAD.b);
+    if(show > stimEnd){
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.font = '10px -apple-system,BlinkMacSystemFont,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('2020 stimulus', (sx0+sx1)/2, PAD.t + 16);
+    }
+  }
+
+  // M2 monthly line (blue)
+  if(show > 1){
+    ctx.beginPath();
+    ctx.moveTo(xPos(0), yPos(m2Data[0].v));
+    for(var i=1;i<show;i++){
+      ctx.lineTo(xPos(i), yPos(m2Data[i].v));
+    }
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    // Glow
+    ctx.strokeStyle = 'rgba(59,130,246,0.15)';
+    ctx.lineWidth = 8;
+    ctx.stroke();
+  }
+
+  // Ad spend dots (orange) — appear when animation reaches that year
+  for(var a=0;a<adMapped.length;a++){
+    if(adMapped[a].i >= show) break;
+    var ax = xPos(adMapped[a].i);
+    var ay = yPos(adMapped[a].v);
+    // Connecting stem
+    ctx.beginPath();
+    ctx.moveTo(ax, ay - 6);
+    ctx.lineTo(ax, ay + 6);
+    ctx.strokeStyle = 'rgba(255,153,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Dot
+    ctx.beginPath();
+    ctx.arc(ax, ay, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#ff9900';
+    ctx.fill();
+    // Glow
+    ctx.beginPath();
+    ctx.arc(ax, ay, 8, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,153,0,0.15)';
+    ctx.fill();
+  }
+
+  // Year counter overlay
+  if(show > 0 && show <= totalPts){
+    yearLabel.textContent = m2Data[Math.min(show-1, totalPts-1)].y;
+  }
+
+  if(!animDone){
+    frame += speed;
+    if(frame >= totalPts){
+      frame = totalPts;
+      animDone = true;
+      // Draw ad spend connecting line when done
+      if(adMapped.length > 1){
+        ctx.beginPath();
+        ctx.moveTo(xPos(adMapped[0].i), yPos(adMapped[0].v));
+        for(var a=1;a<adMapped.length;a++){
+          ctx.lineTo(xPos(adMapped[a].i), yPos(adMapped[a].v));
+        }
+        ctx.strokeStyle = 'rgba(255,153,0,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4,4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    requestAnimationFrame(drawFrame);
+  } else {
+    // Final: draw ad connecting line
+    if(adMapped.length > 1){
+      ctx.beginPath();
+      ctx.moveTo(xPos(adMapped[0].i), yPos(adMapped[0].v));
+      for(var a=1;a<adMapped.length;a++){
+        ctx.lineTo(xPos(adMapped[a].i), yPos(adMapped[a].v));
+      }
+      ctx.strokeStyle = 'rgba(255,153,0,0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4,4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}
+
+// Tooltip on hover
+wrap.addEventListener('mousemove', function(e){
+  if(!animDone) return;
+  var rect = canvas.getBoundingClientRect();
+  var mx = e.clientX - rect.left;
+  // Find closest m2 point
+  var closest = -1, minDist = Infinity;
+  for(var i=0;i<totalPts;i++){
+    var d = Math.abs(xPos(i) - mx);
+    if(d < minDist){ minDist = d; closest = i; }
+  }
+  if(closest >= 0 && minDist < 20){
+    var pt = m2Data[closest];
+    var html = '<b>' + pt.d + '</b><br>M2: ' + pt.v.toFixed(1);
+    // Check if there's an ad point at this year
+    for(var a=0;a<adMapped.length;a++){
+      if(adMapped[a].y === pt.y){
+        html += '<br>Ad Spend: ' + adMapped[a].v.toFixed(1);
+        break;
+      }
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = Math.min(mx + 12, W - 140) + 'px';
+    tooltip.style.top = (yPos(pt.v) - 40) + 'px';
+    // Crosshair
+    drawFrame();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.beginPath();
+    ctx.moveTo(xPos(closest), PAD.t);
+    ctx.lineTo(xPos(closest), H - PAD.b);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    tooltip.style.display = 'none';
+  }
+});
+wrap.addEventListener('mouseleave', function(){ tooltip.style.display = 'none'; });
+
+// Replay on click
+wrap.addEventListener('click', function(){
+  if(animDone){ frame = 0; animDone = false; requestAnimationFrame(drawFrame); }
+});
+
+// Start animation
+requestAnimationFrame(drawFrame);
+})();
+</script>
+"""
+            st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
+            st.components.v1.html(_m2_anim_html, height=440, scrolling=False)
+            st.caption("Both M2 money supply and global ad spend indexed to " + str(_base_yr) + " = 100. M2 at monthly granularity. Click to replay animation.")
+            st.markdown("</div>", unsafe_allow_html=True)
+except Exception as _m2_exc:
+    logger.warning("M2 animated chart error: %s", _m2_exc)
     st.info("M2 vs Ad Spend chart unavailable.")
 _deep_dive("overview", "Explore macro economics data")
 _separator()
@@ -5264,17 +5603,17 @@ body{background:transparent;}
 .cta-btn:hover .cta-arrow{color:#4aaeff;right:16px;}
 </style>
 <div class="cta-row">
-  <a class="cta-btn" id="cta-overview" onclick="window.parent.location.href=window.parent.location.origin+'/Overview'">
+  <a class="cta-btn" id="cta-overview" href="/Overview" target="_top">
     <div class="cta-title">Overview</div>
     <div class="cta-desc">Macro trends & market signals</div>
     <span class="cta-arrow">&rarr;</span>
   </a>
-  <a class="cta-btn" id="cta-earnings" onclick="window.parent.location.href=window.parent.location.origin+'/Earnings'">
+  <a class="cta-btn" id="cta-earnings" href="/Earnings" target="_top">
     <div class="cta-title">Earnings</div>
     <div class="cta-desc">Company deep dives & intelligence</div>
     <span class="cta-arrow">&rarr;</span>
   </a>
-  <a class="cta-btn" id="cta-genie" onclick="window.parent.location.href=window.parent.location.origin+'/Genie'">
+  <a class="cta-btn" id="cta-genie" href="/Genie" target="_top">
     <div class="cta-title">Genie</div>
     <div class="cta-desc">Ask the data anything</div>
     <span class="cta-arrow">&rarr;</span>

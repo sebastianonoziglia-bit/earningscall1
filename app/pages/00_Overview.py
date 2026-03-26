@@ -5753,29 +5753,66 @@ def _render_iconic_quote_section(
     source_label = "Overview_Iconic_Quotes (sheet)" if not sheet_df.empty else "earningscall_transcripts/overview_iconic_quotes.csv"
     st.caption(f"Source: {source_label} · Period: {selected_period}")
 
+    try:
+        from utils.scoring_config import SIGNAL_COLORS as _IQ_COLORS, SIGNAL_ICONS as _IQ_ICONS
+    except ImportError:
+        _IQ_COLORS = {}
+        _IQ_ICONS = {}
+
     cards = []
     for row in scoped_df.itertuples(index=False):
         company = html.escape(str(getattr(row, "company", "") or "").strip())
         speaker = html.escape(str(getattr(row, "speaker", "") or "").strip() or "Unknown")
         role = html.escape(str(getattr(row, "role_bucket", "") or "").strip())
         quote = html.escape(str(getattr(row, "quote", "") or "").strip())
-        score = getattr(row, "score", None)
-        score_text = ""
+        category = str(getattr(row, "category", "") or "").strip()
+        year_val = getattr(row, "year", "")
+        quarter_val = getattr(row, "quarter", "")
+        period_str = ""
         try:
-            if score is not None and pd.notna(score):
-                score_text = f" · Score {float(score):.2f}"
+            if year_val and pd.notna(year_val):
+                period_str = str(int(year_val))
+                if quarter_val and pd.notna(quarter_val) and str(quarter_val).strip():
+                    period_str += f" {str(quarter_val).strip()}"
         except Exception:
-            score_text = ""
-        meta = f"{company} · {role} · {speaker}{score_text}" if role else f"{company} · {speaker}{score_text}"
+            pass
+
+        _cat_cfg = _IQ_COLORS.get(category, {"tag": "#6b7280", "bg": "#f9fafb", "border": "#e5e7eb"})
+        _cat_icon = _IQ_ICONS.get(category, "")
+        _cat_tag_color = _cat_cfg["tag"]
+        _cat_border_color = _cat_cfg["border"]
+        _cat_badge = (
+            f"<span style='font-size:0.65rem;background:{_cat_tag_color};color:white;"
+            f"padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap;'>"
+            f"{_cat_icon} {html.escape(category)}</span>"
+        ) if category else ""
+
+        meta_parts = [company]
+        if role:
+            meta_parts.append(role)
+        meta_parts.append(speaker)
+        if period_str:
+            meta_parts.append(period_str)
+        meta = " · ".join(meta_parts)
+
         cards.append(
             f"""
-            <div class="ov-quote-card">
-                <div class="ov-quote-meta">{meta}</div>
+            <div class="ov-quote-card" style="border-left:3px solid {_cat_border_color};">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <div class="ov-quote-meta">{meta}</div>
+                    {_cat_badge}
+                </div>
                 <p class="ov-quote-body">"{quote}"</p>
             </div>
             """
         )
-    st.markdown(_html_block(f"<div class='ov-quote-grid'>{''.join(cards)}</div>"), unsafe_allow_html=True)
+    st.markdown(
+        _html_block(
+            f"<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px;'>"
+            f"{''.join(cards)}</div>"
+        ),
+        unsafe_allow_html=True,
+    )
     return True
 
 
@@ -6396,7 +6433,44 @@ def _render_transcript_topic_growth_chart(
     }
 
     st.markdown("<div id='section-topic-signal'></div>", unsafe_allow_html=True)
-    st.markdown("### Topic Signal Map")
+
+    # ── Inline filter bar at title level ──
+    _ts_col_title, _ts_col_year, _ts_col_qtr, _ts_col_co = st.columns([3, 1, 1, 2])
+    with _ts_col_title:
+        st.markdown("### Topic Signal Map")
+    with _ts_col_year:
+        _ts_avail_years = sorted(scoped_df["year"].dropna().unique().tolist(), reverse=True) if "year" in scoped_df.columns else [selected_year]
+        if not _ts_avail_years:
+            _ts_avail_years = [selected_year]
+        _ts_year = st.selectbox("Year", _ts_avail_years, key="ts_year_filter", label_visibility="collapsed", index=0)
+    with _ts_col_qtr:
+        _ts_quarter = st.selectbox("Quarter", ["All", "Q4", "Q3", "Q2", "Q1"], key="ts_quarter_filter", label_visibility="collapsed", index=0)
+    with _ts_col_co:
+        _ts_all_companies_list = sorted(scoped_df["companies_list"].dropna().str.split(",").explode().str.strip().unique().tolist()) if "companies_list" in scoped_df.columns else []
+        _ts_company_opts = ["All companies"] + _ts_all_companies_list
+        _ts_company = st.selectbox("Company", _ts_company_opts, key="ts_company_filter", label_visibility="collapsed", index=0)
+
+    # ── Category toggle pills ──
+    try:
+        from utils.scoring_config import SIGNAL_CATEGORIES as _TS_CATS, SIGNAL_COLORS as _TS_COLORS, SIGNAL_ICONS as _TS_ICONS
+    except ImportError:
+        _TS_CATS = ["Outlook", "Risks", "Opportunities", "Investment", "Product Shifts",
+                     "User Behavior", "Monetization", "Strategic Direction", "Broadcaster Threats"]
+        _TS_COLORS = {}
+        _TS_ICONS = {}
+    _cat_pill_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px;'>"
+    for _cat in _TS_CATS:
+        _cfg = _TS_COLORS.get(_cat, {"tag": "#374151", "bg": "#f3f4f6"})
+        _icon = _TS_ICONS.get(_cat, "")
+        _pill_bg = _cfg["tag"]
+        _cat_pill_html += (
+            f"<span style='background:{_pill_bg};color:white;border:none;"
+            f"border-radius:999px;padding:3px 10px;font-size:0.72rem;font-weight:600;"
+            f"white-space:nowrap;'>{_icon} {_cat}</span>"
+        )
+    _cat_pill_html += "</div>"
+    st.markdown(_cat_pill_html, unsafe_allow_html=True)
+
     n_companies = int(scoped_df['total_companies'].max()) if not scoped_df['total_companies'].isna().all() else 0
     st.caption(
         f"Source: earningscall_transcripts/topic_metrics.csv · Period: {selected_period} · "
@@ -6546,24 +6620,36 @@ def _render_transcript_topic_growth_chart(
 
     _apply_light_theme(fig)
     st.plotly_chart(fig, use_container_width=True, config=plotly_config, key="ov_pc34")
-    ranked = scoped_df.sort_values(["mention_count", "importance_pct"], ascending=[False, False]).copy()
-    ranked = ranked[["topic", "mention_count", "importance_pct", "growth_pct", "companies_mentioned", "total_companies"]]
-    ranked = ranked.rename(
-        columns={
-            "topic": "Topic",
-            "mention_count": "Mentions",
-            "importance_pct": "Importance (%)",
-            "growth_pct": "QoQ Growth (%)",
-            "companies_mentioned": "Companies Mentioning",
-            "total_companies": "Total Companies",
-        }
-    )
-    st.caption("Top topic signals for this selected period")
-    st.dataframe(
-        ranked,
-        use_container_width=True,
-        hide_index=True,
-    )
+    # ── Top signals as styled cards (replaces dataframe) ──
+    ranked = scoped_df.sort_values(["mention_count", "importance_pct"], ascending=[False, False]).head(12).copy()
+    if not ranked.empty:
+        st.caption("Top topic signals for this selected period")
+        _sig_cards_html = "<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:8px 0;'>"
+        for _, _r in ranked.iterrows():
+            _topic = html.escape(str(_r.get("topic", "")))
+            _mentions = int(_r.get("mention_count", 0))
+            _imp = float(_r.get("importance_pct", 0))
+            _growth = float(_r.get("growth_pct", 0))
+            _cluster = str(_r.get("cluster", ""))
+            _c_color = _CLUSTER_COLORS.get(_cluster, "#6b7280")
+            _growth_color = "#15803d" if _growth > 0 else "#dc2626" if _growth < 0 else "#6b7280"
+            _growth_arrow = "↑" if _growth > 0 else "↓" if _growth < 0 else "→"
+            _sig_cards_html += (
+                f"<div style='background:white;border:1px solid #e5e7eb;border-left:3px solid {_c_color};"
+                f"border-radius:0 8px 8px 0;padding:10px 12px;'>"
+                f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;'>"
+                f"<span style='font-weight:700;font-size:0.88rem;color:#1f2937;'>{_topic}</span>"
+                f"<span style='font-size:0.65rem;background:{_c_color};color:white;padding:2px 7px;"
+                f"border-radius:10px;white-space:nowrap;'>{html.escape(_cluster) if _cluster else 'Other'}</span>"
+                f"</div>"
+                f"<div style='display:flex;gap:12px;font-size:0.75rem;color:#6b7280;'>"
+                f"<span>{_mentions} mentions</span>"
+                f"<span>{_imp:.0f}% reach</span>"
+                f"<span style='color:{_growth_color};font-weight:600;'>{_growth_arrow} {_growth:+.0f}%</span>"
+                f"</div></div>"
+            )
+        _sig_cards_html += "</div>"
+        st.markdown(_sig_cards_html, unsafe_allow_html=True)
     render_standard_overview_post_comment("Transcript Topic Growth vs Importance", selected_year)
     return True
 
@@ -6715,7 +6801,28 @@ def _render_excel_overview_layers(
                             "Top Quote": best.get("quote", "")[:80] + "...",
                         })
                 if _summary:
-                    st.dataframe(pd.DataFrame(_summary), use_container_width=True, hide_index=True)
+                    _sum_html = "<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;'>"
+                    for _s in _summary:
+                        _s_cat = html.escape(str(_s.get("Top Category", "")))
+                        _s_co = html.escape(str(_s.get("Company", "")))
+                        _s_score = _s.get("Best Score", 0)
+                        _s_quote = html.escape(str(_s.get("Top Quote", "")))
+                        _s_cfg = SIGNAL_COLORS.get(_s.get("Top Category", ""), {"tag": "#6b7280", "bg": "#f9fafb", "border": "#e5e7eb"})
+                        _s_icon = SIGNAL_ICONS.get(_s.get("Top Category", ""), "")
+                        _sum_html += (
+                            f"<div style='background:white;border:1px solid #e5e7eb;border-left:3px solid {_s_cfg['border']};"
+                            f"border-radius:0 8px 8px 0;padding:10px 12px;'>"
+                            f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;'>"
+                            f"<span style='font-weight:700;font-size:0.88rem;color:#1f2937;'>{_s_co}</span>"
+                            f"<span style='font-size:0.65rem;background:{_s_cfg['tag']};color:white;padding:2px 7px;"
+                            f"border-radius:10px;'>{_s_icon} {_s_cat}</span></div>"
+                            f"<p style='margin:0;font-size:0.8rem;color:#374151;font-style:italic;line-height:1.5;'>"
+                            f"\"{_s_quote}\"</p>"
+                            f"<div style='font-size:0.7rem;color:#9ca3af;margin-top:4px;'>Score: {_s_score:.2f}</div>"
+                            f"</div>"
+                        )
+                    _sum_html += "</div>"
+                    st.markdown(_sum_html, unsafe_allow_html=True)
             else:
                 st.info("No signals found for the selected filters.")
     except Exception as _exp_err:
