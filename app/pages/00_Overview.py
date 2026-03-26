@@ -52,17 +52,19 @@ st.markdown("""<style>
     box-shadow: 0 4px 20px rgba(74,174,255,0.4) !important;
     transform: translateY(-1px);
 }
-/* Secondary (inactive) area buttons — subtle dark */
+/* Secondary (inactive) area buttons — visible container on white */
 [data-testid="stButton"] button[kind="secondary"] {
-    background: rgba(255,255,255,0.04) !important;
-    color: #8b949e !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: #f1f5f9 !important;
+    color: #374151 !important;
+    border: 1px solid #e2e8f0 !important;
+    font-weight: 600 !important;
     transition: all 0.3s ease !important;
 }
 [data-testid="stButton"] button[kind="secondary"]:hover {
-    background: rgba(74,174,255,0.08) !important;
-    color: #c9d1d9 !important;
-    border-color: rgba(74,174,255,0.2) !important;
+    background: linear-gradient(135deg, rgba(26,111,212,0.08) 0%, rgba(74,174,255,0.12) 100%) !important;
+    color: #1a6fd4 !important;
+    border-color: rgba(74,174,255,0.4) !important;
+    box-shadow: 0 2px 8px rgba(74,174,255,0.15) !important;
 }
 </style>""", unsafe_allow_html=True)
 display_header()
@@ -7741,10 +7743,26 @@ if not country_ad_df.empty:
                 df_year = df_year[df_year["Country"].isin(allowed)]
 
         available_countries = sorted(df_year["Country"].dropna().unique().tolist()) if not df_year.empty else []
+
+        # ── Focus Mode CTA: dark 3D globe page ──
+        st.markdown(
+            "<div style='margin:18px 0 14px;'>"
+            "<a href='/Country' target='_self' style='display:inline-flex;align-items:center;gap:10px;"
+            "background:linear-gradient(135deg,#0a1628 0%,#1a2d4a 100%);"
+            "color:#4aaeff;text-decoration:none;padding:14px 28px;border-radius:12px;"
+            "border:1px solid rgba(74,174,255,0.3);font-weight:700;font-size:0.95rem;"
+            "box-shadow:0 4px 20px rgba(10,22,40,0.4);transition:all 0.3s ease;'>"
+            "<span style=\"font-size:1.4rem;\">🌐</span>"
+            "<span>Country Deep Dive — Interactive 3D Globe</span>"
+            "<span style=\"font-size:0.75rem;opacity:0.6;margin-left:8px;\">→ Focus Mode</span>"
+            "</a></div>",
+            unsafe_allow_html=True,
+        )
+
         # Country Deep Dive navigation buttons
         st.markdown("""<div style='margin:8px 0 4px;font-size:0.72rem;color:#6b7280;
         font-weight:600;text-transform:uppercase;letter-spacing:0.07em;'>
-        Country Deep Dives</div>""", unsafe_allow_html=True)
+        or pick a country directly</div>""", unsafe_allow_html=True)
         _dd_ncols = min(len(available_countries), 6) if available_countries else 1
         _dd_cols = st.columns(_dd_ncols)
         for _ddi, _dd_country in enumerate(available_countries[:30]):
