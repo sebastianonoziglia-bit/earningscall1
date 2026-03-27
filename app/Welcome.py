@@ -3664,26 +3664,28 @@ DATA.forEach(function(item, i) {
     displayName = shortName(item.name);
   }
   var revStr = item.revenue ? '$' + (item.revenue >= 10 ? Math.round(item.revenue) + 'B' : item.revenue.toFixed(1) + 'B') + ' rev' : '';
-  var rpmStr = (item.rpm && radius >= 45) ? '$' + Number(item.rpm).toFixed(4) + ' / min' : '';
+  var rpmStr = item.rpm ? '$' + Number(item.rpm).toFixed(4) + '/min' : '';
   /* Semi-transparent backdrop style for text readability */
   var backdropStyle = 'text-shadow:0 0 6px rgba(0,0,0,0.8),0 1px 3px rgba(0,0,0,0.9);';
+  var fs2 = Math.max(fs - 3, 6);
+  /* Consistent stack: name → users (always) → revenue (if any) → rpm (if any) */
+  var commonLines = ''
+    + (item.users && radius >= 40 ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;' + backdropStyle + '">' + item.users + '</div>' : '')
+    + (revStr && radius >= 45 ? '<div class="brevenue" style="font-size:' + fs2 + 'px;' + backdropStyle + '">' + revStr + '</div>' : '')
+    + (rpmStr && radius >= 50 ? '<div class="brevenue" style="font-size:' + fs2 + 'px;opacity:0.8;' + backdropStyle + '">' + rpmStr + '</div>' : '');
   var innerHtml;
   if (logoB64) {
     innerHtml = '<div class="blogo-wrap" style="background:rgba(255,255,255,0.88);">'
       + '<img class="blogo-img" src="data:image/png;base64,' + logoB64 + '" alt="' + displayName + '">'
       + '</div>'
       + '<div class="bname" style="font-size:' + fs + 'px;' + backdropStyle + '">' + displayName + '</div>'
-      + (item.users && radius >= 40 ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;' + backdropStyle + '">' + item.users + '</div>' : '')
-      + (rpmStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;opacity:0.85;' + backdropStyle + '">' + rpmStr + '</div>' : '')
-      + (revStr && !rpmStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;' + backdropStyle + '">' + revStr + '</div>' : '');
+      + commonLines;
   } else {
     var badge = (item.name||'?').replace(/[^A-Za-z0-9]+/g,' ').trim().split(' ').slice(0,2)
       .map(function(p){ return p.charAt(0).toUpperCase(); }).join('').slice(0,2) || '?';
     innerHtml = '<div class="bletter">' + badge + '</div>'
       + '<div class="bname" style="font-size:' + fs + 'px;' + backdropStyle + '">' + displayName + '</div>'
-      + (item.users && radius >= 40 ? '<div class="busers" style="font-size:' + Math.max(fs - 2, 7) + 'px;' + backdropStyle + '">' + item.users + '</div>' : '')
-      + (rpmStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;opacity:0.85;' + backdropStyle + '">' + rpmStr + '</div>' : '')
-      + (revStr && !rpmStr ? '<div class="brevenue" style="font-size:' + Math.max(fs - 3, 6) + 'px;' + backdropStyle + '">' + revStr + '</div>' : '');
+      + commonLines;
   }
   var b = document.createElement('div');
   b.className = 'wa-bubble';
