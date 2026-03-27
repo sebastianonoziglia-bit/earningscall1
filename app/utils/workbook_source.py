@@ -174,7 +174,7 @@ def _has_core_financial_coverage(path: str | Path | None) -> bool:
     return year_min <= 2015
 
 
-def _should_refresh(dest: Path, max_age_seconds: int = 3600) -> bool:
+def _should_refresh(dest: Path, max_age_seconds: int = 900) -> bool:
     if not dest.exists():
         return True
     return (time.time() - dest.stat().st_mtime) > max_age_seconds
@@ -214,7 +214,7 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
             _time.time() - _os.path.getmtime(_cache_path)
             if _os.path.exists(_cache_path) else 999999
         )
-        if _cache_age > 14400:  # re-download if older than 4 hours
+        if _cache_age > 900:  # re-download if older than 15 minutes
             try:
                 import requests as _req
                 logger.info("Downloading fresh workbook from Google Sheet...")
