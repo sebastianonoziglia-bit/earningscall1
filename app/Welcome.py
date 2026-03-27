@@ -3836,7 +3836,7 @@ try:
         if "service" in _subs_df2.columns and "subscribers" in _subs_df2.columns:
             _subs_df2["subscribers"] = pd.to_numeric(_subs_df2["subscribers"], errors="coerce")
             _subs_df2["year"] = pd.to_numeric(_subs_df2.get("year", pd.Series(dtype=float)), errors="coerce")
-            _latest_subs2: dict = {}
+            _latest_subs2_raw: dict = {}
             for _svc2, _grp2 in _subs_df2.groupby("service"):
                 _grp2 = _grp2.dropna(subset=["subscribers"])
                 if _grp2.empty:
@@ -3845,7 +3845,17 @@ try:
                 _grp2 = _grp2.sort_values(_sort_cols2, ascending=False)
                 _v2 = float(_grp2.iloc[0]["subscribers"])
                 if _v2 > 0:
-                    _latest_subs2[str(_svc2).strip()] = _v2
+                    _latest_subs2_raw[str(_svc2).strip()] = _v2
+            # Auto-group variants (e.g. "Spotify Premium" → "Spotify")
+            _svc2_names = sorted(_latest_subs2_raw.keys(), key=len)
+            _latest_subs2: dict = {}
+            for _sn2 in _svc2_names:
+                _base2 = _sn2
+                for _cand2 in _svc2_names:
+                    if _cand2 != _sn2 and _sn2.lower().startswith(_cand2.lower() + " "):
+                        _base2 = _cand2
+                        break
+                _latest_subs2[_base2] = _latest_subs2.get(_base2, 0.0) + _latest_subs2_raw[_sn2]
             # Mapping: service key → display name + styling for bubble chart
             _subs_meta2 = {
                 "Amazon Prime":  {"color": "#FF9900", "logo": "Amazon",                "display": "Amazon Prime Video"},
@@ -3932,6 +3942,23 @@ def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> li
                 sort_cols = ["year", "quarter"] if "quarter" in grp.columns else ["year"]
                 grp = grp.sort_values(sort_cols, ascending=False)
             latest[str(service).strip()] = float(grp.iloc[0]["subscribers"])
+
+        # Auto-group variants into their base platform:
+        # "Spotify Premium" → sums into "Spotify"
+        # "YouTube Premium" → sums into "YouTube"
+        # Rule: if service name starts with another service name + " ", it's a variant.
+        # Sort shortest-first so base names are identified before their variants.
+        _all_names = sorted(latest.keys(), key=len)
+        aggregated: dict = {}
+        for service in _all_names:
+            base = service
+            for candidate in _all_names:
+                if candidate != service and service.lower().startswith(candidate.lower() + " "):
+                    base = candidate
+                    break
+            aggregated[base] = aggregated.get(base, 0.0) + latest[service]
+        latest = aggregated
+
         result = []
         for service, subs_millions in latest.items():
             meta = PLATFORM_META.get(service, {
