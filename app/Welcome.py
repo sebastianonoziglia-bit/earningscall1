@@ -2150,8 +2150,18 @@ if selected_year is None:
 valid_years = sorted([int(y) for y in available_years]) if available_years else [2024]
 if int(selected_year) not in valid_years:
     selected_year = int(valid_years[-1])
-year_index = valid_years.index(int(selected_year))
-selected_year = valid_years[-1]  # Always use latest available year on home page
+
+# Year selector — top right, lets users rewind to any available year
+_yr_col_spacer, _yr_col_select = st.columns([5, 1])
+with _yr_col_select:
+    selected_year = st.selectbox(
+        "Year",
+        options=list(reversed(valid_years)),
+        index=0,
+        key="home_year_select",
+        label_visibility="collapsed",
+    )
+
 effective_year = int(selected_year)
 selected_quarter = _select_latest_quarter_for_year(macro_df, effective_year)
 
@@ -4515,7 +4525,7 @@ _conc_all_years_json = json.dumps(_conc_all_years)
 _conc_seg_colors_json = json.dumps(_CONC_SEG_COLORS)
 _conc_seg_order_json = json.dumps(_CONC_SEG_ORDER)
 
-_section("THE CONCENTRATION", "Most of it went to very few hands.", "Of $943B spent globally on advertising in 2024, 4 companies captured 53% of the market.")
+_section("THE CONCENTRATION", "Most of it went to very few hands.", f"Of ${_conc_total:.0f}B spent globally on advertising in {_conc_yr}, 4 companies captured {_conc_top_share:.0f}% of the market.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
 st.components.v1.html(f"""
 <style>
@@ -4715,10 +4725,36 @@ _deep_dive("earnings", "Explore company financials")
 _separator()
 
 # Beat 6 — M2 vs ad spend (animated)
+try:
+    _m2_desc_base = int(_global_adv_totals.index.min()) if not _global_adv_totals.empty else 1999
+    _m2_desc_end = int(_global_adv_totals.index.max()) if not _global_adv_totals.empty else effective_year
+    _m2_desc_years = _m2_desc_end - _m2_desc_base
+    # Compute correlation between M2 annual and ad spend over common years
+    if not m2_monthly_df.empty and not _global_adv_totals.empty:
+        _m2_annual = m2_monthly_df.copy()
+        _m2_annual["year"] = pd.to_datetime(_m2_annual["date"]).dt.year
+        _m2_annual = _m2_annual.groupby("year")["m2_value"].mean()
+        _common = _m2_annual.index.intersection(_global_adv_totals.index)
+        if len(_common) >= 5:
+            import numpy as _np
+            _corr = _np.corrcoef(_m2_annual[_common].values, _global_adv_totals[_common].values)[0, 1]
+            _m2_body = (
+                f"Both lines indexed to {_m2_desc_base} = 100. "
+                f"M2 monthly granularity over {_m2_desc_years} years. "
+                f"Pearson correlation with ad spend: {_corr:.2f} — "
+                + ("structurally tight." if _corr > 0.9 else "moderately correlated." if _corr > 0.7 else "evolving relationship.")
+            )
+        else:
+            _m2_body = f"Both lines indexed to {_m2_desc_base} = 100. M2 monthly granularity over {_m2_desc_years} years."
+    else:
+        _m2_body = "Both lines indexed to first common year = 100. M2 shown at monthly granularity."
+except Exception:
+    _m2_body = "Both lines indexed to first common year = 100. M2 shown at monthly granularity."
+
 _section(
     "The Money Printer",
     "When liquidity expands, ad markets follow.",
-    "Both lines are indexed to first common year = 100. M2 shown at monthly granularity. The relationship between M2 and ad spend remains structurally tight through multiple cycles."
+    _m2_body
 )
 try:
     # Determine first year with ad data
@@ -5042,13 +5078,10 @@ _deep_dive("overview", "Explore macro economics data")
 _separator()
 
 # Beat 7 — Structural shift
-_section(
-    "The Structural Shift",
-    "The ad market didn\'t just grow. It transformed.",
-    "Traditional channels fade while search and retail media take share. Category mix, not just total spend, is now the core strategic signal."
-)
 try:
     if global_adv_df.empty:
+        _section("The Structural Shift", "The ad market didn't just grow. It transformed.",
+                 "Traditional channels fade while search and retail media take share.")
         st.info("Structural shift chart unavailable.")
     else:
         _channel_map = {
@@ -5086,8 +5119,29 @@ try:
             gdf_agg.groupby(["year", "channel"])["value"].sum().unstack(fill_value=0) / 1_000.0
         )
         if gdf_pivot.empty:
+            _section("The Structural Shift", "The ad market didn't just grow. It transformed.",
+                     "Traditional channels fade while search and retail media take share.")
             st.info("Structural shift chart unavailable.")
         else:
+            # Auto-compute description from real data
+            _ss_latest = max(y for y in gdf_pivot.index if y <= effective_year) if any(y <= effective_year for y in gdf_pivot.index) else int(gdf_pivot.index.max())
+            _ss_earliest = int(gdf_pivot.index.min())
+            _ss_yr_row = gdf_pivot.loc[_ss_latest] if _ss_latest in gdf_pivot.index else gdf_pivot.iloc[-1]
+            _ss_top_ch = _ss_yr_row.idxmax() if not _ss_yr_row.empty else "Search"
+            _ss_top_val = float(_ss_yr_row.max())
+            _ss_total = float(_ss_yr_row.sum())
+            _ss_top_pct = int(_ss_top_val / _ss_total * 100) if _ss_total > 0 else 0
+            # TV share then vs now
+            _ss_tv_now = float(_ss_yr_row.get("TV", 0)) / _ss_total * 100 if _ss_total > 0 else 0
+            _ss_earliest_row = gdf_pivot.loc[_ss_earliest] if _ss_earliest in gdf_pivot.index else gdf_pivot.iloc[0]
+            _ss_total_early = float(_ss_earliest_row.sum())
+            _ss_tv_then = float(_ss_earliest_row.get("TV", 0)) / _ss_total_early * 100 if _ss_total_early > 0 else 0
+            _ss_body = (
+                f"{_ss_top_ch} is the largest channel at {_ss_top_pct}% of global ad spend in {_ss_latest}. "
+                f"TV's share fell from {_ss_tv_then:.0f}% in {_ss_earliest} to {_ss_tv_now:.0f}% in {_ss_latest}. "
+                f"Click to replay animation."
+            )
+            _section("The Structural Shift", "The ad market didn't just grow. It transformed.", _ss_body)
             import json as _json_ss
             _ss_channels = [ch for ch in _channel_map if ch in gdf_pivot.columns]
             _ss_years = sorted([int(y) for y in gdf_pivot.index.tolist()])
@@ -5209,11 +5263,6 @@ except Exception:
 _separator()
 
 # Beat 10 — Performance chart
-_section(
-    "The Market Bet",
-    "Starting from the same base of 100, who compounded fastest?",
-    "Top market-cap compounders are benchmarked against major indices on a normalized base."
-)
 try:
     import plotly.graph_objects as go
     company_ticker_fallback = {
@@ -5287,15 +5336,24 @@ try:
                 if not p_fig.data:
                     st.info("Performance chart unavailable.")
                 else:
+                    best = perf.nlargest(1, "tsr").iloc[0]
+                    _mbet_body = (
+                        f"{best['company']} was the top compounder: +{best['tsr']:.0f}% market-cap growth "
+                        f"from {y_start} to {effective_year}. All lines indexed to 1999 = 100. "
+                        f"S&P 500 and Nasdaq shown as benchmarks."
+                    )
+                    _section(
+                        "The Market Bet",
+                        "Starting from the same base of 100, who compounded fastest?",
+                        _mbet_body
+                    )
                     _apply_dark_chart_layout(p_fig, height=370)
                     st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
                     st.plotly_chart(p_fig, use_container_width=True, config={"displayModeBar": False})
                     st.markdown("</div>", unsafe_allow_html=True)
-                    best = perf.nlargest(1, "tsr").iloc[0]
-                    st.caption(
-                        f"All lines start at 100. A line at 200 means the asset doubled. {best['company']} was the top compounder at +{best['tsr']:.0f}% market cap growth {y_start}→{effective_year}. S&P 500 and Nasdaq shown as benchmarks."
-                    )
 except Exception:
+    _section("The Market Bet", "Starting from the same base of 100, who compounded fastest?",
+             "Top market-cap compounders benchmarked against major indices from 1999.")
     st.info("Performance chart unavailable.")
 _deep_dive("stocks", "Explore stock performance")
 _separator()
