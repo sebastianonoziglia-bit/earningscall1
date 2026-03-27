@@ -4068,63 +4068,140 @@ def main():
             f"Q{_parse_quarter_int(selected_quarter)} {year}"
             if _parse_quarter_int(selected_quarter) else str(year)
         )
+
+        # ── All 9 categories with pill toggles ───────────────────────────
+        try:
+            from utils.scoring_config import SIGNAL_CATEGORIES as _ALL_SIG_CATS
+        except ImportError:
+            _ALL_SIG_CATS = list(SIGNAL_ICONS.keys())
+
+        # Category filter pills — initialise with the 3 original defaults on
+        _default_cats = {"Outlook", "Risks", "Opportunities"}
+        _sig_state_key = f"earn_sig_cats_{company}_{year}_{selected_quarter}"
+        if _sig_state_key not in st.session_state:
+            st.session_state[_sig_state_key] = list(_default_cats)
+
         st.markdown(
-            f"<div style='margin:1.5rem 0 0.75rem 0;'>"
+            f"<div style='margin:1.5rem 0 0.5rem 0;'>"
             f"<span style='font-weight:700;font-size:1rem;color:#111827;'>"
             f"Signals from the earnings call</span>"
             f"<span style='color:#6b7280;font-size:0.82rem;margin-left:10px;'>"
             f"{canonical_company} · {_period}</span></div>",
             unsafe_allow_html=True,
         )
-        _oro_cols = st.columns(3, gap="medium")
-        for _col, _cat in zip(_oro_cols, ["Outlook", "Risks", "Opportunities"]):
-            with _col:
-                _sigs = _oro.get(_cat, [])
-                _c = SIGNAL_COLORS.get(_cat, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
-                _icon = SIGNAL_ICONS.get(_cat, "")
+
+        # Pill row — 9 toggle buttons
+        _pill_cols = st.columns(len(_ALL_SIG_CATS))
+        for _pi, _pc in enumerate(_ALL_SIG_CATS):
+            _pkey = f"earn_pill_{_sig_state_key}_{_pi}"
+            _pactive = _pc in st.session_state[_sig_state_key]
+            _pcfg = SIGNAL_COLORS.get(_pc, {"tag": "#374151", "border": "#e5e7eb"})
+            _picon = SIGNAL_ICONS.get(_pc, "")
+            _pbg = _pcfg["tag"] if _pactive else "#f3f4f6"
+            _pfg = "white" if _pactive else "#6b7280"
+            _pborder = _pcfg["tag"] if _pactive else "#e5e7eb"
+            with _pill_cols[_pi]:
                 st.markdown(
-                    f"<div style='display:flex;align-items:center;gap:8px;"
-                    f"margin-bottom:12px;padding-bottom:8px;"
-                    f"border-bottom:2px solid {_c['border']};'>"
-                    f"<span style='font-size:1.1rem;'>{_icon}</span>"
-                    f"<span style='font-weight:700;font-size:0.9rem;color:#111827;'>{_cat}</span>"
-                    f"<span style='margin-left:auto;background:{_c['tag']};color:white;"
-                    f"font-size:0.65rem;padding:2px 7px;border-radius:10px;"
-                    f"font-weight:600;'>{len(_sigs)}</span></div>",
+                    f"<div style='text-align:center;margin-bottom:10px;'>",
                     unsafe_allow_html=True,
                 )
-                if not _sigs:
+                if st.button(
+                    f"{_picon} {_pc}",
+                    key=_pkey,
+                    use_container_width=True,
+                    help=f"{'Hide' if _pactive else 'Show'} {_pc}",
+                ):
+                    _cur = list(st.session_state[_sig_state_key])
+                    if _pc in _cur:
+                        _cur.remove(_pc)
+                    else:
+                        _cur.append(_pc)
+                    st.session_state[_sig_state_key] = _cur
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        # Style active/inactive pills via CSS scoped to this section
+        _pill_css = "<style>"
+        for _pi, _pc in enumerate(_ALL_SIG_CATS):
+            _pkey = f"earn_pill_{_sig_state_key}_{_pi}"
+            _pactive = _pc in st.session_state[_sig_state_key]
+            _pcfg = SIGNAL_COLORS.get(_pc, {"tag": "#374151"})
+            _pbg = _pcfg["tag"] if _pactive else "#f3f4f6"
+            _pfg = "white" if _pactive else "#6b7280"
+            _pborder = _pcfg["tag"] if _pactive else "#e5e7eb"
+            _pill_css += (
+                f"[data-testid='stButton'] button[kind='secondary'][data-key='{_pkey}'],"
+                f"div[data-testid='column']:nth-child({_pi+1}) > div > div > div > button {{"
+                f"background:{_pbg}!important;color:{_pfg}!important;"
+                f"border:1px solid {_pborder}!important;border-radius:999px!important;"
+                f"font-size:0.71rem!important;font-weight:600!important;"
+                f"padding:3px 6px!important;white-space:nowrap!important;"
+                f"min-height:28px!important;height:28px!important;"
+                f"}}"
+            )
+        _pill_css += "</style>"
+        st.markdown(_pill_css, unsafe_allow_html=True)
+
+        # Filter to selected categories (preserving SIGNAL_CATEGORIES order)
+        _active_cats = [c for c in _ALL_SIG_CATS if c in st.session_state[_sig_state_key]]
+
+        if not _active_cats:
+            st.markdown(
+                "<p style='color:#9ca3af;font-size:0.85rem;font-style:italic;"
+                "margin:12px 0;'>Select categories above to view signals.</p>",
+                unsafe_allow_html=True,
+            )
+        else:
+            _ncols = min(3, len(_active_cats))
+            _oro_cols = st.columns(_ncols, gap="medium")
+            for _ci, _cat in enumerate(_active_cats):
+                with _oro_cols[_ci % _ncols]:
+                    _sigs = _oro.get(_cat, [])
+                    _c = SIGNAL_COLORS.get(_cat, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
+                    _icon = SIGNAL_ICONS.get(_cat, "")
                     st.markdown(
-                        f"<p style='color:#9ca3af;font-size:0.82rem;font-style:italic;'>"
-                        f"No {_cat.lower()} signals found.</p>",
+                        f"<div style='display:flex;align-items:center;gap:8px;"
+                        f"margin-bottom:12px;padding-bottom:8px;"
+                        f"border-bottom:2px solid {_c['border']};'>"
+                        f"<span style='font-size:1.1rem;'>{_icon}</span>"
+                        f"<span style='font-weight:700;font-size:0.9rem;color:#111827;'>{_cat}</span>"
+                        f"<span style='margin-left:auto;background:{_c['tag']};color:white;"
+                        f"font-size:0.65rem;padding:2px 7px;border-radius:10px;"
+                        f"font-weight:600;'>{len(_sigs)}</span></div>",
                         unsafe_allow_html=True,
                     )
-                else:
-                    for _sig in _sigs:
-                        _q = str(_sig.get("quote", "")).strip()
-                        _sp = str(_sig.get("speaker", "")).strip()
-                        _rl = str(_sig.get("role", "")).strip()
-                        if len(_q) > 180:
-                            _q = _q[:180].rsplit(" ", 1)[0] + "…"
-                        _sp_html = ""
-                        if _sp and _sp.lower() not in ("", "unknown", "nan"):
-                            _sp_html = (
-                                f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;'>"
-                                f"{html.escape(_sp)}"
-                                + (f" · <span style='color:{_c['tag']}'>{html.escape(_rl)}</span>" if _rl else "")
-                                + "</div>"
-                            )
+                    if not _sigs:
                         st.markdown(
-                            f"<div style='background:{_c['bg']};"
-                            f"border:1px solid {_c['border']};"
-                            f"border-left:3px solid {_c['border']};"
-                            f"border-radius:6px;padding:10px 12px;margin-bottom:8px;'>"
-                            f"<p style='margin:0;font-size:0.83rem;color:#374151;"
-                            f"line-height:1.6;font-style:italic;'>"
-                            f"\"{html.escape(_q)}\"</p>"
-                            f"{_sp_html}</div>",
+                            f"<p style='color:#9ca3af;font-size:0.82rem;font-style:italic;'>"
+                            f"No {_cat.lower()} signals found.</p>",
                             unsafe_allow_html=True,
                         )
+                    else:
+                        for _sig in _sigs:
+                            _q = str(_sig.get("quote", "")).strip()
+                            _sp = str(_sig.get("speaker", "")).strip()
+                            _rl = str(_sig.get("role", "")).strip()
+                            if len(_q) > 180:
+                                _q = _q[:180].rsplit(" ", 1)[0] + "…"
+                            _sp_html = ""
+                            if _sp and _sp.lower() not in ("", "unknown", "nan"):
+                                _sp_html = (
+                                    f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;'>"
+                                    f"{html.escape(_sp)}"
+                                    + (f" · <span style='color:{_c['tag']}'>{html.escape(_rl)}</span>" if _rl else "")
+                                    + "</div>"
+                                )
+                            st.markdown(
+                                f"<div style='background:{_c['bg']};"
+                                f"border:1px solid {_c['border']};"
+                                f"border-left:3px solid {_c['border']};"
+                                f"border-radius:6px;padding:10px 12px;margin-bottom:8px;'>"
+                                f"<p style='margin:0;font-size:0.83rem;color:#374151;"
+                                f"line-height:1.6;font-style:italic;'>"
+                                f"\"{html.escape(_q)}\"</p>"
+                                f"{_sp_html}</div>",
+                                unsafe_allow_html=True,
+                            )
 
     # ── Forward Intelligence Panel ─────────────────────────────────────────
     try:
