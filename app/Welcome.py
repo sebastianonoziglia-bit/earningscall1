@@ -4998,11 +4998,9 @@ _section(
     "Traditional channels fade while search and retail media take share. Category mix, not just total spend, is now the core strategic signal."
 )
 try:
-    import plotly.graph_objects as go
     if global_adv_df.empty:
         st.info("Structural shift chart unavailable.")
     else:
-        # Group raw metric_types into display channels
         _channel_map = {
             "TV": ["Free TV", "Pay TV"],
             "Streaming / Video": ["Video Desktop", "Video Mobile"],
@@ -5026,8 +5024,6 @@ try:
             "Cinema / Other": "#607d8b",
         }
         gdf_agg = global_adv_df[global_adv_df["year"] >= 2010].copy()
-        # Map metric_type → channel group, then sum per year
-        # Strip trailing " Worldwide" suffix that appears in Global_Adv_Aggregates
         _mt_to_ch = {mt: ch for ch, mts in _channel_map.items() for mt in mts}
         gdf_agg["channel"] = (
             gdf_agg["metric_type"]
@@ -5042,21 +5038,122 @@ try:
         if gdf_pivot.empty:
             st.info("Structural shift chart unavailable.")
         else:
-            s_fig = go.Figure()
-            for ch in _channel_map:
-                if ch not in gdf_pivot.columns:
-                    continue
-                s_fig.add_trace(go.Scatter(
-                    x=gdf_pivot.index, y=gdf_pivot[ch],
-                    name=ch, stackgroup="one",
-                    line=dict(width=0), fillcolor=_channel_colors[ch],
-                    hovertemplate=f"{ch}: $%{{y:.0f}}B<extra></extra>",
-                ))
-            _apply_dark_chart_layout(s_fig, height=390)
+            import json as _json_ss
+            _ss_channels = [ch for ch in _channel_map if ch in gdf_pivot.columns]
+            _ss_years = sorted([int(y) for y in gdf_pivot.index.tolist()])
+            _ss_series = {}
+            for _ch in _ss_channels:
+                _ss_series[_ch] = [round(float(gdf_pivot.loc[y, _ch]), 2) if y in gdf_pivot.index else 0 for y in _ss_years]
+            _ss_chart_json = _json_ss.dumps({"years": _ss_years, "channels": _ss_channels, "series": _ss_series})
+            _ss_colors_json = _json_ss.dumps({ch: _channel_colors[ch] for ch in _ss_channels})
+
+            _ss_anim_html = (
+                "<div id='ss-wrap' style='position:relative;width:100%;height:390px;background:rgba(0,0,0,0);cursor:pointer;'>"
+                "<canvas id='ss-canvas' style='width:100%;height:100%;display:block;'></canvas>"
+                "<div id='ss-year' style='position:absolute;top:16px;right:24px;font:bold 36px Arial;color:rgba(255,255,255,0.13);pointer-events:none;'></div>"
+                "<div id='ss-tip' style='display:none;position:absolute;background:rgba(13,17,23,0.93);color:#e6edf3;padding:8px 12px;border-radius:6px;font:12px Arial;pointer-events:none;z-index:9;border:1px solid rgba(255,255,255,0.1);white-space:nowrap;'></div>"
+                "<div id='ss-legend' style='position:absolute;bottom:2px;left:50%;transform:translateX(-50%);display:flex;gap:12px;flex-wrap:wrap;justify-content:center;pointer-events:none;'></div>"
+                "</div>"
+                "<script>(function(){"
+                "var data=" + _ss_chart_json + ";"
+                "var colors=" + _ss_colors_json + ";"
+                "var wrap=document.getElementById('ss-wrap');"
+                "var canvas=document.getElementById('ss-canvas');"
+                "var yearLabel=document.getElementById('ss-year');"
+                "var tooltip=document.getElementById('ss-tip');"
+                "var legend=document.getElementById('ss-legend');"
+                "var dpr=window.devicePixelRatio||1;"
+                "var W,H;"
+                "function resize(){"
+                "  var r=wrap.getBoundingClientRect();"
+                "  W=r.width;H=r.height;"
+                "  canvas.width=W*dpr;canvas.height=H*dpr;"
+                "  canvas.style.width=W+'px';canvas.style.height=H+'px';"
+                "}"
+                "resize();"
+                "var ctx=canvas.getContext('2d');"
+                "var PAD={t:24,r:20,b:50,l:58};"
+                "var years=data.years,channels=data.channels,nY=years.length;"
+                "var stacked=[];"
+                "for(var y=0;y<nY;y++){"
+                "  var row=[],cum=0;"
+                "  for(var c=0;c<channels.length;c++){"
+                "    var v=data.series[channels[c]][y];"
+                "    row.push({lo:cum,hi:cum+v,val:v});cum+=v;"
+                "  }"
+                "  row._total=cum;stacked.push(row);"
+                "}"
+                "var maxT=0;"
+                "for(var y=0;y<nY;y++)maxT=Math.max(maxT,stacked[y]._total);"
+                "maxT=Math.ceil(maxT/50)*50;"
+                "function xP(i){return PAD.l+i/(nY-1)*(W-PAD.l-PAD.r);}"
+                "function yP(v){return PAD.t+(1-v/maxT)*(H-PAD.t-PAD.b);}"
+                "var lh='';"
+                "for(var c=0;c<channels.length;c++){lh+='<span style=\"display:inline-flex;align-items:center;gap:4px;font:11px Arial;color:#aaa;\"><span style=\"width:10px;height:10px;border-radius:2px;background:'+colors[channels[c]]+'\"></span>'+channels[c]+'</span>';}"
+                "legend.innerHTML=lh;"
+                "var frame=0,speed=0.07,animDone=false,hoverIdx=-1;"
+                "function draw(){"
+                "  ctx.setTransform(dpr,0,0,dpr,0,0);"
+                "  ctx.clearRect(0,0,W,H);"
+                "  var gridStep=maxT<=300?50:100;"
+                "  for(var g=0;g<=maxT;g+=gridStep){"
+                "    var gy=yP(g);"
+                "    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=0.5;"
+                "    ctx.beginPath();ctx.moveTo(PAD.l,gy);ctx.lineTo(W-PAD.r,gy);ctx.stroke();"
+                "    ctx.fillStyle='#888';ctx.font='10px Arial';ctx.textAlign='right';"
+                "    ctx.fillText('$'+g+'B',PAD.l-6,gy+3);"
+                "  }"
+                "  ctx.textAlign='center';"
+                "  for(var y=0;y<nY;y++){"
+                "    if(y%2===0||y===nY-1){ctx.fillStyle='#888';ctx.font='10px Arial';ctx.fillText(years[y],xP(y),H-PAD.b+16);}"
+                "  }"
+                "  var show=Math.min(Math.floor(frame)+1,nY);"
+                "  var t=frame-Math.floor(frame);"
+                "  if(show>=nY){show=nY;t=1;}"
+                "  for(var c=channels.length-1;c>=0;c--){"
+                "    ctx.beginPath();"
+                "    for(var y=0;y<show;y++){var x=xP(y),lo=stacked[y][c].lo;if(y===0)ctx.moveTo(x,yP(lo));else ctx.lineTo(x,yP(lo));}"
+                "    if(show<nY&&t>0){var p=show-1;ctx.lineTo(xP(p)+t*(xP(show)-xP(p)),yP(stacked[p][c].lo+t*(stacked[show][c].lo-stacked[p][c].lo)));}"
+                "    var tpts=[];"
+                "    for(var y=0;y<show;y++)tpts.push({x:xP(y),y:yP(stacked[y][c].hi)});"
+                "    if(show<nY&&t>0){var p=show-1;tpts.push({x:xP(p)+t*(xP(show)-xP(p)),y:yP(stacked[p][c].hi+t*(stacked[show][c].hi-stacked[p][c].hi))});}"
+                "    for(var p=tpts.length-1;p>=0;p--)ctx.lineTo(tpts[p].x,tpts[p].y);"
+                "    ctx.closePath();ctx.fillStyle=colors[channels[c]];ctx.globalAlpha=0.85;ctx.fill();ctx.globalAlpha=1;"
+                "  }"
+                "  if(show>0)yearLabel.textContent=years[Math.min(show-1,nY-1)];"
+                "  if(hoverIdx>=0&&animDone){"
+                "    ctx.beginPath();ctx.moveTo(xP(hoverIdx),PAD.t);ctx.lineTo(xP(hoverIdx),H-PAD.b);"
+                "    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);"
+                "  }"
+                "}"
+                "function loop(){"
+                "  draw();"
+                "  if(!animDone){frame+=speed;if(frame>=nY-1){frame=nY-1;animDone=true;}else requestAnimationFrame(loop);}"
+                "}"
+                "wrap.addEventListener('mousemove',function(e){"
+                "  if(!animDone)return;"
+                "  var rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left;"
+                "  var best=-1,bd=Infinity;"
+                "  for(var y=0;y<nY;y++){var d=Math.abs(xP(y)-mx);if(d<bd){bd=d;best=y;}}"
+                "  if(best>=0&&bd<30){"
+                "    hoverIdx=best;draw();"
+                "    var html='<b>'+years[best]+'</b><br>';"
+                "    for(var c=0;c<channels.length;c++){var v=stacked[best][c].val;if(v>0)html+='<span style=\"color:'+colors[channels[c]]+'\">&#9632;</span> '+channels[c]+': $'+v.toFixed(1)+'B<br>';}"
+                "    html+='<b>Total: $'+stacked[best]._total.toFixed(1)+'B</b>';"
+                "    tooltip.innerHTML=html;tooltip.style.display='block';"
+                "    tooltip.style.left=Math.min(mx+14,W-170)+'px';tooltip.style.top='30px';"
+                "  }else{hoverIdx=-1;tooltip.style.display='none';}"
+                "});"
+                "wrap.addEventListener('mouseleave',function(){hoverIdx=-1;tooltip.style.display='none';draw();});"
+                "wrap.addEventListener('click',function(){if(animDone){frame=0;animDone=false;requestAnimationFrame(loop);}});"
+                "window.addEventListener('resize',function(){resize();draw();});"
+                "requestAnimationFrame(loop);"
+                "})();</script>"
+            )
             st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
-            st.plotly_chart(s_fig, use_container_width=True, config={"displayModeBar": False})
+            st.components.v1.html(_ss_anim_html, height=420, scrolling=False)
+            st.caption("Global ad spend by channel category. Hover to inspect by year. Click to replay. Values in $B.")
             st.markdown("</div>", unsafe_allow_html=True)
-            st.caption("Global ad spend by channel category, sourced from country-level aggregates. Values in $B.")
 except Exception:
     st.info("Structural shift chart unavailable.")
 _separator()
@@ -5088,6 +5185,9 @@ try:
     else:
         min_year = int(metrics["year"].min())
         y_start = max(effective_year - 3, min_year)
+        # Filter market feed to start from 1999 so chart is readable
+        _mbet_start = pd.Timestamp("1999-01-01")
+        _mbet_feed = market_feed_df[market_feed_df["date"] >= _mbet_start].copy() if not market_feed_df.empty else market_feed_df
         start_df = metrics[metrics["year"] == y_start][["company", mcap_col]].rename(columns={mcap_col: "mcap_start"})
         end_df = metrics[metrics["year"] == effective_year][["company", mcap_col]].rename(columns={mcap_col: "mcap_end"})
         perf = start_df.merge(end_df, on="company", how="inner")
@@ -5097,18 +5197,18 @@ try:
             st.info("Performance chart unavailable.")
         else:
             top3 = perf.nlargest(3, "tsr")["company"].tolist()
-            if market_feed_df.empty:
+            if _mbet_feed.empty:
                 st.info("Performance chart unavailable.")
             else:
                 p_fig = go.Figure()
                 for idx_tag, idx_label, color, dash in [("^GSPC", "S&P 500", "white", "dash"), ("^IXIC", "Nasdaq", "#ff9900", "dot")]:
-                    _tag_col = market_feed_df["tag"].astype(str).str.upper()
-                    _asset_col = market_feed_df["asset"].astype(str).str.lower()
-                    idx_feed = market_feed_df[_tag_col.isin([idx_tag, idx_tag.lstrip("^")])]
+                    _tag_col = _mbet_feed["tag"].astype(str).str.upper()
+                    _asset_col = _mbet_feed["asset"].astype(str).str.lower()
+                    idx_feed = _mbet_feed[_tag_col.isin([idx_tag, idx_tag.lstrip("^")])]
                     if idx_feed.empty:
-                        idx_feed = market_feed_df[_asset_col.str.contains(idx_label.lower(), na=False)]
+                        idx_feed = _mbet_feed[_asset_col.str.contains(idx_label.lower(), na=False)]
                     if idx_feed.empty:
-                        idx_feed = market_feed_df[_asset_col.isin([idx_tag.lower(), idx_tag.lstrip("^").lower()])]
+                        idx_feed = _mbet_feed[_asset_col.isin([idx_tag.lower(), idx_tag.lstrip("^").lower()])]
                     if idx_feed.empty:
                         continue
                     idx_feed = idx_feed.sort_values("date")
@@ -5121,11 +5221,11 @@ try:
                     ticker = company_ticker_fallback.get(company)
                     if not ticker:
                         continue
-                    co_feed = market_feed_df[market_feed_df["tag"].astype(str).str.upper() == ticker]
+                    co_feed = _mbet_feed[_mbet_feed["tag"].astype(str).str.upper() == ticker]
                     if co_feed.empty:
-                        co_feed = market_feed_df[market_feed_df["asset"].astype(str).str.lower().str.contains(company.lower(), na=False)]
+                        co_feed = _mbet_feed[_mbet_feed["asset"].astype(str).str.lower().str.contains(company.lower(), na=False)]
                     if co_feed.empty:
-                        co_feed = market_feed_df[market_feed_df["asset"].astype(str).str.upper() == ticker]
+                        co_feed = _mbet_feed[_mbet_feed["asset"].astype(str).str.upper() == ticker]
                     if co_feed.empty:
                         continue
                     co_feed = co_feed.sort_values("date")

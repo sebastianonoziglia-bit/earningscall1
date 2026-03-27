@@ -163,39 +163,34 @@ def load_common_styles():
         visibility: visible !important;
     }
 
-    /* Fix multiselect pill text clipping — first letters hidden by overflow */
-    [data-testid="stMultiSelect"] [data-baseweb="tag"] {
+    /* Fix multiselect pill text clipping — global: first letters hidden by overflow */
+    [data-baseweb="tag"] {
         overflow: visible !important;
         max-width: none !important;
-        padding-left: 8px !important;
+        padding-left: 10px !important;
+        padding-right: 4px !important;
         min-width: 0 !important;
+        text-overflow: unset !important;
     }
-    [data-testid="stMultiSelect"] [data-baseweb="tag"] > span {
+    [data-baseweb="tag"] > span,
+    [data-baseweb="tag"] span[dir="auto"] {
         overflow: visible !important;
         text-overflow: unset !important;
         white-space: nowrap !important;
-        padding-left: 2px !important;
-        margin-left: 0 !important;
+        max-width: none !important;
         min-width: 0 !important;
     }
-    /* Close button inside tag — keep it from overlapping text */
-    [data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"] {
+    /* Close button inside tag — don't overlap text */
+    [data-baseweb="tag"] [role="presentation"] {
         margin-left: 6px !important;
         flex-shrink: 0 !important;
+        position: relative !important;
     }
-    /* Ensure the tag container doesn't clip */
-    [data-testid="stMultiSelect"] [data-baseweb="input"] {
-        overflow: visible !important;
-    }
-    [data-testid="stMultiSelect"] [data-baseweb="select"] > div:first-child {
+    /* Ensure container doesn't clip tags */
+    [data-baseweb="input"],
+    [data-baseweb="select"] > div:first-child {
         overflow: visible !important;
         flex-wrap: wrap !important;
-    }
-    /* Ensure pill text is fully visible */
-    [data-testid="stMultiSelect"] [data-baseweb="tag"] span[dir="auto"] {
-        overflow: visible !important;
-        text-overflow: unset !important;
-        max-width: none !important;
     }
 
     /* Slider styling */
