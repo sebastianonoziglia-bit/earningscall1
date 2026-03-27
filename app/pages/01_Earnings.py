@@ -3268,7 +3268,7 @@ def main():
 
     quarterly_kpis_df = _load_quarterly_kpis(data_processor.data_path, get_file_mtime(data_processor.data_path))
     available_q = _get_available_quarters_for_earnings(year, company, quarterly_kpis_df)
-    quarter_options = ["Annual"] + [f"Q{q}" for q in available_q]
+    quarter_options = ["Annual"]  # Quarterly selector removed — all sections use annual data
     _preselect_q = st.session_state.pop("earnings_preselect_quarter", None)
     _default_q_idx = 0
     if _preselect_q and _preselect_q in quarter_options:
@@ -4069,20 +4069,17 @@ def main():
             if _parse_quarter_int(selected_quarter) else str(year)
         )
 
-        # ── All 9 categories with pill toggles ───────────────────────────
+        # ── All 9 categories with native pill toggles ───────────────────────
         try:
             from utils.scoring_config import SIGNAL_CATEGORIES as _ALL_SIG_CATS
         except ImportError:
             _ALL_SIG_CATS = list(SIGNAL_ICONS.keys())
 
-        # Category filter pills — initialise with the 3 original defaults on
-        _default_cats = {"Outlook", "Risks", "Opportunities"}
-        _sig_state_key = f"earn_sig_cats_{company}_{year}_{selected_quarter}"
-        if _sig_state_key not in st.session_state:
-            st.session_state[_sig_state_key] = list(_default_cats)
+        _default_cats = ["Outlook", "Risks", "Opportunities"]
+        _sig_pills_key = f"earn_sig_pills_{company}_{year}"
 
         st.markdown(
-            f"<div style='margin:1.5rem 0 0.5rem 0;'>"
+            f"<div style='margin:1.5rem 0 0.4rem 0;'>"
             f"<span style='font-weight:700;font-size:1rem;color:#111827;'>"
             f"Signals from the earnings call</span>"
             f"<span style='color:#6b7280;font-size:0.82rem;margin-left:10px;'>"
@@ -4090,60 +4087,25 @@ def main():
             unsafe_allow_html=True,
         )
 
-        # Pill row — 9 toggle buttons
-        _pill_cols = st.columns(len(_ALL_SIG_CATS))
-        for _pi, _pc in enumerate(_ALL_SIG_CATS):
-            _pkey = f"earn_pill_{_sig_state_key}_{_pi}"
-            _pactive = _pc in st.session_state[_sig_state_key]
-            _pcfg = SIGNAL_COLORS.get(_pc, {"tag": "#374151", "border": "#e5e7eb"})
-            _picon = SIGNAL_ICONS.get(_pc, "")
-            _pbg = _pcfg["tag"] if _pactive else "#f3f4f6"
-            _pfg = "white" if _pactive else "#6b7280"
-            _pborder = _pcfg["tag"] if _pactive else "#e5e7eb"
-            with _pill_cols[_pi]:
-                st.markdown(
-                    f"<div style='text-align:center;margin-bottom:10px;'>",
-                    unsafe_allow_html=True,
-                )
-                if st.button(
-                    f"{_picon} {_pc}",
-                    key=_pkey,
-                    use_container_width=True,
-                    help=f"{'Hide' if _pactive else 'Show'} {_pc}",
-                ):
-                    _cur = list(st.session_state[_sig_state_key])
-                    if _pc in _cur:
-                        _cur.remove(_pc)
-                    else:
-                        _cur.append(_pc)
-                    st.session_state[_sig_state_key] = _cur
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
-
-        # Style active/inactive pills via CSS scoped to this section
-        _pill_css = "<style>"
-        for _pi, _pc in enumerate(_ALL_SIG_CATS):
-            _pkey = f"earn_pill_{_sig_state_key}_{_pi}"
-            _pactive = _pc in st.session_state[_sig_state_key]
-            _pcfg = SIGNAL_COLORS.get(_pc, {"tag": "#374151"})
-            _pbg = _pcfg["tag"] if _pactive else "#f3f4f6"
-            _pfg = "white" if _pactive else "#6b7280"
-            _pborder = _pcfg["tag"] if _pactive else "#e5e7eb"
-            _pill_css += (
-                f"[data-testid='stButton'] button[kind='secondary'][data-key='{_pkey}'],"
-                f"div[data-testid='column']:nth-child({_pi+1}) > div > div > div > button {{"
-                f"background:{_pbg}!important;color:{_pfg}!important;"
-                f"border:1px solid {_pborder}!important;border-radius:999px!important;"
-                f"font-size:0.71rem!important;font-weight:600!important;"
-                f"padding:3px 6px!important;white-space:nowrap!important;"
-                f"min-height:28px!important;height:28px!important;"
-                f"}}"
-            )
-        _pill_css += "</style>"
-        st.markdown(_pill_css, unsafe_allow_html=True)
-
-        # Filter to selected categories (preserving SIGNAL_CATEGORIES order)
-        _active_cats = [c for c in _ALL_SIG_CATS if c in st.session_state[_sig_state_key]]
+        # Native st.pills — no CSS fighting, no emojis
+        try:
+            _active_cats = st.pills(
+                "Categories",
+                options=_ALL_SIG_CATS,
+                selection_mode="multi",
+                default=_default_cats,
+                key=_sig_pills_key,
+                label_visibility="collapsed",
+            ) or []
+        except AttributeError:
+            # Older Streamlit fallback: horizontal checkboxes
+            _chk_cols = st.columns(len(_ALL_SIG_CATS))
+            _active_cats = []
+            for _pi, _pc in enumerate(_ALL_SIG_CATS):
+                with _chk_cols[_pi]:
+                    if st.checkbox(_pc, value=_pc in _default_cats,
+                                   key=f"chk_{_sig_pills_key}_{_pi}"):
+                        _active_cats.append(_pc)
 
         if not _active_cats:
             st.markdown(
@@ -4156,14 +4118,13 @@ def main():
             _oro_cols = st.columns(_ncols, gap="medium")
             for _ci, _cat in enumerate(_active_cats):
                 with _oro_cols[_ci % _ncols]:
-                    _sigs = _oro.get(_cat, [])
+                    _sigs = sorted(_oro.get(_cat, []), key=lambda x: -x.get("score", 0))
                     _c = SIGNAL_COLORS.get(_cat, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
-                    _icon = SIGNAL_ICONS.get(_cat, "")
+                    # Header
                     st.markdown(
                         f"<div style='display:flex;align-items:center;gap:8px;"
                         f"margin-bottom:12px;padding-bottom:8px;"
                         f"border-bottom:2px solid {_c['border']};'>"
-                        f"<span style='font-size:1.1rem;'>{_icon}</span>"
                         f"<span style='font-weight:700;font-size:0.9rem;color:#111827;'>{_cat}</span>"
                         f"<span style='margin-left:auto;background:{_c['tag']};color:white;"
                         f"font-size:0.65rem;padding:2px 7px;border-radius:10px;"
@@ -4177,19 +4138,29 @@ def main():
                             unsafe_allow_html=True,
                         )
                     else:
-                        for _sig in _sigs:
+                        # Show more / collapse state
+                        _sn_key = f"sig_show_n_{company}_{year}_{_cat}"
+                        if _sn_key not in st.session_state:
+                            st.session_state[_sn_key] = 3
+                        _show_n = st.session_state[_sn_key]
+                        for _sig in _sigs[:_show_n]:
                             _q = str(_sig.get("quote", "")).strip()
                             _sp = str(_sig.get("speaker", "")).strip()
                             _rl = str(_sig.get("role", "")).strip()
-                            if len(_q) > 180:
-                                _q = _q[:180].rsplit(" ", 1)[0] + "…"
+                            _sc = float(_sig.get("score", 0))
+                            # Score squares (same system as Forward Intelligence)
+                            _filled = max(1, int(min(_sc / 15.0, 1.0) * 5))
+                            _conf = "■" * _filled + "□" * (5 - _filled)
                             _sp_html = ""
                             if _sp and _sp.lower() not in ("", "unknown", "nan"):
                                 _sp_html = (
-                                    f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;'>"
-                                    f"{html.escape(_sp)}"
+                                    f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;"
+                                    f"display:flex;justify-content:space-between;align-items:center;'>"
+                                    f"<span>{html.escape(_sp)}"
                                     + (f" · <span style='color:{_c['tag']}'>{html.escape(_rl)}</span>" if _rl else "")
-                                    + "</div>"
+                                    + f"</span>"
+                                    f"<span style='color:{_c['tag']};letter-spacing:1px;font-size:0.7rem;'>{_conf}</span>"
+                                    f"</div>"
                                 )
                             st.markdown(
                                 f"<div style='background:{_c['bg']};"
@@ -4202,6 +4173,21 @@ def main():
                                 f"{_sp_html}</div>",
                                 unsafe_allow_html=True,
                             )
+                        # Show more / show less buttons
+                        _remaining = len(_sigs) - _show_n
+                        if _remaining > 0:
+                            if st.button(
+                                f"Show {min(3, _remaining)} more  ›",
+                                key=f"more_{_sn_key}",
+                                use_container_width=True,
+                            ):
+                                st.session_state[_sn_key] += 3
+                                st.rerun()
+                        elif _show_n > 3:
+                            if st.button("Show less  ‹", key=f"less_{_sn_key}",
+                                         use_container_width=True):
+                                st.session_state[_sn_key] = 3
+                                st.rerun()
 
     # ── Forward Intelligence Panel ─────────────────────────────────────────
     try:
@@ -4222,7 +4208,6 @@ def main():
                     if ds.get("quote", "")[:60].lower() not in _existing_keys:
                         _fwd_signals.append(ds)
                 _fwd_signals.sort(key=lambda x: -x.get("score", 0))
-                _fwd_signals = _fwd_signals[:6]
         except Exception:
             pass
 
@@ -4238,27 +4223,30 @@ def main():
                 f"{canonical_company} · {_period} · Scored across 5 verification layers</span></div>",
                 unsafe_allow_html=True,
             )
+            _fwd_sn_key = f"fwd_show_n_{company}_{year}"
+            if _fwd_sn_key not in st.session_state:
+                st.session_state[_fwd_sn_key] = 3
+            _fwd_show_n = st.session_state[_fwd_sn_key]
             _fwd_cols = st.columns(2, gap="medium")
-            for _fi, _sig in enumerate(_fwd_signals):
+            for _fi, _sig in enumerate(_fwd_signals[:_fwd_show_n]):
                 with _fwd_cols[_fi % 2]:
                     _q = str(_sig.get("quote", "")).strip()
                     _sp = str(_sig.get("speaker", "")).strip()
                     _rl = str(_sig.get("role", "")).strip()
                     _sc = float(_sig.get("score", 0))
-                    if len(_q) > 220:
-                        _q = _q[:220].rsplit(" ", 1)[0] + "…"
-                    # Confidence indicator: filled squares
-                    _norm = min(_sc / 15.0, 1.0)  # normalize to 0-1 range
-                    _filled = max(1, int(_norm * 5))
+                    # Confidence squares
+                    _filled = max(1, int(min(_sc / 15.0, 1.0) * 5))
                     _conf = "■" * _filled + "□" * (5 - _filled)
                     _sp_html = ""
                     if _sp and _sp.lower() not in ("", "unknown", "nan"):
                         _sp_html = (
-                            f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;'>"
-                            f"{html.escape(_sp)}"
+                            f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;"
+                            f"display:flex;justify-content:space-between;align-items:center;'>"
+                            f"<span>{html.escape(_sp)}"
                             + (f" · <span style='color:#1d4ed8'>{html.escape(_rl)}</span>" if _rl else "")
-                            + f" · <span style='color:#3b82f6;font-family:monospace;'>{_conf}</span>"
-                            + "</div>"
+                            + f"</span>"
+                            f"<span style='color:#3b82f6;font-family:monospace;letter-spacing:1px;"
+                            f"font-size:0.7rem;'>{_conf}</span></div>"
                         )
                     st.markdown(
                         f"<div style='background:#eff6ff;border:1px solid #3b82f6;"
@@ -4269,6 +4257,22 @@ def main():
                         f"{_sp_html}</div>",
                         unsafe_allow_html=True,
                     )
+            # Show more / show less
+            _fwd_remaining = len(_fwd_signals) - _fwd_show_n
+            _btn_row = st.columns(2)
+            if _fwd_remaining > 0:
+                with _btn_row[0]:
+                    if st.button(f"Show {min(3, _fwd_remaining)} more  ›",
+                                 key=f"fwd_more_{company}_{year}",
+                                 use_container_width=True):
+                        st.session_state[_fwd_sn_key] += 3
+                        st.rerun()
+            if _fwd_show_n > 3:
+                with _btn_row[1]:
+                    if st.button("Show less  ‹", key=f"fwd_less_{company}_{year}",
+                                 use_container_width=True):
+                        st.session_state[_fwd_sn_key] = 3
+                        st.rerun()
     except Exception:
         pass
     # TODO: This section could also auto-generate a 3-bullet company outlook summary
