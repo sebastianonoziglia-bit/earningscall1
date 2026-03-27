@@ -1661,15 +1661,13 @@ def get_available_companies(data_processor):
 def get_available_years(data_processor):
     """Get list of available years for all companies.
 
-    Checks multiple data sources so the year selector is never empty:
-    1. data_processor.df_metrics (already loaded & normalized)
-    2. Direct Excel read of Company_metrics_earnings_values sheet
-    3. GroupM / country advertising sheets via their loaders
-    4. Fallback: iterate companies x years via get_metrics()
+    Always queries ALL sources and unions the results — never stops early.
+    This ensures years from transcripts, GroupM, or country data all appear
+    even if the financial metrics sheet only covers one year.
     """
     year_set: set[int] = set()
 
-    # 1. Already-loaded metrics (check both lowercase 'year' and 'Year')
+    # 1. Already-loaded metrics
     df_metrics = getattr(data_processor, "df_metrics", None)
     if df_metrics is not None and not df_metrics.empty:
         _yr_col = next((c for c in df_metrics.columns if c.lower() == "year"), None)
@@ -1677,10 +1675,11 @@ def get_available_years(data_processor):
             years = pd.to_numeric(df_metrics[_yr_col], errors="coerce").dropna().unique()
             year_set.update(int(y) for y in years if 1990 <= int(y) <= 2100)
 
-    # 2. Direct Excel read (covers the case where df_metrics failed to load)
     excel_path = getattr(data_processor, "data_path", "") or ""
     source_stamp = int(getattr(data_processor, "source_stamp", 0) or 0)
-    if not year_set and excel_path:
+
+    if excel_path:
+        # 2. Company metrics sheet
         try:
             metrics_df = _load_company_metrics_yearly_df(excel_path, source_stamp)
             if not metrics_df.empty and "Year" in metrics_df.columns:
@@ -1689,8 +1688,7 @@ def get_available_years(data_processor):
         except Exception:
             pass
 
-    # 3. GroupM channels sheet (has a Year column too)
-    if not year_set and excel_path:
+        # 3. GroupM channels sheet
         try:
             groupm = _load_groupm_channels_df(excel_path, source_stamp)
             if not groupm.empty and "Year" in groupm.columns:
@@ -1699,8 +1697,7 @@ def get_available_years(data_processor):
         except Exception:
             pass
 
-    # 4. Country advertising data
-    if not year_set and excel_path:
+        # 4. Country advertising data
         try:
             country_df = _load_country_advertising_df(excel_path, source_stamp)
             if not country_df.empty and "Year" in country_df.columns:
@@ -1709,7 +1706,15 @@ def get_available_years(data_processor):
         except Exception:
             pass
 
-    # 5. Last resort: iterate companies x years
+        # 5. Transcripts sheet — covers years where only transcript data exists
+        try:
+            _tr = pd.read_excel(excel_path, sheet_name="Transcripts", usecols=["year"])
+            _tr_years = pd.to_numeric(_tr["year"], errors="coerce").dropna().unique()
+            year_set.update(int(y) for y in _tr_years if 1990 <= int(y) <= 2100)
+        except Exception:
+            pass
+
+    # 6. Last resort: iterate companies x years
     if not year_set:
         companies = get_available_companies(data_processor)
         for year in range(2010, datetime.now().year + 1):
@@ -3263,6 +3268,11 @@ def _pick_rows_for_period(df: pd.DataFrame, selected_year: int | None, selected_
                 if not yearly.empty:
                     return yearly, str(int(selected_year))
                 return year_exact, str(int(selected_year))
+
+    # If a specific year was requested but nothing matched, return empty —
+    # never show data from a completely different year as a "fallback".
+    if selected_year is not None:
+        return pd.DataFrame(), f"No data for {int(selected_year)}"
 
     if quarter_norm:
         quarter_only = scoped[(scoped["_year_int"].isna()) & (scoped["_quarter_norm"] == quarter_norm)].copy()

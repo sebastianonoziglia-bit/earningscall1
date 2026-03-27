@@ -483,7 +483,7 @@ def extract_outlook_risks_opportunities(
     company: str,
     year: int,
     quarter: str = "",
-    max_per_category: int = 3,
+    max_per_category: int = 6,
 ) -> dict:
     """
     Extract signals across all 9 categories from CEO/CFO transcript blocks.
@@ -627,7 +627,7 @@ def extract_forward_looking_signals(
     company: str = "",
     year: int = 0,
     quarter: str = "",
-    max_signals: int = 5,
+    max_signals: int = 8,
 ) -> list[dict]:
     """
     Extract the highest-scoring forward-looking signals for a company.
