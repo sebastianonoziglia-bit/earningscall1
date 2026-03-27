@@ -4037,9 +4037,27 @@ def main():
                     render_plotly(fig, xaxis_is_year=True)
 
 
-    st.subheader("Insights")
-    render_transcript_highlights(company, int(year), selected_quarter)
+    # ── Insights — independent year/quarter filter ─────────────────────────
+    st.markdown(
+        "<div style='margin:2rem 0 0.6rem 0;'>"
+        "<span style='font-weight:800;font-size:1.15rem;color:#111827;'>Insights</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    _ins_col_yr, _ins_col_qtr, _ins_col_pad = st.columns([1, 1, 4])
+    _ins_years_opts = sorted([int(y) for y in years], reverse=True)
+    with _ins_col_yr:
+        _ins_year = st.selectbox("Year", _ins_years_opts, index=0,
+                                  key=f"ins_yr_{company}")
+    with _ins_col_qtr:
+        _ins_qtr = st.selectbox("Quarter", ["Annual", "Q1", "Q2", "Q3", "Q4"],
+                                 index=0, key=f"ins_qtr_{company}")
+    _ins_q_str = "" if _ins_qtr == "Annual" else _ins_qtr
+    _period = f"Q{_ins_qtr.lstrip('Q')} {_ins_year}" if _ins_q_str else str(_ins_year)
 
+    render_transcript_highlights(company, int(_ins_year), _ins_qtr)
+
+    # Extract signals
     try:
         from utils.transcript_live import (
             extract_outlook_risks_opportunities,
@@ -4049,145 +4067,130 @@ def main():
         _oro = extract_outlook_risks_opportunities(
             str(data_processor.data_path),
             canonical_company,
-            int(year),
-            selected_quarter if selected_quarter and selected_quarter != "Annual" else "",
+            int(_ins_year),
+            _ins_q_str,
         )
         _has_oro = any(bool(v) for v in _oro.values())
     except Exception:
         _oro = {}
         _has_oro = False
-        SIGNAL_ICONS = {"Outlook": "🔭", "Risks": "⚠️", "Opportunities": "🚀"}
         SIGNAL_COLORS = {
-            "Outlook":       {"bg": "#eff6ff", "border": "#3b82f6", "tag": "#1d4ed8"},
-            "Risks":         {"bg": "#fff7ed", "border": "#f97316", "tag": "#c2410c"},
-            "Opportunities": {"bg": "#f0fdf4", "border": "#22c55e", "tag": "#15803d"},
+            "Outlook":             {"bg": "#f8faff", "border": "#3b82f6", "tag": "#1d4ed8"},
+            "Risks":               {"bg": "#fffaf7", "border": "#f97316", "tag": "#c2410c"},
+            "Opportunities":       {"bg": "#f6fdf7", "border": "#22c55e", "tag": "#15803d"},
+            "Investment":          {"bg": "#fefce8", "border": "#eab308", "tag": "#a16207"},
+            "Product Shifts":      {"bg": "#fdf4ff", "border": "#a855f7", "tag": "#7e22ce"},
+            "User Behavior":       {"bg": "#f0f9ff", "border": "#0ea5e9", "tag": "#0369a1"},
+            "Monetization":        {"bg": "#fef9f0", "border": "#f59e0b", "tag": "#b45309"},
+            "Strategic Direction": {"bg": "#f1f5f9", "border": "#64748b", "tag": "#334155"},
+            "Broadcaster Threats": {"bg": "#fff1f2", "border": "#f43f5e", "tag": "#be123c"},
         }
 
-    if _has_oro:
-        _period = (
-            f"Q{_parse_quarter_int(selected_quarter)} {year}"
-            if _parse_quarter_int(selected_quarter) else str(year)
-        )
-
-        # ── All 9 categories with native pill toggles ───────────────────────
-        try:
-            from utils.scoring_config import SIGNAL_CATEGORIES as _ALL_SIG_CATS
-        except ImportError:
-            _ALL_SIG_CATS = list(SIGNAL_ICONS.keys())
-
-        _default_cats = ["Outlook", "Risks", "Opportunities"]
-        _sig_pills_key = f"earn_sig_pills_{company}_{year}"
-
+    def _render_signal_col(cat_name, oro_dict, sig_colors, co, yr):
+        _sigs = sorted(oro_dict.get(cat_name, []), key=lambda x: -x.get("score", 0))
+        _c = sig_colors.get(cat_name, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
+        # Category header
         st.markdown(
-            f"<div style='margin:1.5rem 0 0.4rem 0;'>"
-            f"<span style='font-weight:700;font-size:1rem;color:#111827;'>"
+            f"<div style='display:flex;align-items:center;gap:8px;"
+            f"margin-bottom:10px;padding-bottom:8px;"
+            f"border-bottom:2px solid {_c['border']};'>"
+            f"<span style='font-weight:700;font-size:0.88rem;color:#111827;'>{cat_name}</span>"
+            f"<span style='margin-left:auto;background:{_c['tag']};color:#fff;"
+            f"font-size:0.62rem;padding:1px 7px;border-radius:10px;"
+            f"font-weight:700;'>{len(_sigs)}</span></div>",
+            unsafe_allow_html=True,
+        )
+        if not _sigs:
+            st.markdown(
+                f"<p style='color:#9ca3af;font-size:0.8rem;'>No signals found.</p>",
+                unsafe_allow_html=True,
+            )
+            return
+        _sn_key = f"sn_{co}_{yr}_{cat_name}"
+        if _sn_key not in st.session_state:
+            st.session_state[_sn_key] = 3
+        _show_n = st.session_state[_sn_key]
+        for _sig in _sigs[:_show_n]:
+            _q = str(_sig.get("quote", "")).strip()
+            _sp = str(_sig.get("speaker", "")).strip()
+            _rl = str(_sig.get("role", "")).strip()
+            _sc = float(_sig.get("score", 0))
+            _filled = max(1, int(min(_sc / 15.0, 1.0) * 5))
+            _dots = (
+                f"<span style='color:{_c[\"tag\"]};'>{'●' * _filled}</span>"
+                f"<span style='color:#d1d5db;'>{'●' * (5 - _filled)}</span>"
+            )
+            _meta = ""
+            if _sp and _sp.lower() not in ("", "unknown", "nan"):
+                _meta = (
+                    f"<div style='margin-top:6px;display:flex;justify-content:space-between;"
+                    f"align-items:center;'>"
+                    f"<span style='font-size:0.71rem;color:#6b7280;'>{html.escape(_sp)}"
+                    + (f"<span style='color:{_c['tag']};'> · {html.escape(_rl)}</span>" if _rl else "")
+                    + f"</span><span style='font-size:0.68rem;letter-spacing:1px;'>{_dots}</span></div>"
+                )
+            st.markdown(
+                f"<div style='border-left:3px solid {_c['border']};"
+                f"padding:9px 12px;margin-bottom:8px;background:{_c['bg']};"
+                f"border-radius:0 6px 6px 0;'>"
+                f"<p style='margin:0;font-size:0.82rem;color:#1f2937;line-height:1.55;'>"
+                f"\"{html.escape(_q)}\"</p>{_meta}</div>",
+                unsafe_allow_html=True,
+            )
+        _rem = len(_sigs) - _show_n
+        if _rem > 0:
+            if st.button(f"Show {min(3, _rem)} more ›", key=f"more_{_sn_key}",
+                         use_container_width=True):
+                st.session_state[_sn_key] += 3
+                st.rerun()
+        elif _show_n > 3:
+            if st.button("Show less ‹", key=f"less_{_sn_key}",
+                         use_container_width=True):
+                st.session_state[_sn_key] = 3
+                st.rerun()
+
+    if _has_oro:
+        st.markdown(
+            f"<div style='margin:1.5rem 0 0.6rem 0;'>"
+            f"<span style='font-weight:700;font-size:0.95rem;color:#111827;'>"
             f"Signals from the earnings call</span>"
-            f"<span style='color:#6b7280;font-size:0.82rem;margin-left:10px;'>"
+            f"<span style='color:#9ca3af;font-size:0.8rem;margin-left:8px;'>"
             f"{canonical_company} · {_period}</span></div>",
             unsafe_allow_html=True,
         )
+        # ── Always visible: Outlook · Risks · Opportunities ─────────────────
+        _core_cols = st.columns(3, gap="medium")
+        for _ci, _cat in enumerate(["Outlook", "Risks", "Opportunities"]):
+            with _core_cols[_ci]:
+                _render_signal_col(_cat, _oro, SIGNAL_COLORS, company, _ins_year)
 
-        # Native st.pills — no CSS fighting, no emojis
-        try:
-            _active_cats = st.pills(
-                "Categories",
-                options=_ALL_SIG_CATS,
-                selection_mode="multi",
-                default=_default_cats,
-                key=_sig_pills_key,
-                label_visibility="collapsed",
-            ) or []
-        except AttributeError:
-            # Older Streamlit fallback: horizontal checkboxes
-            _chk_cols = st.columns(len(_ALL_SIG_CATS))
-            _active_cats = []
-            for _pi, _pc in enumerate(_ALL_SIG_CATS):
-                with _chk_cols[_pi]:
-                    if st.checkbox(_pc, value=_pc in _default_cats,
-                                   key=f"chk_{_sig_pills_key}_{_pi}"):
-                        _active_cats.append(_pc)
-
-        if not _active_cats:
-            st.markdown(
-                "<p style='color:#9ca3af;font-size:0.85rem;font-style:italic;"
-                "margin:12px 0;'>Select categories above to view signals.</p>",
-                unsafe_allow_html=True,
-            )
-        else:
-            _ncols = min(3, len(_active_cats))
-            _oro_cols = st.columns(_ncols, gap="medium")
-            for _ci, _cat in enumerate(_active_cats):
-                with _oro_cols[_ci % _ncols]:
-                    _sigs = sorted(_oro.get(_cat, []), key=lambda x: -x.get("score", 0))
-                    _c = SIGNAL_COLORS.get(_cat, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
-                    # Header
-                    st.markdown(
-                        f"<div style='display:flex;align-items:center;gap:8px;"
-                        f"margin-bottom:12px;padding-bottom:8px;"
-                        f"border-bottom:2px solid {_c['border']};'>"
-                        f"<span style='font-weight:700;font-size:0.9rem;color:#111827;'>{_cat}</span>"
-                        f"<span style='margin-left:auto;background:{_c['tag']};color:white;"
-                        f"font-size:0.65rem;padding:2px 7px;border-radius:10px;"
-                        f"font-weight:600;'>{len(_sigs)}</span></div>",
-                        unsafe_allow_html=True,
-                    )
-                    if not _sigs:
-                        st.markdown(
-                            f"<p style='color:#9ca3af;font-size:0.82rem;font-style:italic;'>"
-                            f"No {_cat.lower()} signals found.</p>",
-                            unsafe_allow_html=True,
-                        )
-                    else:
-                        # Show more / collapse state
-                        _sn_key = f"sig_show_n_{company}_{year}_{_cat}"
-                        if _sn_key not in st.session_state:
-                            st.session_state[_sn_key] = 3
-                        _show_n = st.session_state[_sn_key]
-                        for _sig in _sigs[:_show_n]:
-                            _q = str(_sig.get("quote", "")).strip()
-                            _sp = str(_sig.get("speaker", "")).strip()
-                            _rl = str(_sig.get("role", "")).strip()
-                            _sc = float(_sig.get("score", 0))
-                            # Score squares (same system as Forward Intelligence)
-                            _filled = max(1, int(min(_sc / 15.0, 1.0) * 5))
-                            _conf = "■" * _filled + "□" * (5 - _filled)
-                            _sp_html = ""
-                            if _sp and _sp.lower() not in ("", "unknown", "nan"):
-                                _sp_html = (
-                                    f"<div style='font-size:0.72rem;color:#6b7280;margin-top:5px;"
-                                    f"display:flex;justify-content:space-between;align-items:center;'>"
-                                    f"<span>{html.escape(_sp)}"
-                                    + (f" · <span style='color:{_c['tag']}'>{html.escape(_rl)}</span>" if _rl else "")
-                                    + f"</span>"
-                                    f"<span style='color:{_c['tag']};letter-spacing:1px;font-size:0.7rem;'>{_conf}</span>"
-                                    f"</div>"
-                                )
-                            st.markdown(
-                                f"<div style='background:{_c['bg']};"
-                                f"border:1px solid {_c['border']};"
-                                f"border-left:3px solid {_c['border']};"
-                                f"border-radius:6px;padding:10px 12px;margin-bottom:8px;'>"
-                                f"<p style='margin:0;font-size:0.83rem;color:#374151;"
-                                f"line-height:1.6;font-style:italic;'>"
-                                f"\"{html.escape(_q)}\"</p>"
-                                f"{_sp_html}</div>",
-                                unsafe_allow_html=True,
-                            )
-                        # Show more / show less buttons
-                        _remaining = len(_sigs) - _show_n
-                        if _remaining > 0:
-                            if st.button(
-                                f"Show {min(3, _remaining)} more  ›",
-                                key=f"more_{_sn_key}",
-                                use_container_width=True,
-                            ):
-                                st.session_state[_sn_key] += 3
-                                st.rerun()
-                        elif _show_n > 3:
-                            if st.button("Show less  ‹", key=f"less_{_sn_key}",
-                                         use_container_width=True):
-                                st.session_state[_sn_key] = 3
-                                st.rerun()
+        # ── Collapsible: 6 additional categories ────────────────────────────
+        _ext_cats = ["Investment", "Product Shifts", "User Behavior",
+                     "Monetization", "Strategic Direction", "Broadcaster Threats"]
+        _ext_with_data = [c for c in _ext_cats if _oro.get(c)]
+        if _ext_with_data:
+            with st.expander(
+                f"More signal categories — {len(_ext_with_data)} with signals",
+                expanded=False,
+            ):
+                _pills_key = f"ext_pills_{company}_{_ins_year}_{_ins_qtr}"
+                try:
+                    _active_ext = st.pills(
+                        "Filter",
+                        options=_ext_cats,
+                        selection_mode="multi",
+                        default=_ext_with_data,
+                        key=_pills_key,
+                        label_visibility="collapsed",
+                    ) or []
+                except AttributeError:
+                    _active_ext = _ext_with_data
+                if _active_ext:
+                    _ext_n = min(3, len(_active_ext))
+                    _ext_cols = st.columns(_ext_n, gap="medium")
+                    for _ei, _ecat in enumerate(_active_ext):
+                        with _ext_cols[_ei % _ext_n]:
+                            _render_signal_col(_ecat, _oro, SIGNAL_COLORS, company, _ins_year)
 
     # ── Forward Intelligence Panel ─────────────────────────────────────────
     try:
@@ -4195,13 +4198,13 @@ def main():
         _fwd_signals = extract_forward_looking_signals(
             excel_path=str(data_processor.data_path),
             company=canonical_company,
-            year=int(year),
-            quarter=str(selected_quarter) if selected_quarter and selected_quarter != "Annual" else "",
+            year=int(_ins_year),
+            quarter=_ins_q_str,
         )
         # Also try DB merge if available
         try:
             from utils.database_service import get_forward_signals as _db_fwd
-            _db_signals = _db_fwd(company=canonical_company, year=int(year), limit=6)
+            _db_signals = _db_fwd(company=canonical_company, year=int(_ins_year), limit=6)
             if _db_signals:
                 _existing_keys = {s["quote"][:60].lower() for s in _fwd_signals}
                 for ds in _db_signals:

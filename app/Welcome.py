@@ -5354,8 +5354,8 @@ try:
                 data=list(_init_data),
                 frames=_tm_frames,
                 layout=go.Layout(
-                    height=480,
-                    margin=dict(l=0, r=0, t=60, b=0),
+                    height=520,
+                    margin=dict(l=0, r=0, t=60, b=80),
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
                     font=dict(family="DM Sans, Inter, sans-serif", color="#e6edf3"),
@@ -5753,17 +5753,17 @@ body{background:transparent;}
 .cta-btn:hover .cta-arrow{color:#4aaeff;right:16px;}
 </style>
 <div class="cta-row">
-  <a class="cta-btn" id="cta-overview" href="/Overview" target="_top">
+  <a class="cta-btn" id="cta-overview" href="#" onclick="try{window.top.location.href='/Overview';}catch(e){window.location.href='/Overview';}return false;">
     <div class="cta-title">Overview</div>
     <div class="cta-desc">Macro trends & market signals</div>
     <span class="cta-arrow">&rarr;</span>
   </a>
-  <a class="cta-btn" id="cta-earnings" href="/Earnings" target="_top">
+  <a class="cta-btn" id="cta-earnings" href="#" onclick="try{window.top.location.href='/Earnings';}catch(e){window.location.href='/Earnings';}return false;">
     <div class="cta-title">Earnings</div>
     <div class="cta-desc">Company deep dives & intelligence</div>
     <span class="cta-arrow">&rarr;</span>
   </a>
-  <a class="cta-btn" id="cta-genie" href="/Genie" target="_top">
+  <a class="cta-btn" id="cta-genie" href="#" onclick="try{window.top.location.href='/Genie';}catch(e){window.location.href='/Genie';}return false;">
     <div class="cta-title">Genie</div>
     <div class="cta-desc">Ask the data anything</div>
     <span class="cta-arrow">&rarr;</span>
