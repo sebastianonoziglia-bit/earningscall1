@@ -3846,55 +3846,76 @@ try:
                 _v2 = float(_grp2.iloc[0]["subscribers"])
                 if _v2 > 0:
                     _latest_subs2_raw[str(_svc2).strip()] = _v2
-            # Auto-group variants (e.g. "Spotify Premium" → "Spotify")
+
+            # Auto-group variants → base, track which bases were sums
             _svc2_names = sorted(_latest_subs2_raw.keys(), key=len)
             _latest_subs2: dict = {}
+            _summed_into: dict = {}  # base_name → [variant qualifiers summed in]
             for _sn2 in _svc2_names:
                 _base2 = _sn2
                 for _cand2 in _svc2_names:
                     if _cand2 != _sn2 and _sn2.lower().startswith(_cand2.lower() + " "):
                         _base2 = _cand2
                         break
+                if _base2 != _sn2:
+                    # store the qualifier (e.g. "Premium" from "Spotify Premium")
+                    _qual = _sn2[len(_base2):].strip()
+                    _summed_into.setdefault(_base2, []).append(_qual)
                 _latest_subs2[_base2] = _latest_subs2.get(_base2, 0.0) + _latest_subs2_raw[_sn2]
-            # Mapping: service key → display name + styling for bubble chart
+
+            # Name aliases for sheet keys that differ from display names
+            _name_aliases = {
+                "Amazon Prime": ["Amazon", "Amazon Prime Video"],
+                "WBD": ["Max (WBD)", "WBD Max / HBO", "Warner Bros. Discovery"],
+            }
+
+            def _subs2_label(base, total_m):
+                _lbl = f"{total_m/1000:.1f}B" if total_m >= 1000 else f"{total_m:.0f}M"
+                _quals = _summed_into.get(base, [])
+                if _quals:
+                    _lbl += f" (incl. {', '.join(_quals)})"
+                return _lbl
+
+            # Update existing _human_companies entries first
+            for _hc in _human_companies:
+                _hcname = str(_hc.get("name", "")).strip().lower()
+                for _base2, _subs_m2 in _latest_subs2.items():
+                    _match_names = [_base2.lower()] + [a.lower() for a in _name_aliases.get(_base2, [])]
+                    if any(_hcname == mn or _hcname.startswith(mn) or mn.startswith(_hcname) for mn in _match_names):
+                        _slabel2 = _subs2_label(_base2, _subs_m2)
+                        # Always update — live aggregated data supersedes sheet/hardcoded
+                        _hc["val"] = _subs_m2
+                        _hc["users"] = f"{_slabel2} subs"
+                        _hc["label"] = f"{_slabel2} subs"
+                        break
+
+            # Add platforms from subscribers sheet not yet in _human_companies
+            _hc_names_lower = {str(_c.get("name", "")).strip().lower() for _c in _human_companies}
             _subs_meta2 = {
-                "Amazon Prime":  {"color": "#FF9900", "logo": "Amazon",                "display": "Amazon Prime Video"},
-                "Peacock":       {"color": "#9B2335", "logo": "Comcast",               "display": "Comcast Peacock"},
-                "WBD":           {"color": "#4a90d9", "logo": "Warner Bros. Discovery","display": "WBD Max / HBO"},
-                "Disney+":       {"color": "#113CCF", "logo": "Disney",                "display": "Disney+ / Hulu / ESPN+"},
-                "Paramount+":    {"color": "#7B2FBE", "logo": "Paramount",             "display": "Paramount+"},
+                "Amazon Prime":  {"color": "#FF9900", "display": "Amazon Prime Video"},
+                "Peacock":       {"color": "#9B2335", "display": "Comcast Peacock"},
+                "WBD":           {"color": "#4a90d9", "display": "WBD Max / HBO"},
+                "Disney+":       {"color": "#113CCF", "display": "Disney+ / Hulu / ESPN+"},
+                "Paramount+":    {"color": "#7B2FBE", "display": "Paramount+"},
             }
             for _svc2, _subs_m2 in _latest_subs2.items():
-                _meta2 = _subs_meta2.get(_svc2)
-                if not _meta2:
-                    continue
-                _disp2 = _meta2["display"]
+                _disp2 = _subs_meta2.get(_svc2, {}).get("display", _svc2)
+                _color2 = _subs_meta2.get(_svc2, {}).get("color", _company_color(_svc2))
                 _already2 = any(
-                    _disp2.lower() in str(_c.get("name", _c.get("platform", ""))).lower()
-                    or str(_c.get("name", _c.get("platform", ""))).lower() in _disp2.lower()
-                    for _c in _human_companies
+                    _disp2.lower() in _n or _n in _disp2.lower() or _n == _svc2.lower()
+                    for _n in _hc_names_lower
                 )
-                _slabel2 = f"{_subs_m2/1000:.1f}B" if _subs_m2 >= 1000 else f"{_subs_m2:.0f}M"
                 if not _already2:
+                    _slabel2 = _subs2_label(_svc2, _subs_m2)
                     _human_companies.append({
                         "name": _disp2,
                         "val": _subs_m2,
                         "mins": None,
                         "revenue": None,
                         "users": f"{_slabel2} subs",
-                        "color": _meta2["color"],
+                        "color": _color2,
                         "label": f"{_slabel2} subs",
                     })
-                else:
-                    # Update subscriber count if live data is larger
-                    for _c2 in _human_companies:
-                        _cname2 = str(_c2.get("name", _c2.get("platform", ""))).lower()
-                        if _disp2.lower() in _cname2 or _cname2 in _disp2.lower():
-                            if _subs_m2 > float(_c2.get("val", 0) or 0):
-                                _c2["val"] = _subs_m2
-                                _c2["users"] = f"{_slabel2} subs"
-                                _c2["label"] = f"{_slabel2} subs"
-                            break
 except Exception:
     pass
 
