@@ -6514,14 +6514,14 @@ def _render_transcript_topic_growth_chart(
 
     # ── Cluster definitions for related topics ──
     _TOPIC_CLUSTERS = {
-        "AI & Machine Learning": ["AI", "Generative AI", "Innovation"],
+        "AI & Machine Learning": ["AI", "Generative AI", "Innovation", "Product & Platform Shifts"],
         "Cloud & Infrastructure": ["Cloud & infrastructure", "Security & privacy"],
-        "Advertising": ["Advertising", "Retail Media", "Pricing & monetization"],
-        "Streaming & Content": ["Streaming & CTV", "Subscriber Growth", "Creator Economy"],
+        "Advertising": ["Advertising", "Retail Media", "Pricing & monetization", "Monetization Strategy"],
+        "Streaming & Content": ["Streaming & CTV", "Subscriber Growth", "Creator Economy", "Broadcaster Threats"],
         "Cost & Efficiency": ["Cost Reduction", "Cost optimization", "Inflation", "Supply chain"],
-        "Regulation & Risk": ["Regulation & Privacy", "Regulation & legal", "Regulatory", "Geopolitical uncertainty", "Sustainability"],
-        "Financial Strategy": ["Capital allocation", "Debt & Leverage", "Shareholder Returns", "Financial Health", "Guidance", "Segment performance", "M&A Activity"],
-        "Growth & Expansion": ["Market Expansion", "International", "Customer Metrics", "Consumer demand", "Competition"],
+        "Regulation & Risk": ["Regulation & Privacy", "Regulation & legal", "Regulatory", "Geopolitical uncertainty", "Sustainability", "Risks"],
+        "Financial Strategy": ["Capital allocation", "Capital Allocation & Investment", "Debt & Leverage", "Shareholder Returns", "Financial Health", "Guidance", "Segment performance", "M&A Activity", "Outlook", "Strategic Direction"],
+        "Growth & Expansion": ["Market Expansion", "International", "Customer Metrics", "Consumer demand", "Competition", "Opportunities", "User Behavior"],
     }
     _CLUSTER_COLORS = {
         "AI & Machine Learning": "#7C3AED",

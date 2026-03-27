@@ -420,31 +420,33 @@ TOPIC_KEYWORDS: Dict[str, list[str]] = {
     ],
 }
 
-# ── Merge signal keywords from scoring_config.py ──────────────────────────────
-# Map CATEGORY_KEYWORDS (9 signal categories) → TOPIC_KEYWORDS so the Topic
-# Signal Map shows everything the scoring engine tracks.  Keywords that already
-# exist in an existing topic are de-duplicated.
-_SIGNAL_TO_TOPIC_MAP = {
-    "Outlook":             "Guidance",            # outlook keywords overlap with guidance
-    "Risks":               "Geopolitical uncertainty",  # risk, uncertainty, etc.
-    "Opportunities":       "Market Expansion",
-    "Investment":          "Capital allocation",
-    "Product Shifts":      "Innovation",
-    "User Behavior":       "Customer Metrics",
-    "Monetization":        "Pricing & monetization",
-    "Strategic Direction": "Competition",
-    "Broadcaster Threats": "Streaming & CTV",
+# ── Add each signal category as its own standalone topic ──────────────────────
+# The 9 SIGNAL_CATEGORIES from scoring_config become first-class topics so that
+# the Topic Signal Map captures the full vocabulary the scoring engine uses.
+# Keywords already present elsewhere are still included here — these topics are
+# intentionally focused on each signal dimension rather than a merged catch-all.
+_SIGNAL_STANDALONE_TOPICS = {
+    "Outlook": _CFG_CATEGORY_KW.get("Outlook", []),
+    "Risks": _CFG_CATEGORY_KW.get("Risks", []),
+    "Opportunities": _CFG_CATEGORY_KW.get("Opportunities", []),
+    "Capital Allocation & Investment": _CFG_CATEGORY_KW.get("Investment", []),
+    "Product & Platform Shifts": _CFG_CATEGORY_KW.get("Product Shifts", []),
+    "User Behavior": _CFG_CATEGORY_KW.get("User Behavior", []),
+    "Monetization Strategy": _CFG_CATEGORY_KW.get("Monetization", []),
+    "Strategic Direction": _CFG_CATEGORY_KW.get("Strategic Direction", []),
+    "Broadcaster Threats": _CFG_CATEGORY_KW.get("Broadcaster Threats", []),
 }
 
-for _sig_cat, _sig_keywords in _CFG_CATEGORY_KW.items():
-    _target_topic = _SIGNAL_TO_TOPIC_MAP.get(_sig_cat, _sig_cat)
-    if _target_topic not in TOPIC_KEYWORDS:
-        TOPIC_KEYWORDS[_target_topic] = []
-    _existing = {kw.strip().lower() for kw in TOPIC_KEYWORDS[_target_topic]}
-    for _kw in _sig_keywords:
-        if _kw.strip().lower() not in _existing:
-            TOPIC_KEYWORDS[_target_topic].append(_kw)
-            _existing.add(_kw.strip().lower())
+for _new_topic, _new_kws in _SIGNAL_STANDALONE_TOPICS.items():
+    if _new_topic not in TOPIC_KEYWORDS:
+        TOPIC_KEYWORDS[_new_topic] = list(_new_kws)
+    else:
+        # Topic already exists — merge in any keywords not yet present
+        _existing = {kw.strip().lower() for kw in TOPIC_KEYWORDS[_new_topic]}
+        for _kw in _new_kws:
+            if _kw.strip().lower() not in _existing:
+                TOPIC_KEYWORDS[_new_topic].append(_kw)
+                _existing.add(_kw.strip().lower())
 
 KPI_PATTERNS: Dict[str, str] = {
     "Revenue": r"(?:revenue|sales).*?(\$?\d+(?:\.\d+)?\s*(?:trillion|billion|million|thousand|B|M|K))",
