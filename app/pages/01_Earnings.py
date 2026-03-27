@@ -4116,8 +4116,9 @@ def main():
             _rl = str(_sig.get("role", "")).strip()
             _sc = float(_sig.get("score", 0))
             _filled = max(1, int(min(_sc / 15.0, 1.0) * 5))
+            _dot_color = _c["tag"]
             _dots = (
-                f"<span style='color:{_c[\"tag\"]};'>{'●' * _filled}</span>"
+                f"<span style='color:{_dot_color};'>{'●' * _filled}</span>"
                 f"<span style='color:#d1d5db;'>{'●' * (5 - _filled)}</span>"
             )
             _meta = ""
