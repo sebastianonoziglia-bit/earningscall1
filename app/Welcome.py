@@ -3330,7 +3330,7 @@ try:
     _fi_cards: list[dict] = []
     for _fi_co in _FI_COMPANIES:
         _fi_sigs = extract_forward_looking_signals(
-            excel_path, company=_fi_co, year=int(selected_year), max_signals=1
+            excel_path, company=_fi_co, year=int(selected_year), max_signals=1  # 1 per CEO for home carousel
         )
         if not _fi_sigs:
             continue

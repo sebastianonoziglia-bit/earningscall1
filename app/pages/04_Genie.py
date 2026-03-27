@@ -3386,7 +3386,7 @@ if _all_signals:
                 f"**{_cat}** \u2014 {len(_cats[_cat])} signal{'s' if len(_cats[_cat])>1 else ''}",
                 expanded=(_cat == _cats_present[0])
             ):
-                for sig in _cats[_cat][:15]:
+                for sig in _cats[_cat]:
                     col_chip, col_text = st.columns([0.22, 0.78])
                     with col_chip:
                         _brand = COMPANY_BRAND_COLORS.get(sig['company'].lower(), "")

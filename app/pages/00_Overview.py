@@ -5708,7 +5708,6 @@ def _load_all_company_signals(
                 result = extract_outlook_risks_opportunities(
                     excel_path, str(company),
                     int(selected_year), selected_quarter,
-                    max_per_category=2,
                 )
                 for cat, sigs in result.items():
                     for sig in sigs:
@@ -6794,7 +6793,6 @@ def _render_excel_overview_layers(
                 sigs = extract_all_signals(
                     _exp_excel_path, co, _exp_year,
                     _exp_quarter if _exp_quarter != "All" else "",
-                    max_per_category=3,
                 )
                 _all_exp_signals.extend(sigs)
             # Filter by selected categories

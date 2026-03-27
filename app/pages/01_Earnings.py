@@ -4211,7 +4211,6 @@ def main():
             company=canonical_company,
             year=int(year),
             quarter=str(selected_quarter) if selected_quarter and selected_quarter != "Annual" else "",
-            max_signals=6,
         )
         # Also try DB merge if available
         try:

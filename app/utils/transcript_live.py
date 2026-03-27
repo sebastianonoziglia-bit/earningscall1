@@ -483,7 +483,7 @@ def extract_outlook_risks_opportunities(
     company: str,
     year: int,
     quarter: str = "",
-    max_per_category: int = 6,
+    max_per_category: int | None = None,
 ) -> dict:
     """
     Extract signals across all 9 categories from CEO/CFO transcript blocks.
@@ -580,9 +580,11 @@ def extract_outlook_risks_opportunities(
                     if s["quote"][:60].lower() != key
                 ]
 
-    # Sort and keep top N per category
+    # Sort by score — best signals first; apply cap only if explicitly set
     for cat in result:
-        result[cat] = sorted(result[cat], key=lambda x: -x["score"])[:max_per_category]
+        result[cat] = sorted(result[cat], key=lambda x: -x["score"])
+        if max_per_category is not None:
+            result[cat] = result[cat][:max_per_category]
 
     return result
 
@@ -627,7 +629,7 @@ def extract_forward_looking_signals(
     company: str = "",
     year: int = 0,
     quarter: str = "",
-    max_signals: int = 8,
+    max_signals: int | None = None,
 ) -> list[dict]:
     """
     Extract the highest-scoring forward-looking signals for a company.
@@ -742,7 +744,7 @@ def extract_forward_looking_signals(
                 })
 
     all_signals.sort(key=lambda x: -x["score"])
-    result = all_signals[:max_signals]
+    result = all_signals[:max_signals] if max_signals is not None else all_signals
 
     # Enrich with real speaker names from Company_Speakers sheet
     for sig in result:
@@ -774,7 +776,6 @@ def extract_all_signals(
     company: str,
     year: int,
     quarter: str = "",
-    max_per_category: int = 3,
 ) -> list[dict]:
     """
     Extract signals across ALL categories for a company.
@@ -782,7 +783,7 @@ def extract_all_signals(
     Used by Overview Transcript Signal Explorer.
     """
     result = extract_outlook_risks_opportunities(
-        excel_path, company, year, quarter, max_per_category=max_per_category,
+        excel_path, company, year, quarter,
     )
     flat: list[dict] = []
     for cat, signals in result.items():
