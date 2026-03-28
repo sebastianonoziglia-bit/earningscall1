@@ -163,7 +163,22 @@ def load_common_styles():
         visibility: visible !important;
     }
 
-    /* Fix multiselect pill text clipping — global: first letters hidden by overflow */
+    /* Fix multiselect pill text clipping — remove left-side scroll-shadow overlay */
+    [data-baseweb="select"]::before,
+    [data-baseweb="select"]::after,
+    [data-baseweb="input"]::before,
+    [data-baseweb="input"]::after {
+        display: none !important;
+        content: none !important;
+        background: none !important;
+        width: 0 !important;
+    }
+    /* Also kill any inner pseudo-elements that create the white fade */
+    [data-baseweb="select"] > div::before,
+    [data-baseweb="select"] > div::after {
+        display: none !important;
+        content: none !important;
+    }
     [data-baseweb="tag"] {
         overflow: visible !important;
         max-width: none !important;
