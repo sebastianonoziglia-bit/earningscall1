@@ -1686,6 +1686,13 @@ def _load_page_data():
 # Load data
 logos = load_company_logos()
 logos_original = dict(logos)  # preserve originals for globe + bubble chart (no white override)
+# Load YouTube logo separately (not a tracked company, so not in logos dict)
+try:
+    _yt_path = APP_DIR / "attached_assets" / "Youtube.png"
+    if _yt_path.exists():
+        logos_original["YouTube"] = base64.b64encode(_yt_path.read_bytes()).decode()
+except Exception:
+    pass
 # Override Amazon/Apple with white-on-dark variants — used ONLY for stock strip + revenue anatomy
 for _wl_co, _wl_path in {
     "Amazon": "attached_assets/Amazonwhite.png",
@@ -2550,7 +2557,7 @@ def _render_transcript_pulse_strip(current_year: int, current_quarter: str) -> N
         "<style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
         "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
         ".strip{width:100%;overflow:hidden;border-radius:12px;border:1px solid rgba(74,174,255,0.18);background:#020810;padding:12px 0;}"
-        ".track{display:flex;align-items:flex-start;gap:12px;width:max-content;animation:scroll 90s linear infinite;}"
+        ".track{display:flex;align-items:flex-start;gap:12px;width:max-content;animation:scroll 160s linear infinite;}"
         ".item{width:380px;height:190px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.72);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;}"
         ".item-quote{font-style:italic;font-size:0.83rem;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;}"
         ".item-meta{margin-top:8px;display:flex;align-items:center;gap:8px;font-size:0.74rem;flex-shrink:0;}"
@@ -3622,7 +3629,7 @@ if (DATA.length === 0) {
 var maxVal = Math.max.apply(null, DATA.map(function(d){ return d.val || 1; }));
 // Shorten long platform names to fit inside bubble (max 2 meaningful words)
 function shortName(n) {
-  var parts = (n||'').replace(/[\/–\-]+/g,' ').trim().split(/\s+/).filter(Boolean);
+  var parts = (n||'').replace(/[/\u2013\u002d]+/g,' ').trim().split(/[ \t\n\r]+/).filter(Boolean);
   if (!parts.length) return n;
   var out = parts[0];
   if (parts.length > 1 && (out+' '+parts[1]).length <= 13) out = out+' '+parts[1];
@@ -3668,7 +3675,7 @@ DATA.forEach(function(item, i) {
   if (radius < 40) {
     displayName = item.users || shortName(item.name);
   } else if (radius < 55) {
-    var parts = (item.name||'').replace(/[\/\u2013\-]+/g,' ').trim().split(/\s+/).filter(Boolean);
+    var parts = (item.name||'').replace(/[/\u2013\u002d]+/g,' ').trim().split(/[ \t\n\r]+/).filter(Boolean);
     displayName = parts[0] || item.name;
   } else {
     displayName = shortName(item.name);
@@ -3704,7 +3711,7 @@ DATA.forEach(function(item, i) {
     + ';border:1.5px solid ' + item.color + '55;box-shadow:0 0 ' + Math.round(size / 3) + 'px ' + item.color + '44;cursor:pointer;';
   b.innerHTML = innerHtml;
   b.title = 'Explore ' + item.name + ' on Editorial';
-  (function(platformName){ b.addEventListener('click', function(){ var bUrl=window.parent.location.pathname.replace(/\/[^\/]*$/,'/'); window.parent.location.href = bUrl+'Editorial?company=' + encodeURIComponent(platformName); }); })(item.name);
+  (function(platformName){ b.addEventListener('click', function(){ var bUrl=window.parent.location.pathname.replace(/[/][^/]*$/,'/'); window.parent.location.href = bUrl+'Editorial?company=' + encodeURIComponent(platformName); }); })(item.name);
   bfield.appendChild(b);
   var delay = i * 80;
   var floatAnim = FLOATS[i % 3];
@@ -4231,10 +4238,18 @@ var W=root.clientWidth||900;var H=600;
 var svg=d3.select('#globe-root').append('svg').attr('width',W).attr('height',H).style('position','absolute').style('top','0').style('left','0');
 var projection=d3.geoOrthographic().scale(Math.min(W,H)*0.42).translate([W/2,H/2]).clipAngle(90).rotate([0,-20]);
 var path=d3.geoPath().projection(projection);
-svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','#0d1f35').attr('stroke','rgba(99,179,237,0.15)').attr('stroke-width',1);
+var defs=svg.append('defs');
+var radGrad=defs.append('radialGradient').attr('id','pgGlow').attr('cx','38%').attr('cy','32%').attr('r','65%');
+radGrad.append('stop').attr('offset','0%').attr('stop-color','#1a3a5c');
+radGrad.append('stop').attr('offset','100%').attr('stop-color','#0d1f35');
+var shimGrad=defs.append('radialGradient').attr('id','pgShimmer').attr('cx','35%').attr('cy','28%').attr('r','50%');
+shimGrad.append('stop').attr('offset','0%').attr('stop-color','rgba(147,197,253,0.14)');
+shimGrad.append('stop').attr('offset','100%').attr('stop-color','rgba(147,197,253,0)');
+svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','url(#pgGlow)').attr('stroke','rgba(99,179,237,0.18)').attr('stroke-width',1.5);
+var pgShimmer=svg.append('circle').attr('cx',W/2).attr('cy',H/2).attr('r',projection.scale()).attr('fill','url(#pgShimmer)').attr('pointer-events','none').style('opacity',0.6);
+var pgShimUp=true;function animPgShimmer(){var c=parseFloat(pgShimmer.style('opacity'));var n=pgShimUp?c+0.003:c-0.003;if(n>=0.72)pgShimUp=false;if(n<=0.28)pgShimUp=true;pgShimmer.style('opacity',n);requestAnimationFrame(animPgShimmer);}requestAnimationFrame(animPgShimmer);
 var gCountries=svg.append('g');
 var gLogos=svg.append('g');
-var defs=svg.append('defs');
 defs.append('filter').attr('id','logo-shadow').attr('x','-25%').attr('y','-25%').attr('width','150%').attr('height','150%').append('feDropShadow').attr('dx',0).attr('dy',0).attr('stdDeviation',3).attr('flood-color','rgba(0,0,0,0.25)').attr('flood-opacity',1);
 var logoImgs={};
 platformData.forEach(function(p){
@@ -4392,7 +4407,7 @@ _deep_dive("editorial", "Explore platform deep dives")
 _separator()
 
 _bubble_logo_aliases = {
-    "YouTube": "Alphabet",
+    "YouTube": "YouTube",  # uses Youtube.png loaded into logos_original
     "Netflix": "Netflix",
     "Twitch": None,
     "Spotify": "Spotify",
@@ -5380,29 +5395,54 @@ try:
         _tm_companies = sorted(metrics["company"].dropna().unique().tolist())
         # Build frames for each year
         _tm_frames = []
+        # Pre-compute previous year mcap for YoY
+        _prev_mcap = {}
         for _yr in _tm_years:
             _yr_df = metrics[metrics["year"] == _yr][["company", mcap_col]].copy()
             _yr_df[mcap_col] = pd.to_numeric(_yr_df[mcap_col], errors="coerce").fillna(0)
             _yr_df = _yr_df[_yr_df[mcap_col] > 0].copy()
             if _yr_df.empty:
+                _prev_mcap = {}
                 continue
             _yr_df["color"] = _yr_df["company"].map(lambda c: _CO_COLORS.get(c, "#666666"))
-            _yr_df["label"] = _yr_df.apply(
-                lambda r: f"<b>{r['company']}</b><br>${r[mcap_col]/1e3:.0f}B", axis=1
-            )
+            # Build label with YoY change
+            def _tm_label(r):
+                mcap_b = r[mcap_col] / 1e3
+                prev = _prev_mcap.get(r["company"])
+                if prev and prev > 0:
+                    chg = (r[mcap_col] - prev) / prev * 100
+                    chg_str = f"+{chg:.0f}%" if chg >= 0 else f"{chg:.0f}%"
+                    return f"<b>{r['company']}</b><br>${mcap_b:.0f}B<br><span style='font-size:10px'>{chg_str} YoY</span>"
+                return f"<b>{r['company']}</b><br>${mcap_b:.0f}B"
+            _yr_df["label"] = _yr_df.apply(_tm_label, axis=1)
+            # Build hover with clean formatting
+            def _tm_hover(r):
+                mcap_b = r[mcap_col] / 1e3
+                prev = _prev_mcap.get(r["company"])
+                if prev and prev > 0:
+                    chg = (r[mcap_col] - prev) / prev * 100
+                    chg_str = f"+{chg:.1f}%" if chg >= 0 else f"{chg:.1f}%"
+                    return f"{r['company']}<br>${mcap_b:.1f}B market cap<br>{chg_str} vs prior year"
+                return f"{r['company']}<br>${mcap_b:.1f}B market cap"
+            _yr_df["hover"] = _yr_df.apply(_tm_hover, axis=1)
+            _prev_mcap = dict(zip(_yr_df["company"], _yr_df[mcap_col]))
             _tm_frames.append(go.Frame(
                 data=[go.Treemap(
                     ids=_yr_df["company"],
                     labels=_yr_df["label"],
                     parents=[""] * len(_yr_df),
                     values=_yr_df[mcap_col],
+                    customdata=_yr_df["hover"],
                     marker=dict(colors=_yr_df["color"].tolist(), line=dict(width=2, color="#020810")),
                     textinfo="label",
-                    hovertemplate="<b>%{label}</b><br>Market Cap: $%{value:.0f}M<extra></extra>",
+                    hovertemplate="%{customdata}<extra></extra>",
                     textfont=dict(family="DM Sans, Inter, sans-serif", size=13, color="white"),
                 )],
                 name=str(_yr),
-                layout=go.Layout(title_text=f"Market Cap Distribution — {_yr}"),
+                layout=go.Layout(
+                    title_text=f"{_yr}",
+                    title_font=dict(size=52, color="rgba(255,255,255,0.12)", family="DM Sans, sans-serif"),
+                ),
             ))
 
         if _tm_frames:
@@ -5418,9 +5458,9 @@ try:
                     plot_bgcolor="rgba(0,0,0,0)",
                     font=dict(family="DM Sans, Inter, sans-serif", color="#e6edf3"),
                     title=dict(
-                        text=f"Market Cap Distribution — {_tm_years[-1]}",
-                        font=dict(size=14, color="#8b949e"),
-                        x=0.0, xanchor="left",
+                        text=f"{_tm_years[-1]}",
+                        font=dict(size=52, color="rgba(255,255,255,0.12)", family="DM Sans, sans-serif"),
+                        x=0.98, xanchor="right", y=0.98, yanchor="top",
                     ),
                     updatemenus=[dict(
                         type="buttons", showactive=False,
