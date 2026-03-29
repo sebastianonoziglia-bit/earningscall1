@@ -4086,7 +4086,7 @@ def main():
             "Broadcaster Threats": {"bg": "#fff1f2", "border": "#f43f5e", "tag": "#be123c"},
         }
 
-    def _render_signal_col(cat_name, oro_dict, sig_colors, co, yr):
+    def _render_signal_col(cat_name, oro_dict, sig_colors, co, yr, qtr=""):
         _sigs = sorted(oro_dict.get(cat_name, []), key=lambda x: -x.get("score", 0))
         _c = sig_colors.get(cat_name, {"bg": "#f9fafb", "border": "#e5e7eb", "tag": "#374151"})
         # Category header
@@ -4102,11 +4102,11 @@ def main():
         )
         if not _sigs:
             st.markdown(
-                f"<p style='color:#9ca3af;font-size:0.8rem;'>No signals found.</p>",
+                "<p style='color:#9ca3af;font-size:0.8rem;'>No signals found.</p>",
                 unsafe_allow_html=True,
             )
             return
-        _sn_key = f"sn_{co}_{yr}_{cat_name}"
+        _sn_key = f"sn_{co}_{yr}_{qtr}_{cat_name}"
         if _sn_key not in st.session_state:
             st.session_state[_sn_key] = 3
         _show_n = st.session_state[_sn_key]
@@ -4139,59 +4139,93 @@ def main():
                 unsafe_allow_html=True,
             )
         _rem = len(_sigs) - _show_n
+        # Use on_click callbacks — avoids explicit st.rerun() which collapses expanders
         if _rem > 0:
-            if st.button(f"Show {min(3, _rem)} more ›", key=f"more_{_sn_key}",
-                         use_container_width=True):
-                st.session_state[_sn_key] += 3
-                st.rerun()
+            def _show_more_cb(_key=_sn_key):
+                st.session_state[_key] = st.session_state.get(_key, 3) + 3
+            st.button(
+                f"Show {min(3, _rem)} more ›",
+                key=f"more_{_sn_key}",
+                on_click=_show_more_cb,
+                use_container_width=True,
+            )
         elif _show_n > 3:
-            if st.button("Show less ‹", key=f"less_{_sn_key}",
-                         use_container_width=True):
-                st.session_state[_sn_key] = 3
-                st.rerun()
+            def _show_less_cb(_key=_sn_key):
+                st.session_state[_key] = 3
+            st.button(
+                "Show less ‹",
+                key=f"less_{_sn_key}",
+                on_click=_show_less_cb,
+                use_container_width=True,
+            )
 
     if _has_oro:
-        st.markdown(
-            f"<div style='margin:1.5rem 0 0.6rem 0;'>"
-            f"<span style='font-weight:700;font-size:0.95rem;color:#111827;'>"
-            f"Signals from the earnings call</span>"
-            f"<span style='color:#9ca3af;font-size:0.8rem;margin-left:8px;'>"
-            f"{canonical_company} · {_period}</span></div>",
-            unsafe_allow_html=True,
-        )
+        # ── Quarter selector inline with the "Signals from" header ──────────
+        _sig_hdr_col, _sig_qtr_col = st.columns([3, 2])
+        with _sig_hdr_col:
+            st.markdown(
+                f"<div style='margin:1.5rem 0 0.3rem 0;'>"
+                f"<span style='font-weight:700;font-size:0.95rem;color:#111827;'>"
+                f"Signals from the earnings call</span>"
+                f"<span style='color:#9ca3af;font-size:0.8rem;margin-left:8px;'>"
+                f"{canonical_company}</span></div>",
+                unsafe_allow_html=True,
+            )
+        with _sig_qtr_col:
+            # Compact radio for quarter — synced with _ins_qtr but independent key
+            # so changing it here doesn't reload the management commentary above
+            _sig_qtr_key = f"sig_qtr_{company}_{_ins_year}"
+            if _sig_qtr_key not in st.session_state:
+                st.session_state[_sig_qtr_key] = _ins_qtr
+            _sig_qtr_opts = ["Annual", "Q1", "Q2", "Q3", "Q4"]
+            _sig_qtr_sel = st.radio(
+                "Quarter",
+                _sig_qtr_opts,
+                index=_sig_qtr_opts.index(st.session_state[_sig_qtr_key])
+                      if st.session_state[_sig_qtr_key] in _sig_qtr_opts else 0,
+                key=_sig_qtr_key,
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+        _sig_q_str = "" if _sig_qtr_sel == "Annual" else _sig_qtr_sel
+        _sig_period = f"Q{_sig_qtr_sel.lstrip('Q')} {_ins_year}" if _sig_q_str else str(_ins_year)
+
+        # Re-fetch signals if quarter selection differs from ins_qtr
+        if _sig_q_str != _ins_q_str:
+            try:
+                from utils.transcript_live import extract_outlook_risks_opportunities as _ero2
+                _oro = _ero2(
+                    str(data_processor.data_path),
+                    canonical_company,
+                    int(_ins_year),
+                    _sig_q_str,
+                )
+                _has_oro = any(bool(v) for v in _oro.values())
+            except Exception:
+                pass
+
         # ── Always visible: Outlook · Risks · Opportunities ─────────────────
         _core_cols = st.columns(3, gap="medium")
         for _ci, _cat in enumerate(["Outlook", "Risks", "Opportunities"]):
             with _core_cols[_ci]:
-                _render_signal_col(_cat, _oro, SIGNAL_COLORS, company, _ins_year)
+                _render_signal_col(_cat, _oro, SIGNAL_COLORS, company, _ins_year, _sig_qtr_sel)
 
-        # ── Collapsible: 6 additional categories ────────────────────────────
+        # ── Collapsible: 6 additional categories — no inner filter UI ───────
         _ext_cats = ["Investment", "Product Shifts", "User Behavior",
                      "Monetization", "Strategic Direction", "Broadcaster Threats"]
         _ext_with_data = [c for c in _ext_cats if _oro.get(c)]
         if _ext_with_data:
+            _exp_key = f"ext_exp_{company}_{_ins_year}_{_sig_qtr_sel}"
             with st.expander(
-                f"More signal categories — {len(_ext_with_data)} with signals",
-                expanded=False,
+                f"More signal categories — {len(_ext_with_data)} with data",
+                expanded=st.session_state.get(f"exp_open_{_exp_key}", False),
+                key=_exp_key,
             ):
-                _pills_key = f"ext_pills_{company}_{_ins_year}_{_ins_qtr}"
-                try:
-                    _active_ext = st.pills(
-                        "Filter",
-                        options=_ext_cats,
-                        selection_mode="multi",
-                        default=_ext_with_data,
-                        key=_pills_key,
-                        label_visibility="collapsed",
-                    ) or []
-                except AttributeError:
-                    _active_ext = _ext_with_data
-                if _active_ext:
-                    _ext_n = min(3, len(_active_ext))
-                    _ext_cols = st.columns(_ext_n, gap="medium")
-                    for _ei, _ecat in enumerate(_active_ext):
-                        with _ext_cols[_ei % _ext_n]:
-                            _render_signal_col(_ecat, _oro, SIGNAL_COLORS, company, _ins_year)
+                _ext_n = min(3, len(_ext_with_data))
+                _ext_cols = st.columns(_ext_n, gap="medium")
+                for _ei, _ecat in enumerate(_ext_with_data):
+                    with _ext_cols[_ei % _ext_n]:
+                        _render_signal_col(_ecat, _oro, SIGNAL_COLORS, company, _ins_year, _sig_qtr_sel)
 
     # ── Forward Intelligence Panel ─────────────────────────────────────────
     try:
@@ -4261,22 +4295,29 @@ def main():
                         f"{_sp_html}</div>",
                         unsafe_allow_html=True,
                     )
-            # Show more / show less
+            # Show more / show less — on_click avoids explicit rerun
             _fwd_remaining = len(_fwd_signals) - _fwd_show_n
             _btn_row = st.columns(2)
             if _fwd_remaining > 0:
                 with _btn_row[0]:
-                    if st.button(f"Show {min(3, _fwd_remaining)} more  ›",
-                                 key=f"fwd_more_{company}_{year}",
-                                 use_container_width=True):
-                        st.session_state[_fwd_sn_key] += 3
-                        st.rerun()
+                    def _fwd_more_cb(_k=_fwd_sn_key):
+                        st.session_state[_k] = st.session_state.get(_k, 3) + 3
+                    st.button(
+                        f"Show {min(3, _fwd_remaining)} more  ›",
+                        key=f"fwd_more_{company}_{year}",
+                        on_click=_fwd_more_cb,
+                        use_container_width=True,
+                    )
             if _fwd_show_n > 3:
                 with _btn_row[1]:
-                    if st.button("Show less  ‹", key=f"fwd_less_{company}_{year}",
-                                 use_container_width=True):
-                        st.session_state[_fwd_sn_key] = 3
-                        st.rerun()
+                    def _fwd_less_cb(_k=_fwd_sn_key):
+                        st.session_state[_k] = 3
+                    st.button(
+                        "Show less  ‹",
+                        key=f"fwd_less_{company}_{year}",
+                        on_click=_fwd_less_cb,
+                        use_container_width=True,
+                    )
     except Exception:
         pass
     # TODO: This section could also auto-generate a 3-bullet company outlook summary
