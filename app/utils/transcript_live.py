@@ -22,7 +22,7 @@ from utils.scoring_config import (
     FINANCIAL_SCORE_TERMS, FUTURE_TENSE_MARKERS, NEGATION_PREFIXES,
     BOILERPLATE_PHRASES, FORWARD_LOOKING_KEYWORDS,
     CEO_TITLES, CFO_TITLES, KNOWN_ROLE_TITLES, ROLE_NORMALIZER,
-    LAYER_WEIGHTS, THRESHOLDS,
+    LAYER_WEIGHTS, THRESHOLDS, SPEAKER_ROLE_OVERRIDES,
 )
 
 logger = logging.getLogger(__name__)
@@ -225,6 +225,10 @@ def _parse_speaker_blocks(text: str) -> list[dict]:
                     role = _detect_role(role_raw.lower())
                 if name.lower() in ("operator", "moderator"):
                     role = "Operator"
+                # Apply known speaker corrections (overrides transcript-inferred roles)
+                _override = SPEAKER_ROLE_OVERRIDES.get(name.lower().strip())
+                if _override is not None:
+                    role = _override
                 sents = [
                     s.strip() for s in re.split(r"(?<=[.!?])\s+", speech)
                     if 40 < len(s.strip()) < 500
@@ -251,6 +255,10 @@ def _parse_speaker_blocks(text: str) -> list[dict]:
             name = match.group(1).strip()
             title = match.group(2).strip().lower()
             role = _detect_role(title)
+            # Apply known speaker corrections
+            _override = SPEAKER_ROLE_OVERRIDES.get(name.lower().strip())
+            if _override is not None:
+                role = _override
             if role:
                 current_speaker = name
                 current_role = role
@@ -300,16 +308,33 @@ def extract_ceo_cfo_quotes(
             q_rows = rows[rows["quarter"].astype(str).str.upper().str.strip() == quarter.upper().strip()]
             if not q_rows.empty:
                 rows = q_rows
+            # For Annual view: prefer the most recent quarter (sort descending by quarter label)
+            elif "quarter" in rows.columns:
+                def _q_sort_key(val: str) -> int:
+                    s = str(val).upper().strip()
+                    for i, qn in enumerate(["Q4", "Q3", "Q2", "Q1"]):
+                        if qn in s:
+                            return i
+                    return 99
+                rows = rows.copy()
+                rows["_q_sort"] = rows["quarter"].apply(_q_sort_key)
+                rows = rows.sort_values("_q_sort")
         text = str(rows.iloc[0].get("transcript_text", "") or "")[:30000]
     except Exception:
         return {"CEO": [], "CFO": []}
 
     blocks = _parse_speaker_blocks(text)
     result: dict = {"CEO": [], "CFO": []}
+    seen_speakers: dict[str, set] = {"CEO": set(), "CFO": set()}
     for block in blocks:
         role = block["role"]
         if role not in result:
             continue
+        speaker = block["speaker"]
+        # Deduplicate: only show each speaker once per role bucket
+        if speaker in seen_speakers[role]:
+            continue
+        seen_speakers[role].add(speaker)
         scored = sorted(
             [(round(_score_sentence(s), 2), s) for s in block["sentences"] if _score_sentence(s) > 0],
             key=lambda x: -x[0],
@@ -317,7 +342,7 @@ def extract_ceo_cfo_quotes(
         for score, sent in scored[:max_per_role]:
             if len(result[role]) < max_per_role:
                 result[role].append({
-                    "speaker": block["speaker"],
+                    "speaker": speaker,
                     "role": role,
                     "quote": sent,
                     "score": score,
@@ -510,6 +535,17 @@ def extract_outlook_risks_opportunities(
             q_rows = rows[rows["quarter"].astype(str).str.upper().str.strip() == quarter.upper().strip()]
             if not q_rows.empty:
                 rows = q_rows
+            elif "quarter" in rows.columns:
+                # Annual view: prefer most recent quarter
+                def _q_sort_key2(val: str) -> int:
+                    s = str(val).upper().strip()
+                    for i, qn in enumerate(["Q4", "Q3", "Q2", "Q1"]):
+                        if qn in s:
+                            return i
+                    return 99
+                rows = rows.copy()
+                rows["_q_sort"] = rows["quarter"].apply(_q_sort_key2)
+                rows = rows.sort_values("_q_sort")
         text = str(rows.iloc[0].get("transcript_text", "") or "")[:30000]
     except Exception:
         return {cat: [] for cat in SIGNAL_CATEGORIES}

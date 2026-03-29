@@ -285,6 +285,21 @@ CFO_TITLES = [
     "svp and chief financial",
 ]
 
+# ── Speaker role overrides ─────────────────────────────────────────────────────
+# When a speaker's name is detected, force their role to the value here,
+# overriding whatever the transcript parser inferred.  Use lowercase names.
+# This corrects cases where a title is ambiguous or the transcript format
+# causes the wrong role bucket to be assigned.
+SPEAKER_ROLE_OVERRIDES: dict[str, str] = {
+    # Alphabet / Google
+    "philipp schindler": "CBO",   # SVP & Chief Business Officer — NOT CFO
+    "philip schindler": "CBO",
+    "phillip schindler": "CBO",
+    "ruth porat": "President",    # Transitioned to President & CIO in 2023
+    "anat ashkenazi": "CFO",      # CFO from July 2024
+    # Add further corrections here as needed
+}
+
 KNOWN_ROLE_TITLES = [
     "Chief Executive Officer", "CEO",
     "Chief Financial Officer", "CFO",
