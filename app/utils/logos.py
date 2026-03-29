@@ -53,6 +53,9 @@ def load_company_logos():
             'Warner Bros. Discovery': _a('adadad.png'),
             'Warner Bros Discovery': _a('adadad.png'),
             'YouTube': _first_existing('Youtube.png', 'youtube.png', 'youtube_logo.png'),
+            'Samsung': _first_existing('samsung.png', '1920px-Samsung_logo_blue.png'),
+            'Tencent': _first_existing('Tencent.png'),
+            'Nvidia': _first_existing('Nvidia.png'),
         }
 
         for company, logo_path in logo_files.items():

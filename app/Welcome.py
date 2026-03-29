@@ -240,6 +240,7 @@ if not st.session_state.get("pipeline_refreshed", False):
 from utils.global_fonts import apply_global_fonts
 from utils.header import display_header
 from utils.logos import load_company_logos
+from utils.polymarket import fetch_polymarket_top, get_all_company_bets_labelled, COMPANY_LOGO_KEY
 from utils.state_management import get_data_processor
 from utils.theme import get_theme_mode
 from utils.transcript_startup_sync import sync_local_transcripts_to_workbook
@@ -2649,6 +2650,124 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
         "</style>"
         f"<div class='strip' style='color:#e6edf3;font-family:DM Sans,sans-serif;'><div class='track'>{_stock_track}</div></div>",
         height=110,
+    )
+
+
+def _render_polymarket_strip(logos_dict: dict) -> None:
+    """
+    Scrolling strip of active Polymarket bets mentioning tracked companies.
+    Design mirrors the stock ticker strip — same dark glass card aesthetic.
+    """
+    try:
+        raw_markets = fetch_polymarket_top(300)
+    except Exception:
+        raw_markets = []
+
+    bets = get_all_company_bets_labelled(raw_markets)
+    if not bets:
+        return  # silently skip if API unavailable
+
+    def _yes_color(p: float | None) -> str:
+        if p is None:
+            return "#6b7280"
+        if p >= 65:
+            return "#22c55e"
+        if p >= 45:
+            return "#f59e0b"
+        return "#ef4444"
+
+    def _logo_html(company: str) -> str:
+        key = COMPANY_LOGO_KEY.get(company, company)
+        b64 = _resolve_logo(key, logos_dict)
+        if b64:
+            return (
+                f"<img class='pm-logo' src='data:image/png;base64,{b64}' "
+                f"alt='{escape(company)}' />"
+            )
+        # Fallback: initial letter badge
+        letter = (company or "?")[0].upper()
+        return (
+            f"<span class='pm-logo' style='display:inline-flex;align-items:center;"
+            f"justify-content:center;font-weight:800;font-size:0.85rem;color:#4aaeff;'>"
+            f"{letter}</span>"
+        )
+
+    items = []
+    for bet in bets[:60]:  # cap at 60 cards for scroll performance
+        q = str(bet.get("question", "")).strip()
+        yes_p = bet.get("yes_price")
+        vol_fmt = str(bet.get("volume_fmt", ""))
+        end_date = str(bet.get("end_date", ""))
+        company = str(bet.get("matched_company", ""))
+        url = str(bet.get("url", "https://polymarket.com"))
+
+        # Truncate question at 90 chars
+        q_display = (q[:87] + "…") if len(q) > 90 else q
+
+        yes_label = f"{yes_p:.0f}% YES" if yes_p is not None else "—"
+        yes_col = _yes_color(yes_p)
+        logo = _logo_html(company)
+
+        meta_parts = []
+        if vol_fmt:
+            meta_parts.append(
+                f"<span style='color:#94a3b8;font-size:0.7rem;'>{escape(vol_fmt)} vol</span>"
+            )
+        if end_date:
+            meta_parts.append(
+                f"<span style='color:#64748b;font-size:0.7rem;'>ends {escape(end_date)}</span>"
+            )
+        meta_html = "<span style='margin:0 4px;color:#334155;'>·</span>".join(meta_parts)
+
+        items.append(
+            f"<a class='pm-item' href='{url}' target='_blank' rel='noopener'>"
+            f"<div class='pm-header'>"
+            f"{logo}"
+            f"<span class='pm-company'>{escape(company)}</span>"
+            f"<span class='pm-yes' style='background:{yes_col}22;color:{yes_col};"
+            f"border:1px solid {yes_col}44;'>{yes_label}</span>"
+            f"</div>"
+            f"<div class='pm-question'>{escape(q_display)}</div>"
+            f"<div class='pm-meta'>{meta_html}</div>"
+            f"</a>"
+        )
+
+    if not items:
+        return
+
+    track_html = "".join(items + items)  # duplicate for seamless loop
+
+    st.components.v1.html(
+        "<style>"
+        "@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');"
+        "html,body{margin:0;padding:0;background:#020810;}*{box-sizing:border-box;}"
+        ".strip{width:100%;overflow:hidden;border-radius:12px;"
+        "border:1px solid rgba(124,58,237,0.22);background:#020810;padding:10px 0;}"
+        ".track{display:flex;align-items:flex-start;gap:10px;width:max-content;"
+        "animation:scroll 120s linear infinite;}"
+        ".track:hover{animation-play-state:paused;}"
+        ".pm-item{width:300px;flex:0 0 auto;border-radius:10px;"
+        "border:1px solid rgba(124,58,237,0.2);background:rgba(15,10,30,0.72);"
+        "padding:10px 12px;display:flex;flex-direction:column;gap:6px;"
+        "text-decoration:none;transition:border-color 0.2s;}"
+        ".pm-item:hover{border-color:rgba(124,58,237,0.5);}"
+        ".pm-header{display:flex;align-items:center;gap:7px;}"
+        ".pm-logo{width:26px;height:26px;object-fit:contain;border-radius:50%;"
+        "background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.2);"
+        "padding:2px;flex-shrink:0;}"
+        ".pm-company{font-size:0.72rem;font-weight:700;color:#a78bfa;"
+        "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;}"
+        ".pm-yes{margin-left:auto;font-size:0.68rem;font-weight:700;"
+        "padding:2px 7px;border-radius:999px;white-space:nowrap;}"
+        ".pm-question{font-size:0.76rem;line-height:1.45;color:#e2e8f0;"
+        "overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;"
+        "-webkit-box-orient:vertical;flex:1;}"
+        ".pm-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}"
+        "@keyframes scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}"
+        "</style>"
+        f"<div class='strip' style='font-family:DM Sans,sans-serif;'>"
+        f"<div class='track'>{track_html}</div></div>",
+        height=168,
     )
 
 
@@ -5779,6 +5898,17 @@ _separator()
 
 # Beat 15 — Stock tape (no section header, just the tape)
 _render_stock_price_strip(market_feed_df)
+_separator()
+
+# Beat 16 — Polymarket prediction strip
+_section(
+    title="What the Market is Saying",
+    description=(
+        "Live prediction market bets on companies you track — "
+        "<b>odds, volume, and closing dates</b> from Polymarket."
+    ),
+)
+_render_polymarket_strip(logos_original)
 _separator()
 
 # Gateway section

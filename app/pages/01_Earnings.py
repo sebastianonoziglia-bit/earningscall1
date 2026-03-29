@@ -4282,6 +4282,93 @@ def main():
     # TODO: This section could also auto-generate a 3-bullet company outlook summary
     # using call_ai() from ai_service.py with the top 3 forward signals as input.
 
+    # ── Market Intelligence — Polymarket prediction bets ──────────────────
+    try:
+        from utils.polymarket import fetch_company_bets, COMPANY_KEYWORDS
+
+        # Resolve company name for Polymarket (handle normalization differences)
+        _poly_company = canonical_company
+        # Also check common aliases used in Polymarket module
+        if canonical_company not in COMPANY_KEYWORDS:
+            _alias_map = {
+                "Meta": "Meta Platforms",
+                "Meta Platforms Inc": "Meta Platforms",
+                "Alphabet Inc": "Alphabet",
+                "Warner Bros Discovery": "Warner Bros. Discovery",
+                "Paramount": "Paramount Global",
+            }
+            _poly_company = _alias_map.get(canonical_company, canonical_company)
+
+        _poly_bets = fetch_company_bets(_poly_company)
+        if _poly_bets:
+            st.markdown(
+                f"<div style='margin:1.5rem 0 0.5rem 0;display:flex;align-items:baseline;gap:10px;'>"
+                f"<span style='font-weight:700;font-size:1rem;color:#111827;'>Market Intelligence</span>"
+                f"<span style='color:#7c3aed;font-size:0.78rem;font-weight:600;'>"
+                f"Polymarket · {len(_poly_bets)} active bet{'s' if len(_poly_bets) != 1 else ''}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+            def _yes_badge(p):
+                if p is None:
+                    return "<span style='color:#9ca3af;font-size:0.72rem;'>—</span>"
+                col = "#16a34a" if p >= 65 else ("#d97706" if p >= 45 else "#dc2626")
+                bg = "#dcfce7" if p >= 65 else ("#fef3c7" if p >= 45 else "#fee2e2")
+                return (
+                    f"<span style='background:{bg};color:{col};font-weight:700;"
+                    f"font-size:0.72rem;padding:2px 8px;border-radius:999px;"
+                    f"white-space:nowrap;'>{p:.0f}% YES</span>"
+                )
+
+            _poly_cols = st.columns(2, gap="medium")
+            for _pi, _bet in enumerate(_poly_bets[:6]):
+                with _poly_cols[_pi % 2]:
+                    _bq = str(_bet.get("question", ""))
+                    _yes = _bet.get("yes_price")
+                    _no = _bet.get("no_price")
+                    _vol = str(_bet.get("volume_fmt", ""))
+                    _end = str(_bet.get("end_date", ""))
+                    _url = str(_bet.get("url", "https://polymarket.com"))
+                    _yes_html = _yes_badge(_yes)
+                    _no_val = f"NO {_no:.0f}%" if _no is not None else ""
+                    _meta_parts = []
+                    if _vol:
+                        _meta_parts.append(f"<span style='color:#6b7280;'>{html.escape(_vol)} vol</span>")
+                    if _end:
+                        _meta_parts.append(f"<span style='color:#9ca3af;'>ends {html.escape(_end)}</span>")
+                    _meta_html = "<span style='color:#d1d5db;margin:0 3px;'>·</span>".join(_meta_parts)
+                    # Probability bar
+                    _bar_pct = int(_yes or 50)
+                    _bar_col = "#16a34a" if _bar_pct >= 65 else ("#d97706" if _bar_pct >= 45 else "#dc2626")
+                    st.markdown(
+                        f"<a href='{_url}' target='_blank' rel='noopener' style='text-decoration:none;'>"
+                        f"<div style='background:#f9fafb;border:1px solid #e5e7eb;"
+                        f"border-left:3px solid #7c3aed;border-radius:6px;"
+                        f"padding:10px 12px;margin-bottom:8px;'>"
+                        f"<div style='display:flex;align-items:flex-start;justify-content:space-between;"
+                        f"gap:8px;margin-bottom:7px;'>"
+                        f"<p style='margin:0;font-size:0.83rem;color:#111827;"
+                        f"line-height:1.5;font-weight:500;flex:1;'>{html.escape(_bq)}</p>"
+                        f"{_yes_html}"
+                        f"</div>"
+                        f"<div style='background:#e5e7eb;border-radius:999px;height:4px;margin-bottom:6px;'>"
+                        f"<div style='background:{_bar_col};width:{_bar_pct}%;height:4px;border-radius:999px;'></div>"
+                        f"</div>"
+                        f"<div style='display:flex;align-items:center;gap:4px;font-size:0.7rem;'>"
+                        f"{_meta_html}</div>"
+                        f"</div></a>",
+                        unsafe_allow_html=True,
+                    )
+
+            if len(_poly_bets) > 6:
+                st.caption(
+                    f"Showing 6 of {len(_poly_bets)} bets — "
+                    f"[view all on Polymarket](https://polymarket.com)"
+                )
+    except Exception:
+        pass
+
     company_insights_df = load_company_insights_text(data_processor.data_path)
 
     company_insights_filtered = pd.DataFrame()
