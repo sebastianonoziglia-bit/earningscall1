@@ -18,3 +18,6 @@ __pycache__/
 *.pyc
 node_modules/
 app/attached_assets/live_data.xlsx
+
+# Large transcript CSV — excluded from Docker build, don't track in git
+earningscall_transcripts/transcript_topics.csv

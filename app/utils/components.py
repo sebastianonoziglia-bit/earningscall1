@@ -29,24 +29,23 @@ def load_company_logos():
             return None
 
         logo_files = {
-            'Apple': 'attached_assets/8.png',
+            'Apple': 'attached_assets/apple_logo.png',
             'Microsoft': 'attached_assets/msft.png',
-            'Alphabet': 'attached_assets/10.png',
-            'Netflix': 'attached_assets/9.png',
-            'Meta Platforms': 'attached_assets/12.png',
-            # Meta-owned apps: prefer dedicated logos if present, otherwise fall back to Meta.
-            'WhatsApp': _first_existing('attached_assets/Whatsapp.png', 'attached_assets/WhatsApp.png', 'attached_assets/12.png'),
-            'Instagram': _first_existing('attached_assets/Instagram.png', 'attached_assets/12.png'),
-            'Facebook': _first_existing('attached_assets/Facebook.png', 'attached_assets/12.png'),
+            'Alphabet': 'attached_assets/Google_logo.png',
+            'Netflix': 'attached_assets/Netflix_logo.png',
+            'Meta Platforms': 'attached_assets/Meta_logo.png',
+            'WhatsApp': _first_existing('attached_assets/Whatsapp_logo.png', 'attached_assets/Meta_logo.png'),
+            'Instagram': _first_existing('attached_assets/Instagram_logo.png', 'attached_assets/Meta_logo.png'),
+            'Facebook': _first_existing('attached_assets/Facebook.png', 'attached_assets/Meta_logo.png'),
             'Amazon': 'attached_assets/Amazon_icon.png',
             'Disney': 'attached_assets/icons8-logo-disney-240.png',
-            'Roku': 'attached_assets/rokudef.png',
-            'Spotify': 'attached_assets/11.png',
-            'Comcast': 'attached_assets/6.png',
-            'Paramount': 'attached_assets/Paramount.png',
-            'Paramount Global': 'attached_assets/Paramount.png', # Add mapping for full name
-            'Warner Bros. Discovery': 'attached_assets/adadad.png',
-            'Warner Bros Discovery': 'attached_assets/adadad.png', # Keep compatibility without period
+            'Roku': 'attached_assets/roku_logo.png',
+            'Spotify': 'attached_assets/Spotify_logo.png',
+            'Comcast': 'attached_assets/Comcast_logo.png',
+            'Paramount': 'attached_assets/Paramount_logo.png',
+            'Paramount Global': 'attached_assets/Paramount_logo.png',
+            'Warner Bros. Discovery': 'attached_assets/WarnerBrosDiscovery_log.png',
+            'Warner Bros Discovery': 'attached_assets/WarnerBrosDiscovery_log.png',
         }
         
         # Print which logo files exist for debugging

@@ -189,26 +189,25 @@ def load_company_logos():
 
     logo_paths = {
         'Disney+': 'attached_assets/icons8-logo-disney-240.png',
-        'Netflix': 'attached_assets/9.png',
-        'Paramount+': 'attached_assets/Paramount.png',
-        'Warner Bros Discovery': 'attached_assets/adadad.png',
-        'Warner Bros. Discovery': 'attached_assets/adadad.png',
-        'WBD': 'attached_assets/adadad.png',
-        'Spotify': 'attached_assets/11.png',
-        'Alphabet': 'attached_assets/8.png',  # Reverted to original working logo
-        'Apple': 'attached_assets/10.png',
+        'Netflix': 'attached_assets/Netflix_logo.png',
+        'Paramount+': 'attached_assets/Paramount_logo.png',
+        'Warner Bros Discovery': 'attached_assets/WarnerBrosDiscovery_log.png',
+        'Warner Bros. Discovery': 'attached_assets/WarnerBrosDiscovery_log.png',
+        'WBD': 'attached_assets/WarnerBrosDiscovery_log.png',
+        'Spotify': 'attached_assets/Spotify_logo.png',
+        'Alphabet': 'attached_assets/Google_logo.png',
+        'Apple': 'attached_assets/apple_logo.png',
         'Microsoft': 'attached_assets/msft.png',
-        'Meta Platforms': 'attached_assets/12.png',
-        # Meta-owned apps: prefer dedicated logos if present, otherwise fall back to Meta.
-        'WhatsApp': _first_existing('attached_assets/Whatsapp.png', 'attached_assets/WhatsApp.png', 'attached_assets/12.png'),
-        'Instagram': _first_existing('attached_assets/Instagram.png', 'attached_assets/12.png'),
-        'Facebook': _first_existing('attached_assets/Facebook.png', 'attached_assets/12.png'),
+        'Meta Platforms': 'attached_assets/Meta_logo.png',
+        'WhatsApp': _first_existing('attached_assets/Whatsapp_logo.png', 'attached_assets/Meta_logo.png'),
+        'Instagram': _first_existing('attached_assets/Instagram_logo.png', 'attached_assets/Meta_logo.png'),
+        'Facebook': _first_existing('attached_assets/Facebook.png', 'attached_assets/Meta_logo.png'),
         'Amazon': 'attached_assets/Amazon_icon.png',
-        'Roku': 'attached_assets/rokudef.png',
-        'Comcast': 'attached_assets/6.png',
-        'YouTube': _first_existing('attached_assets/youtube_logo.png', 'attached_assets/8.png'),
-        'Amazon Prime': _first_existing('attached_assets/Amazon_icon.png', 'attached_assets/Amazon.png'),
-        'Peacock': _first_existing('attached_assets/6.png'),
+        'Roku': 'attached_assets/roku_logo.png',
+        'Comcast': 'attached_assets/Comcast_logo.png',
+        'YouTube': _first_existing('attached_assets/Youtube_logo.png', 'attached_assets/Google_logo.png'),
+        'Amazon Prime': _first_existing('attached_assets/Amazon_icon.png'),
+        'Peacock': _first_existing('attached_assets/Comcast_logo.png'),
     }
     
     logos = {}

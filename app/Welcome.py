@@ -1689,15 +1689,15 @@ logos = load_company_logos()
 logos_original = dict(logos)  # preserve originals for globe + bubble chart (no white override)
 # Load YouTube logo separately (not a tracked company, so not in logos dict)
 try:
-    _yt_path = APP_DIR / "attached_assets" / "Youtube.png"
+    _yt_path = APP_DIR / "attached_assets" / "Youtube_logo.png"
     if _yt_path.exists():
         logos_original["YouTube"] = base64.b64encode(_yt_path.read_bytes()).decode()
 except Exception:
     pass
 # Override Amazon/Apple with white-on-dark variants — used ONLY for stock strip + revenue anatomy
 for _wl_co, _wl_path in {
-    "Amazon": "attached_assets/Amazonwhite.png",
-    "Apple":  "attached_assets/Applewhite.png",
+    "Amazon": "attached_assets/Amazonwhite_logo.png",
+    "Apple":  "attached_assets/AppleWhite_logo.png",
 }.items():
     try:
         _wl_full = APP_DIR / _wl_path
@@ -4526,7 +4526,7 @@ _deep_dive("editorial", "Explore platform deep dives")
 _separator()
 
 _bubble_logo_aliases = {
-    "YouTube": "YouTube",  # uses Youtube.png loaded into logos_original
+    "YouTube": "YouTube",  # uses Youtube_logo.png loaded into logos_original
     "Netflix": "Netflix",
     "Twitch": None,
     "Spotify": "Spotify",
