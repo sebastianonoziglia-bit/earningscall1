@@ -91,7 +91,7 @@ def _download_google_sheet_xlsx(sheet_id: str, refresh_seconds: int = 60) -> Opt
 
     export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
     try:
-        response = requests.get(export_url, timeout=20)
+        response = requests.get(export_url, timeout=120)
         response.raise_for_status()
         if not _is_valid_xlsx_payload(response.headers.get("content-type", ""), response.content):
             # Keep older cache, if present, when response is not a workbook (private/no-access pages often return HTML).
@@ -180,14 +180,17 @@ def _should_refresh(dest: Path, max_age_seconds: int = 900) -> bool:
     return (time.time() - dest.stat().st_mtime) > max_age_seconds
 
 
-def _download_google_sheet(url: str, dest: Path, timeout: int = 30) -> bool:
-    try:
-        resp = requests.get(url, timeout=timeout)
-        if resp.status_code == 200 and len(resp.content) > 10_000:
-            dest.write_bytes(resp.content)
-            return True
-    except Exception:
-        pass
+def _download_google_sheet(url: str, dest: Path, timeout: int = 120) -> bool:
+    for attempt in range(3):
+        try:
+            resp = requests.get(url, timeout=timeout)
+            if resp.status_code == 200 and len(resp.content) > 10_000:
+                dest.write_bytes(resp.content)
+                return True
+        except Exception as exc:
+            logger.warning("Google Sheet download attempt %d/3 failed: %s", attempt + 1, exc)
+            if attempt < 2:
+                time.sleep(5 * (attempt + 1))
     return False
 
 
@@ -215,20 +218,26 @@ def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -
             if _os.path.exists(_cache_path) else 999999
         )
         if _cache_age > 900:  # re-download if older than 15 minutes
-            try:
-                import requests as _req
-                logger.info("Downloading fresh workbook from Google Sheet...")
-                _resp = _req.get(_gsheet_url, timeout=30)
-                if _resp.status_code == 200 and len(_resp.content) > 50000:
-                    with open(_cache_path, "wb") as _f:
-                        _f.write(_resp.content)
-                    logger.info("Workbook cached (%d bytes)", len(_resp.content))
-                else:
-                    logger.warning("Google Sheet download failed: status=%s size=%d",
-                                   _resp.status_code, len(_resp.content))
-                    _cache_path = None
-            except Exception as _e:
-                logger.warning("Google Sheet fetch error: %s", _e)
+            import requests as _req
+            _downloaded = False
+            for _attempt in range(3):
+                try:
+                    logger.info("Downloading fresh workbook from Google Sheet (attempt %d/3, timeout=120s)...", _attempt + 1)
+                    _resp = _req.get(_gsheet_url, timeout=120)
+                    if _resp.status_code == 200 and len(_resp.content) > 50000:
+                        with open(_cache_path, "wb") as _f:
+                            _f.write(_resp.content)
+                        logger.info("Workbook cached (%d bytes)", len(_resp.content))
+                        _downloaded = True
+                        break
+                    else:
+                        logger.warning("Google Sheet download failed: status=%s size=%d",
+                                       _resp.status_code, len(_resp.content))
+                except Exception as _e:
+                    logger.warning("Google Sheet fetch error (attempt %d/3): %s", _attempt + 1, _e)
+                if _attempt < 2:
+                    _time.sleep(10)
+            if not _downloaded:
                 _cache_path = None
 
         if _cache_path and _os.path.exists(_cache_path):
