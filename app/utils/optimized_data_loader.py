@@ -73,10 +73,7 @@ def get_data_processor():
     processor = FinancialDataProcessor()
     initialization_time = time.time() - start_time
     logger.info(f"Data processor initialized in {initialization_time:.2f} seconds")
-    
-    # Preload frequently accessed data in the background
-    preload_frequently_accessed_data(processor)
-    
+
     return processor
     
 def preload_frequently_accessed_data(processor):

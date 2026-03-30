@@ -6,11 +6,9 @@ This avoids importing AI/chat/data modules that can trigger heavy initialization
 import base64
 import logging
 import os
-from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
-from PIL import Image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -69,10 +67,8 @@ def load_company_logos():
             if not logo_path or not os.path.exists(logo_path):
                 continue
             try:
-                img = Image.open(logo_path)
-                buffered = BytesIO()
-                img.save(buffered, format="PNG")
-                img_str = base64.b64encode(buffered.getvalue()).decode()
+                with open(logo_path, "rb") as f:
+                    img_str = base64.b64encode(f.read()).decode()
                 logos_dict[company] = img_str
                 logger.info(f"Successfully loaded logo for {company}")
             except Exception as e:

@@ -264,7 +264,8 @@ def _run_startup_transcript_sync() -> None:
 # Transcript sync runs once per container (flag file prevents repeats).
 # Enabled by default so Transcript Intelligence works on HF Spaces.
 # Set AUTO_SYNC_TRANSCRIPTS_ON_STARTUP=0 to disable.
-if str(os.getenv(AUTO_SYNC_ENV, "1")).strip().lower() not in {"0", "false", "no", "off"}:
+# Disabled by default for faster startup — set AUTO_SYNC_TRANSCRIPTS_ON_STARTUP=1 to enable
+if str(os.getenv(AUTO_SYNC_ENV, "0")).strip().lower() not in {"0", "false", "no", "off"}:
     _run_startup_transcript_sync()
 
 
