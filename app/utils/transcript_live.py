@@ -799,6 +799,128 @@ def extract_forward_looking_signals(
     return result
 
 
+def extract_forward_looking_signals_batch(
+    excel_path: str,
+    companies: list[str],
+    year: int = 0,
+    max_signals_per_company: int | None = None,
+) -> dict[str, list[dict]]:
+    """Batch version: reads Transcripts sheet ONCE, returns signals for all companies.
+
+    Returns dict mapping company name → list of signal dicts.
+    """
+    if not excel_path or not companies:
+        return {}
+    try:
+        df = pd.read_excel(excel_path, sheet_name="Transcripts")
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        if not {"company", "year", "transcript_text"}.issubset(set(df.columns)):
+            return {}
+    except Exception:
+        return {}
+
+    df["_c"] = df["company"].astype(str).str.strip().str.lower()
+    df["_y"] = pd.to_numeric(df["year"], errors="coerce")
+    df = df.dropna(subset=["_y"])
+    df["_y"] = df["_y"].astype(int)
+
+    _fwd_kw = FORWARD_LOOKING_KEYWORDS + OUTLOOK_KEYWORDS
+    result: dict[str, list[dict]] = {}
+
+    for company in companies:
+        comp = company.strip().lower()
+        mask = df["_c"] == comp
+        rows = df[mask]
+        if year:
+            yr_rows = rows[rows["_y"] == int(year)]
+            if not yr_rows.empty:
+                rows = yr_rows
+            elif not rows.empty:
+                rows = rows[rows["_y"] == rows["_y"].max()]
+        if rows.empty:
+            continue
+
+        all_signals: list[dict] = []
+        seen_keys: set = set()
+
+        for _, row in rows.iterrows():
+            _company = str(row.get("company", "")).strip()
+            _year = int(row.get("_y", 0))
+            _quarter = str(row.get("quarter", "")).strip()
+            text = str(row.get("transcript_text", "") or "")[:30000]
+            if not text:
+                continue
+
+            blocks = _parse_speaker_blocks(text)
+            _all_sents = [s for b in blocks for s in b.get("sentences", [])]
+            _total = len(_all_sents)
+            _idx = 0
+
+            for block in blocks:
+                for sentence in block.get("sentences", []):
+                    s = sentence.strip()
+                    _idx += 1
+                    if len(s) < 40 or len(s) > 500:
+                        continue
+                    s_lower = s.lower()
+                    if not any(kw in s_lower for kw in _fwd_kw):
+                        continue
+
+                    score = _score_sentence_advanced(
+                        s, _fwd_kw, block.get("role", ""), _idx, _total
+                    )
+                    if score < 0.5:
+                        continue
+
+                    key = s[:60].lower()
+                    if key in seen_keys:
+                        continue
+                    seen_keys.add(key)
+
+                    cat = "Outlook"
+                    for _cat, _kws in {
+                        "Investment": INVESTMENT_KEYWORDS,
+                        "Product Shifts": PRODUCT_SHIFT_KEYWORDS,
+                        "Opportunities": OPPORTUNITY_KEYWORDS,
+                        "Strategic Direction": STRATEGIC_DIRECTION_KEYWORDS,
+                    }.items():
+                        if any(kw in s_lower for kw in _kws):
+                            cat = _cat
+                            break
+
+                    all_signals.append({
+                        "quote": s,
+                        "speaker": block["speaker"],
+                        "role": block.get("role", ""),
+                        "score": round(score, 3),
+                        "year": _year,
+                        "quarter": _quarter,
+                        "company": _company,
+                        "category": cat,
+                    })
+
+        all_signals.sort(key=lambda x: -x["score"])
+        signals = all_signals[:max_signals_per_company] if max_signals_per_company else all_signals
+
+        for sig in signals:
+            _sp = sig.get("speaker", "")
+            _rl = sig.get("role", "")
+            if _rl in ("CEO", "CFO", "COO", "CTO", "CRO", "CMO") and excel_path:
+                _full = get_speaker_name(sig["company"], _rl, excel_path)
+                if _full:
+                    sig["speaker"] = _full
+                    sig["speaker_display"] = f"{_full} \u00b7 {_rl}"
+                else:
+                    sig["speaker_display"] = f"{_sp} \u00b7 {_rl}" if _rl else _sp
+            else:
+                sig["speaker_display"] = f"{_sp} \u00b7 {_rl}" if _rl else _sp
+
+        if signals:
+            result[company] = signals
+
+    return result
+
+
 # TODO: extract_forward_looking_signals could also power:
 # - Automated quarterly briefing generation (one-click "Q4 2024 briefing")
 # - Editorial page forward-looking content (currently uses simpler keyword matching)

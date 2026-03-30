@@ -3323,7 +3323,7 @@ _deep_dive("earnings", "See full earnings breakdown")
 # Beat 5.5 — Forward Intelligence CEO Carousel
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
-    from utils.transcript_live import extract_forward_looking_signals
+    from utils.transcript_live import extract_forward_looking_signals_batch
 
     _FI_COMPANIES = [
         "Alphabet", "Amazon", "Apple", "Comcast", "Disney",
@@ -3331,11 +3331,14 @@ try:
         "Roku", "Spotify", "Warner Bros. Discovery", "Samsung", "Tencent",
     ]
 
+    # Single batch call reads the Transcripts sheet ONCE instead of 14 times
+    _fi_all = extract_forward_looking_signals_batch(
+        excel_path, companies=_FI_COMPANIES, year=int(selected_year), max_signals_per_company=1
+    )
+
     _fi_cards: list[dict] = []
     for _fi_co in _FI_COMPANIES:
-        _fi_sigs = extract_forward_looking_signals(
-            excel_path, company=_fi_co, year=int(selected_year), max_signals=1  # 1 per CEO for home carousel
-        )
+        _fi_sigs = _fi_all.get(_fi_co, [])
         if not _fi_sigs:
             continue
         _fi_sig = _fi_sigs[0]
