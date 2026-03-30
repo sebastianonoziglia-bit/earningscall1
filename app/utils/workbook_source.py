@@ -23,6 +23,12 @@ REQUIRED_WORKBOOK_SHEETS = {
 }
 logger = logging.getLogger(__name__)
 
+# ── Single shared cache path ────────────────────────────────────────────
+_CACHE_DIR = Path(tempfile.gettempdir()) / "replit_revival_data"
+_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+_SHARED_CACHE = _CACHE_DIR / "workbook.xlsx"
+_DEFAULT_CACHE_TTL = 14400  # 4 hours
+
 
 def extract_google_sheet_id(value: str | None) -> str | None:
     text = str(value or "").strip()
@@ -74,44 +80,59 @@ def _is_valid_xlsx_file(path: Path) -> bool:
         return False
 
 
-def _download_google_sheet_xlsx(sheet_id: str, refresh_seconds: int = 60) -> Optional[str]:
-    cache_dir = Path(tempfile.gettempdir()) / "replit_revival_data"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_file = cache_dir / f"{sheet_id}.xlsx"
+def _cache_age(path: Path) -> float:
+    """Return age of file in seconds, or infinity if missing."""
+    if not path.exists():
+        return float("inf")
+    return time.time() - path.stat().st_mtime
 
-    if cache_file.exists():
-        age_seconds = time.time() - cache_file.stat().st_mtime
-        if age_seconds <= max(int(refresh_seconds), 30) and _is_valid_xlsx_file(cache_file):
-            return str(cache_file)
-        if not _is_valid_xlsx_file(cache_file):
-            try:
-                cache_file.unlink(missing_ok=True)
-            except Exception:
-                pass
 
-    export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
-    try:
-        response = requests.get(export_url, timeout=120)
-        response.raise_for_status()
-        if not _is_valid_xlsx_payload(response.headers.get("content-type", ""), response.content):
-            # Keep older cache, if present, when response is not a workbook (private/no-access pages often return HTML).
-            return str(cache_file) if _is_valid_xlsx_file(cache_file) else None
-        if not _is_valid_xlsx_bytes(response.content):
-            return str(cache_file) if _is_valid_xlsx_file(cache_file) else None
+def _download_once(ttl: int = _DEFAULT_CACHE_TTL) -> Optional[str]:
+    """Download Google Sheet ONCE and cache it. All callers share this cache.
 
-        temp_file = cache_dir / f".{sheet_id}.{int(time.time() * 1000)}.tmp"
-        temp_file.write_bytes(response.content)
-        if not _is_valid_xlsx_file(temp_file):
-            try:
-                temp_file.unlink(missing_ok=True)
-            except Exception:
-                pass
-            return str(cache_file) if _is_valid_xlsx_file(cache_file) else None
+    Returns path to valid xlsx, or None.
+    """
+    # Return cache if still fresh
+    if _cache_age(_SHARED_CACHE) <= ttl and _is_valid_xlsx_file(_SHARED_CACHE):
+        logger.info("Using cached workbook (age %.0fs, ttl %ds)", _cache_age(_SHARED_CACHE), ttl)
+        return str(_SHARED_CACHE)
 
-        os.replace(temp_file, cache_file)
-        return str(cache_file)
-    except Exception:
-        return str(cache_file) if _is_valid_xlsx_file(cache_file) else None
+    # Resolve which sheet to download
+    gsheet_url = os.getenv("GOOGLE_SHEET_URL", "").strip()
+    if not gsheet_url:
+        gsheet_url = f"https://docs.google.com/spreadsheets/d/{DEFAULT_GOOGLE_SHEET_ID}/export?format=xlsx"
+
+    # If URL doesn't end with export format, convert it
+    if "/export?" not in gsheet_url:
+        sheet_id = extract_google_sheet_id(gsheet_url)
+        if sheet_id:
+            gsheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
+
+    # Download with retries
+    for attempt in range(3):
+        try:
+            logger.info("Downloading workbook (attempt %d/3, timeout=120s)...", attempt + 1)
+            resp = requests.get(gsheet_url, timeout=120)
+            if resp.status_code == 200 and _is_valid_xlsx_bytes(resp.content):
+                tmp = _CACHE_DIR / f".download.{int(time.time() * 1000)}.tmp"
+                tmp.write_bytes(resp.content)
+                os.replace(tmp, _SHARED_CACHE)
+                logger.info("Workbook downloaded and cached (%d bytes)", len(resp.content))
+                return str(_SHARED_CACHE)
+            else:
+                logger.warning("Download returned status=%s size=%d", resp.status_code, len(resp.content))
+        except Exception as exc:
+            logger.warning("Download attempt %d/3 failed: %s", attempt + 1, exc)
+        if attempt < 2:
+            time.sleep(10)
+
+    # All retries failed — return stale cache if valid
+    if _is_valid_xlsx_file(_SHARED_CACHE):
+        logger.warning("All download attempts failed — using stale cache (age %.0fs)", _cache_age(_SHARED_CACHE))
+        return str(_SHARED_CACHE)
+
+    logger.error("No valid workbook available (download failed, no cache)")
+    return None
 
 
 def _has_expected_workbook_tabs(path: str | Path | None) -> bool:
@@ -132,11 +153,7 @@ def _has_expected_workbook_tabs(path: str | Path | None) -> bool:
 
 
 def _has_core_financial_coverage(path: str | Path | None) -> bool:
-    """Validate that a workbook contains a usable yearly metrics backbone.
-
-    This protects the app from selecting a downloadable-but-incomplete Google export
-    that would otherwise collapse selectors to a single fallback year.
-    """
+    """Validate that a workbook contains a usable yearly metrics backbone."""
     if not path:
         return False
     p = Path(path)
@@ -180,108 +197,30 @@ def _should_refresh(dest: Path, max_age_seconds: int = 900) -> bool:
     return (time.time() - dest.stat().st_mtime) > max_age_seconds
 
 
-def _download_google_sheet(url: str, dest: Path, timeout: int = 120) -> bool:
-    for attempt in range(3):
-        try:
-            resp = requests.get(url, timeout=timeout)
-            if resp.status_code == 200 and len(resp.content) > 10_000:
-                dest.write_bytes(resp.content)
-                return True
-        except Exception as exc:
-            logger.warning("Google Sheet download attempt %d/3 failed: %s", attempt + 1, exc)
-            if attempt < 2:
-                time.sleep(5 * (attempt + 1))
-    return False
-
-
 def resolve_financial_data_xlsx(local_candidates: Iterable[str] | None = None) -> Optional[str]:
     """Return path to a valid financial data XLSX.
 
-    Resolution order:
-    1. GOOGLE_SHEET_URL env var → download to app/attached_assets/live_data.xlsx
-       (only re-downloads if file is older than 1 hour)
-    2. Existing *.xlsx files in app/attached_assets/ as fallback
+    Uses single shared download cache — no duplicate downloads.
     """
-    import os as _os
-    import time as _time
-
-    # ── HuggingFace: always fetch fresh from Google Sheet ─────────────────
-    _is_hf = bool(_os.environ.get("SPACE_ID") or _os.environ.get("HF_SPACE_ID"))
-    _gsheet_url = _os.environ.get("GOOGLE_SHEET_URL", "").strip()
-    if not _gsheet_url:
-        _gsheet_url = f"https://docs.google.com/spreadsheets/d/{DEFAULT_GOOGLE_SHEET_ID}/export?format=xlsx"
-
-    if _is_hf and _gsheet_url:
-        _cache_path = "/tmp/ae_workbook_live.xlsx"
-        _cache_age = (
-            _time.time() - _os.path.getmtime(_cache_path)
-            if _os.path.exists(_cache_path) else 999999
-        )
-        if _cache_age > 900:  # re-download if older than 15 minutes
-            import requests as _req
-            _downloaded = False
-            for _attempt in range(3):
-                try:
-                    logger.info("Downloading fresh workbook from Google Sheet (attempt %d/3, timeout=120s)...", _attempt + 1)
-                    _resp = _req.get(_gsheet_url, timeout=120)
-                    if _resp.status_code == 200 and len(_resp.content) > 50000:
-                        with open(_cache_path, "wb") as _f:
-                            _f.write(_resp.content)
-                        logger.info("Workbook cached (%d bytes)", len(_resp.content))
-                        _downloaded = True
-                        break
-                    else:
-                        logger.warning("Google Sheet download failed: status=%s size=%d",
-                                       _resp.status_code, len(_resp.content))
-                except Exception as _e:
-                    logger.warning("Google Sheet fetch error (attempt %d/3): %s", _attempt + 1, _e)
-                if _attempt < 2:
-                    _time.sleep(10)
-            if not _downloaded:
-                _cache_path = None
-
-        if _cache_path and _os.path.exists(_cache_path):
-            try:
-                import zipfile as _zf
-                with _zf.ZipFile(_cache_path) as _z:
-                    if "xl/workbook.xml" in _z.namelist():
-                        return _cache_path
-            except Exception:
-                pass
-    # ── End HF live fetch — fall through to local resolution below ────────
-
-    google_sheet_url = os.getenv("GOOGLE_SHEET_URL", "").strip()
-    if not google_sheet_url:
-        # Fall back to the default Google Sheet when env var isn't set
-        google_sheet_url = f"https://docs.google.com/spreadsheets/d/{DEFAULT_GOOGLE_SHEET_ID}/export?format=xlsx"
-        logger.info("GOOGLE_SHEET_URL not set — using DEFAULT_GOOGLE_SHEET_ID fallback")
-    attached_assets = Path(__file__).resolve().parent.parent / "attached_assets"
-    attached_assets.mkdir(parents=True, exist_ok=True)
-    dest = attached_assets / "live_data.xlsx"
-
-    if google_sheet_url:
-        if _should_refresh(dest):
-            downloaded = _download_google_sheet(google_sheet_url, dest)
-            if downloaded:
-                logger.info("WORKBOOK_RESOLVE downloaded from GOOGLE_SHEET_URL → %s", dest)
-            else:
-                logger.warning("WORKBOOK_RESOLVE GOOGLE_SHEET_URL download failed, trying cache/fallback")
-        else:
-            logger.info("WORKBOOK_RESOLVE using cached live_data.xlsx (age < 1h)")
-
-        if dest.exists() and _is_valid_xlsx_file(dest):
-            return str(dest)
+    # Try shared cache / download
+    result = _download_once(ttl=_DEFAULT_CACHE_TTL)
+    if result:
+        return result
 
     # Fallback: any existing xlsx in attached_assets
+    attached_assets = Path(__file__).resolve().parent.parent / "attached_assets"
+    attached_assets.mkdir(parents=True, exist_ok=True)
     candidates = list(attached_assets.glob("*.xlsx"))
     if local_candidates:
         candidates += [Path(p) for p in local_candidates]
     for p in candidates:
+        if p.name == "live_data.xlsx":
+            continue  # skip old download artifacts
         if _is_valid_xlsx_file(p):
             logger.info("WORKBOOK_RESOLVE fallback local file: %s", p)
             return str(p)
 
-    logger.error("WORKBOOK_RESOLVE no valid XLSX found (set GOOGLE_SHEET_URL env var)")
+    logger.error("WORKBOOK_RESOLVE no valid XLSX found")
     return None
 
 
@@ -296,18 +235,8 @@ def get_workbook_source_stamp(path: str | None) -> int:
 
 def get_live_data_xlsx(refresh_seconds: int = 3600) -> Optional[str]:
     """Return a path to a freshly-downloaded Google Sheets XLSX for live sheets
-    (Minute, Daily, Holders). Cached locally for *refresh_seconds* (default 1 h).
-    Returns None if the download fails and no stale cache is available.
+    (Minute, Daily, Holders). Uses same shared cache as resolve_financial_data_xlsx.
     """
-    sheet_ref = (
-        os.getenv("FINANCIAL_DATA_GSHEET_URL")
-        or os.getenv("FINANCIAL_DATA_GSHEET_ID")
-        or DEFAULT_GOOGLE_SHEET_URL
-    )
-    sheet_id = extract_google_sheet_id(sheet_ref)
-    if not sheet_id:
-        return None
-    try:
-        return _download_google_sheet_xlsx(sheet_id, refresh_seconds=refresh_seconds)
-    except Exception:
-        return None
+    # Use the shared cache with the caller's TTL
+    ttl = max(int(refresh_seconds), 600)  # minimum 10 min
+    return _download_once(ttl=ttl)
