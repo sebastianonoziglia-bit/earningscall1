@@ -5557,10 +5557,10 @@ def _load_transcript_topic_metrics(excel_path: str = "", selected_year: int = 0,
         try:
             df = pd.read_csv(metrics_path)
             if df is not None and not df.empty:
-                required = ["year", "quarter", "topic", "mention_count", "companies_mentioned", "total_companies", "importance_pct", "growth_pct"]
+                required = ["year", "quarter", "topic", "mention_count", "companies_mentioned", "total_companies", "importance_pct", "growth_pct", "companies_list"]
                 for col in required:
                     if col not in df.columns:
-                        df[col] = np.nan if col not in {"topic"} else ""
+                        df[col] = np.nan if col not in {"topic", "companies_list"} else ""
                 df["year"] = pd.to_numeric(df["year"], errors="coerce")
                 df["quarter"] = pd.to_numeric(df["quarter"], errors="coerce")
                 df = df.dropna(subset=["year", "quarter"]).copy()
@@ -5580,9 +5580,12 @@ def _load_transcript_topic_metrics(excel_path: str = "", selected_year: int = 0,
     if excel_path and selected_year:
         try:
             from utils.transcript_live import extract_topic_metrics as _live_topics
-            return _live_topics(excel_path, int(selected_year), selected_quarter)
-        except Exception:
-            pass
+            result = _live_topics(excel_path, int(selected_year), selected_quarter)
+            if result is not None and not result.empty:
+                return result
+        except Exception as exc:
+            import logging as _log
+            _log.getLogger(__name__).warning("extract_topic_metrics fallback failed: %s", exc)
     return pd.DataFrame()
 
 

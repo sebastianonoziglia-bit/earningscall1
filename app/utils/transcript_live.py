@@ -416,6 +416,7 @@ def extract_pulse_quotes(
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def extract_topic_metrics(
     excel_path: str,
     year: int,
@@ -425,14 +426,14 @@ def extract_topic_metrics(
     Build topic_metrics DataFrame directly from Transcripts sheet.
     Matches the schema expected by _render_transcript_topic_growth_chart:
     columns: year, quarter, topic, mention_count, companies_mentioned,
-             total_companies, importance_pct, growth_pct
+             total_companies, importance_pct, growth_pct, companies_list
     """
     if not excel_path:
         return pd.DataFrame()
     try:
         df = pd.read_excel(excel_path, sheet_name="Transcripts")
         df.columns = [str(c).strip().lower() for c in df.columns]
-        if not {"company", "year", "quarter", "transcript_text"}.issubset(set(df.columns)):
+        if not {"company", "year", "transcript_text"}.issubset(set(df.columns)):
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
@@ -447,55 +448,81 @@ def extract_topic_metrics(
         if m:
             qnum = int(m.group(1))
 
-    curr = df[df["_y"] == int(year)]
-    if qnum is not None and "quarter" in df.columns:
-        q_curr = curr[curr["quarter"].astype(str).str.upper().str.strip() == f"Q{qnum}"]
-        if not q_curr.empty:
-            curr = q_curr
-
-    if qnum is not None and qnum > 1:
-        prior_qnum = qnum - 1
-        prior = df[df["_y"] == int(year)]
-        prior = prior[prior["quarter"].astype(str).str.upper().str.strip() == f"Q{prior_qnum}"]
-    else:
-        prior = df[df["_y"] == int(year) - 1]
-
-    total_companies = curr["company"].nunique()
-    if total_companies == 0:
+    # Build metrics for ALL available year/quarter combos so the chart can show history
+    all_years = sorted(df["_y"].unique())
+    if not all_years:
         return pd.DataFrame()
 
-    def count_topic(period_df: pd.DataFrame, keywords: list) -> tuple[int, int]:
+    # Pre-build per-period DataFrames for efficiency
+    periods: list[tuple[int, int | None, pd.DataFrame]] = []
+    for y in all_years:
+        y_df = df[df["_y"] == y]
+        if "quarter" in df.columns:
+            for q_str in y_df["quarter"].astype(str).str.upper().str.strip().unique():
+                m_q = re.search(r"([1-4])", q_str)
+                if m_q:
+                    q_int = int(m_q.group(1))
+                    q_df = y_df[y_df["quarter"].astype(str).str.upper().str.strip() == f"Q{q_int}"]
+                    if not q_df.empty:
+                        periods.append((y, q_int, q_df))
+        else:
+            periods.append((y, None, y_df))
+
+    if not periods:
+        return pd.DataFrame()
+
+    def count_topic(period_df: pd.DataFrame, keywords: list) -> tuple[int, int, list[str]]:
         mention_count = 0
         companies: set = set()
-        for _, row in period_df.iterrows():
-            text = str(row.get("transcript_text", "") or "").lower()
+        for row in period_df.itertuples(index=False):
+            text = str(getattr(row, "transcript_text", "") or "").lower()
             hits = sum(1 for kw in keywords if kw in text)
             if hits > 0:
                 mention_count += hits
-                companies.add(str(row.get("company", "")).strip())
-        return mention_count, len(companies)
+                companies.add(str(getattr(row, "company", "")).strip())
+        return mention_count, len(companies), sorted(companies)
 
     rows = []
-    for topic, keywords in TOPIC_KEYWORDS.items():
-        curr_count, curr_cos = count_topic(curr, keywords)
-        prior_count, _ = count_topic(prior, keywords)
-        importance_pct = (curr_cos / total_companies * 100) if total_companies > 0 else 0
-        if prior_count > 0:
-            growth_pct = (curr_count - prior_count) / prior_count * 100
-        elif curr_count > 0:
-            growth_pct = 100.0
+    for p_year, p_qnum, p_df in periods:
+        total_companies = p_df["company"].nunique()
+        if total_companies == 0:
+            continue
+
+        # Find prior period for growth calculation
+        prior_df = pd.DataFrame()
+        if p_qnum is not None and p_qnum > 1:
+            prior_matches = [(py, pq, pdf) for py, pq, pdf in periods if py == p_year and pq == p_qnum - 1]
+            if prior_matches:
+                prior_df = prior_matches[0][2]
         else:
-            growth_pct = 0.0
-        rows.append({
-            "year": int(year),
-            "quarter": f"Q{qnum}" if qnum else str(year),
-            "topic": topic,
-            "mention_count": curr_count,
-            "companies_mentioned": curr_cos,
-            "total_companies": total_companies,
-            "importance_pct": round(importance_pct, 2),
-            "growth_pct": round(growth_pct, 1),
-        })
+            # Use same quarter of previous year, or full previous year
+            prior_matches = [(py, pq, pdf) for py, pq, pdf in periods if py == p_year - 1 and pq == p_qnum]
+            if not prior_matches:
+                prior_matches = [(py, pq, pdf) for py, pq, pdf in periods if py == p_year - 1]
+            if prior_matches:
+                prior_df = prior_matches[-1][2]
+
+        for topic, keywords in TOPIC_KEYWORDS.items():
+            curr_count, curr_cos, curr_co_list = count_topic(p_df, keywords)
+            prior_count, _, _ = count_topic(prior_df, keywords) if not prior_df.empty else (0, 0, [])
+            importance_pct = (curr_cos / total_companies * 100) if total_companies > 0 else 0
+            if prior_count > 0:
+                growth_pct = (curr_count - prior_count) / prior_count * 100
+            elif curr_count > 0:
+                growth_pct = 100.0
+            else:
+                growth_pct = 0.0
+            rows.append({
+                "year": int(p_year),
+                "quarter": f"Q{p_qnum}" if p_qnum else str(p_year),
+                "topic": topic,
+                "mention_count": curr_count,
+                "companies_mentioned": curr_cos,
+                "total_companies": total_companies,
+                "importance_pct": round(importance_pct, 2),
+                "growth_pct": round(growth_pct, 1),
+                "companies_list": ", ".join(curr_co_list) if curr_co_list else "",
+            })
 
     result = pd.DataFrame(rows)
     result = result[result["mention_count"] > 0].copy()

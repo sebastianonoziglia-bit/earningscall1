@@ -2604,11 +2604,25 @@ def _render_stock_price_strip(feed_df: pd.DataFrame) -> None:
         if subset.empty:
             continue
 
-        last = subset.sort_values("date").iloc[-1]
+        subset_sorted = subset.sort_values("date")
+        last = subset_sorted.iloc[-1]
         price = float(last.get("price", np.nan))
         if pd.isna(price):
             continue
+        # Prefer explicit change column; fall back to calculating 24hr change
+        # from the two most recent distinct-day closes (Daily sheet data).
         change = pd.to_numeric(pd.Series([last.get("change", np.nan)]), errors="coerce").iloc[0]
+        if pd.isna(change) and len(subset_sorted) >= 2:
+            # Get the two most recent rows with different dates for 24hr delta
+            _dates = subset_sorted["date"].dt.date
+            _unique_dates = _dates.drop_duplicates().tail(2)
+            if len(_unique_dates) >= 2:
+                _prev_date = _unique_dates.iloc[-2]
+                _prev_rows = subset_sorted[_dates == _prev_date]
+                if not _prev_rows.empty:
+                    _prev_price = float(_prev_rows.iloc[-1]["price"])
+                    if _prev_price > 0:
+                        change = ((price - _prev_price) / _prev_price) * 100.0
         if pd.notna(change):
             arrow = "&#9650;" if change >= 0 else "&#9660;"
             chg_color = "#22c55e" if change >= 0 else "#ef4444"
@@ -5875,11 +5889,9 @@ _separator()
 
 # Beat 16 — Polymarket prediction strip
 _section(
-    title="What the Market is Saying",
-    description=(
-        "Live prediction market bets on companies you track — "
-        "<b>odds, volume, and closing dates</b> from Polymarket."
-    ),
+    "What the Market is Saying",
+    "Live prediction market bets on companies you track.",
+    "Real-time odds, volume, and closing dates — powered by <b>Polymarket</b>.",
 )
 _render_polymarket_strip(logos_original)
 _separator()
