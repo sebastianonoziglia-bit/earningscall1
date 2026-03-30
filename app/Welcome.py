@@ -676,13 +676,34 @@ def _normalize_text_for_compare(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", " ", text).strip()
 
 
+@st.cache_resource(ttl=300)
+def _get_excel_handle(excel_path: str, source_stamp: int):
+    """Open the XLSX file once and cache the ExcelFile handle.
+
+    Avoids reopening the 21 MB zip + re-parsing the shared-strings table
+    on every individual sheet read (~1-2 s overhead per open, ×10 sheets).
+    """
+    _ = source_stamp
+    if not excel_path:
+        return None
+    try:
+        return pd.ExcelFile(excel_path)
+    except Exception as exc:
+        logger.warning("Failed to open workbook handle: %s", exc)
+        return None
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _read_excel_sheet_cached(excel_path: str, sheet_name: str, source_stamp: int) -> pd.DataFrame:
     _ = source_stamp
     if not excel_path:
         return pd.DataFrame()
     try:
-        df = pd.read_excel(excel_path, sheet_name=sheet_name)
+        xls = _get_excel_handle(excel_path, source_stamp)
+        if xls is not None:
+            df = pd.read_excel(xls, sheet_name=sheet_name)
+        else:
+            df = pd.read_excel(excel_path, sheet_name=sheet_name)
     except Exception as exc:
         logger.warning("Failed to read sheet '%s' from %s: %s", sheet_name, excel_path, exc)
         return pd.DataFrame()
@@ -918,6 +939,7 @@ def _load_m2_yearly_series(excel_path: str, source_stamp: int) -> pd.DataFrame:
     return out
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _load_m2_monthly_series(excel_path: str, source_stamp: int) -> pd.DataFrame:
     """Load M2 at full monthly granularity for the animated chart."""
     raw = _read_excel_sheet_cached(excel_path, "M2", source_stamp)
@@ -965,6 +987,188 @@ def _load_m2_monthly_series(excel_path: str, source_stamp: int) -> pd.DataFrame:
     })
     out = out.dropna(subset=["date", "m2_value"]).sort_values("date").reset_index(drop=True)
     return out
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _build_ss_ad_json_bundle(excel_path: str, source_stamp: int) -> dict:
+    """Build structural-shift donut, ad-revenue bubble, and global-adv denominator JSON — all cached.
+
+    Self-contained: loads data from cached sheet readers so this function
+    returns instantly from Streamlit cache on every re-run.
+    """
+    # ── Load global_adv_df ──
+    gadf = _read_excel_sheet_cached(excel_path, "Global_Adv_Aggregates", source_stamp) if excel_path else pd.DataFrame()
+    if not gadf.empty:
+        gadf = gadf.copy()
+        gadf.columns = [str(c).strip() for c in gadf.columns]
+        gadf["year"] = pd.to_numeric(gadf["year"], errors="coerce")
+        gadf["value"] = pd.to_numeric(gadf["value"], errors="coerce")
+        gadf = gadf.dropna(subset=["year", "value"])
+        gadf["year"] = gadf["year"].astype(int)
+
+    # Global totals $B
+    totals = (gadf.groupby("year")["value"].sum() / 1_000.0).round(1) if not gadf.empty else pd.Series(dtype=float)
+    if totals.empty:
+        totals = pd.Series(
+            {2010: 502.0, 2011: 528.0, 2012: 557.0, 2013: 574.0, 2014: 598.0,
+             2015: 614.0, 2016: 632.0, 2017: 663.0, 2018: 706.0, 2019: 709.0,
+             2020: 633.0, 2021: 745.0, 2022: 781.0, 2023: 849.0, 2024: 942.0},
+            dtype=float,
+        )
+
+    # Channel-level fallback for structural shift
+    if gadf.empty:
+        _fb_channels = {
+            "Free TV": {2010: 180000, 2012: 175000, 2014: 170000, 2016: 162000, 2018: 155000, 2020: 135000, 2022: 140000, 2024: 138000},
+            "Pay TV": {2010: 45000, 2012: 50000, 2014: 52000, 2016: 50000, 2018: 48000, 2020: 42000, 2022: 40000, 2024: 38000},
+            "Search Desktop": {2010: 30000, 2012: 45000, 2014: 56000, 2016: 68000, 2018: 85000, 2020: 80000, 2022: 100000, 2024: 115000},
+            "Search Mobile": {2010: 2000, 2012: 8000, 2014: 20000, 2016: 42000, 2018: 65000, 2020: 72000, 2022: 95000, 2024: 125000},
+            "Social Desktop": {2010: 5000, 2012: 8000, 2014: 12000, 2016: 16000, 2018: 20000, 2020: 18000, 2022: 22000, 2024: 24000},
+            "Social Mobile": {2010: 500, 2012: 3000, 2014: 10000, 2016: 25000, 2018: 42000, 2020: 50000, 2022: 72000, 2024: 95000},
+            "Video Desktop": {2010: 3000, 2012: 5000, 2014: 8000, 2016: 12000, 2018: 16000, 2020: 18000, 2022: 22000, 2024: 26000},
+            "Video Mobile": {2010: 200, 2012: 1000, 2014: 3000, 2016: 8000, 2018: 14000, 2020: 18000, 2022: 28000, 2024: 38000},
+            "Display Desktop": {2010: 25000, 2012: 28000, 2014: 30000, 2016: 32000, 2018: 34000, 2020: 30000, 2022: 32000, 2024: 34000},
+            "Display Mobile": {2010: 1000, 2012: 4000, 2014: 10000, 2016: 18000, 2018: 25000, 2020: 28000, 2022: 35000, 2024: 42000},
+            "Traditional OOH": {2010: 28000, 2012: 29000, 2014: 30000, 2016: 30000, 2018: 31000, 2020: 22000, 2022: 28000, 2024: 30000},
+            "Digital OOH": {2010: 1000, 2012: 2000, 2014: 3000, 2016: 5000, 2018: 8000, 2020: 6000, 2022: 12000, 2024: 16000},
+            "Magazine": {2010: 42000, 2012: 38000, 2014: 34000, 2016: 28000, 2018: 24000, 2020: 16000, 2022: 14000, 2024: 12000},
+            "Newspaper": {2010: 85000, 2012: 72000, 2014: 62000, 2016: 52000, 2018: 42000, 2020: 28000, 2022: 24000, 2024: 20000},
+            "Radio": {2010: 32000, 2012: 33000, 2014: 34000, 2016: 33000, 2018: 33000, 2020: 26000, 2022: 30000, 2024: 31000},
+            "Cinema": {2010: 2500, 2012: 3000, 2014: 3500, 2016: 4000, 2018: 4500, 2020: 1000, 2022: 3000, 2024: 4000},
+            "Other Desktop": {2010: 10000, 2012: 12000, 2014: 14000, 2016: 15000, 2018: 16000, 2020: 14000, 2022: 16000, 2024: 17000},
+            "Other Mobile": {2010: 500, 2012: 2000, 2014: 5000, 2016: 10000, 2018: 15000, 2020: 18000, 2022: 24000, 2024: 30000},
+        }
+        _fb_rows = []
+        for _mt, _yr_vals in _fb_channels.items():
+            for _yr, _val in _yr_vals.items():
+                _fb_rows.append({"year": _yr, "metric_type": _mt, "value": float(_val)})
+        gadf = pd.DataFrame(_fb_rows)
+
+    # ── Structural-shift donut ──
+    _ss_mt_to_ch = {
+        "Free TV": "Free TV", "Pay TV": "Free TV",
+        "Magazine": "Print", "Newspaper": "Print",
+        "Search Desktop": "Digital Search", "Search Mobile": "Digital Search",
+        "Social Desktop": "Digital Social", "Social Mobile": "Digital Social",
+        "Video Desktop": "Digital Video", "Video Mobile": "Digital Video",
+    }
+    _ss_data: dict = {}
+    if not gadf.empty:
+        _ss_keys = ["Free TV", "Print", "Digital Search", "Digital Social", "Digital Video", "Everything Else"]
+        for _ss_yr, _ss_grp in gadf.groupby("year"):
+            _yr_dict: dict = {k: 0.0 for k in _ss_keys}
+            for _ss_row in _ss_grp.itertuples(index=False):
+                _mt = str(getattr(_ss_row, "metric_type", "")).strip().replace(" Worldwide", "").strip()
+                _ch = _ss_mt_to_ch.get(_mt, "Everything Else")
+                _yr_dict[_ch] += float(_ss_row.value)
+            if sum(_yr_dict.values()) > 0:
+                _ss_data[int(_ss_yr)] = {k: round(v) for k, v in _yr_dict.items()}
+    if not _ss_data:
+        _ss_data = {
+            2010: {"Free TV": 195000, "Print": 108000, "Digital Search": 43000, "Digital Social": 6000, "Digital Video": 5000, "Everything Else": 145000},
+            2012: {"Free TV": 201000, "Print": 96000, "Digital Search": 58000, "Digital Social": 12000, "Digital Video": 8000, "Everything Else": 182000},
+            2014: {"Free TV": 205000, "Print": 82000, "Digital Search": 72000, "Digital Social": 22000, "Digital Video": 14000, "Everything Else": 203000},
+            2016: {"Free TV": 200000, "Print": 68000, "Digital Search": 89000, "Digital Social": 37000, "Digital Video": 22000, "Everything Else": 216000},
+            2018: {"Free TV": 192000, "Print": 54000, "Digital Search": 108000, "Digital Social": 62000, "Digital Video": 36000, "Everything Else": 254000},
+            2019: {"Free TV": 185000, "Print": 46000, "Digital Search": 116000, "Digital Social": 74000, "Digital Video": 42000, "Everything Else": 246000},
+            2020: {"Free TV": 158000, "Print": 34000, "Digital Search": 118000, "Digital Social": 82000, "Digital Video": 48000, "Everything Else": 193000},
+            2021: {"Free TV": 172000, "Print": 30000, "Digital Search": 140000, "Digital Social": 112000, "Digital Video": 62000, "Everything Else": 229000},
+            2022: {"Free TV": 168000, "Print": 27000, "Digital Search": 146000, "Digital Social": 118000, "Digital Video": 72000, "Everything Else": 250000},
+            2023: {"Free TV": 162000, "Print": 24000, "Digital Search": 164000, "Digital Social": 136000, "Digital Video": 86000, "Everything Else": 277000},
+            2024: {"Free TV": 156000, "Print": 21000, "Digital Search": 184000, "Digital Social": 156000, "Digital Video": 102000, "Everything Else": 323000},
+        }
+
+    # ── Ad revenue by year ──
+    _ad_col_map = {
+        "Google_Ads": "Alphabet", "Meta_Ads": "Meta", "Amazon_Ads": "Amazon",
+        "Spotify_Ads": "Spotify", "*WBD_Ads": "WBD", "*Microsoft_Ads": "Microsoft",
+        "Paramount": "Paramount", "*Apple": "Apple", "*Disney": "Disney",
+        "*Comcast": "Comcast", "Netflix*": "Netflix", "Twitter/X": "Twitter/X",
+        "TikTok": "TikTok", "Snapchat": "Snapchat",
+    }
+    asdf = _load_company_ad_revenue_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
+    _ad_by_year: dict = {}
+    if not asdf.empty:
+        # Use to_dict to handle column names with special chars (* prefix etc.)
+        for _arow_dict in asdf.to_dict(orient="records"):
+            try:
+                _yr = int(_arow_dict.get("Year", 0))
+            except (TypeError, ValueError):
+                continue
+            _ad_by_year[_yr] = {}
+            for _col, _name in _ad_col_map.items():
+                _v = _arow_dict.get(_col)
+                if _v is not None and pd.notna(_v):
+                    try:
+                        _vf = float(_v)
+                        if _vf > 0:
+                            _ad_by_year[_yr][_name] = round(_vf, 2)
+                    except (TypeError, ValueError):
+                        pass
+    if not _ad_by_year:
+        _ad_by_year = {
+            2018: {"Alphabet": 136.2, "Meta": 55.0, "Amazon": 10.1, "Apple": 2.0, "Microsoft": 7.0, "Netflix": 0.0, "Comcast": 0.0, "Disney": 0.0, "TikTok": 0.3},
+            2019: {"Alphabet": 162.0, "Meta": 69.7, "Amazon": 14.1, "Apple": 3.0, "Microsoft": 7.7, "Netflix": 0.0, "Comcast": 0.0, "Disney": 0.0, "TikTok": 1.2},
+            2020: {"Alphabet": 147.0, "Meta": 84.2, "Amazon": 19.8, "Apple": 3.5, "Microsoft": 8.0, "Netflix": 0.0, "Comcast": 0.0, "Disney": 0.0, "TikTok": 3.8},
+            2021: {"Alphabet": 209.5, "Meta": 115.7, "Amazon": 31.2, "Apple": 5.0, "Microsoft": 10.0, "Netflix": 0.0, "Comcast": 0.0, "Disney": 0.0, "TikTok": 9.4},
+            2022: {"Alphabet": 224.5, "Meta": 113.6, "Amazon": 37.7, "Apple": 6.0, "Microsoft": 12.0, "Netflix": 0.8, "Comcast": 0.0, "Disney": 0.0, "TikTok": 14.5},
+            2023: {"Alphabet": 223.0, "Meta": 131.9, "Amazon": 46.9, "Apple": 6.5, "Microsoft": 12.2, "Netflix": 1.5, "Comcast": 0.0, "Disney": 0.0, "TikTok": 18.0},
+            2024: {"Alphabet": 237.0, "Meta": 160.0, "Amazon": 56.2, "Apple": 7.0, "Microsoft": 13.0, "Netflix": 2.2, "Comcast": 0.0, "Disney": 0.0, "TikTok": 22.0},
+        }
+
+    # ── Global adv by year for JS denominator ──
+    _global_adv_by_year: dict = {}
+    for _gyr, _gval in totals.items():
+        if _gval and _gval > 0:
+            _global_adv_by_year[int(_gyr)] = round(float(_gval), 1)
+
+    return {
+        "ss_data_json": json.dumps(_ss_data),
+        "ad_json_str": json.dumps(_ad_by_year),
+        "global_adv_json_str": json.dumps(_global_adv_by_year),
+    }
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _build_revenue_anatomy_json(excel_path: str, source_stamp: int) -> str:
+    """Build revenue anatomy year-data JSON — cached."""
+    _metrics = _load_company_metrics_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
+    _adsheet = _load_company_ad_revenue_sheet(excel_path, source_stamp) if excel_path else pd.DataFrame()
+    _wr_companies = ["Alphabet", "Amazon", "Apple", "Microsoft", "Meta", "Netflix", "Disney", "Comcast", "Spotify", "Roku"]
+    _wr_year_data: dict = {}
+    if _metrics.empty or _adsheet.empty:
+        return json.dumps(_wr_year_data)
+    _wr_ad_lookup: dict = {}
+    for _wr_row_dict in _adsheet.to_dict(orient="records"):
+        try:
+            _wr_yr = int(_wr_row_dict.get("Year", 0))
+        except (TypeError, ValueError):
+            continue
+        for _wr_col in _adsheet.columns:
+            if str(_wr_col).strip().lower() == "year":
+                continue
+            _wr_mapped_co, _ = _map_ad_column_to_company(_wr_col)
+            if _wr_mapped_co:
+                _wr_val = pd.to_numeric(_wr_row_dict.get(_wr_col), errors="coerce")
+                if pd.notna(_wr_val):
+                    _wr_ad_lookup[(_wr_yr, _wr_mapped_co)] = float(_wr_val)
+    for _wr_yr in sorted(_metrics["year"].unique()):
+        _wr_yr_int = int(_wr_yr)
+        if _wr_yr_int < 2015:
+            continue
+        _yr_rows = _metrics[_metrics["year"] == _wr_yr_int]
+        _yr_entries = []
+        for _mr in _yr_rows.itertuples(index=False):
+            _co = str(_mr.company)
+            if _co not in _wr_companies:
+                continue
+            _total_b = float(_mr.revenue) / 1000.0 if pd.notna(_mr.revenue) else 0.0
+            _ad_b = _wr_ad_lookup.get((_wr_yr_int, _co), 0.0)
+            if _total_b > 0:
+                _yr_entries.append({"name": _co, "total": round(_total_b, 1), "ad": round(_ad_b, 1)})
+        if _yr_entries:
+            _wr_year_data[_wr_yr_int] = sorted(_yr_entries, key=lambda x: x["total"], reverse=True)
+    return json.dumps(_wr_year_data)
 
 
 def _build_home_narrative(
@@ -1708,90 +1912,11 @@ if global_adv_df.empty:
             _fb_rows.append({"year": _yr, "metric_type": _mt, "value": float(_val)})
     global_adv_df = pd.DataFrame(_fb_rows)
 
-# Build structural-shift donut data from real channel-level data ($M values)
-_ss_mt_to_ch = {
-    "Free TV": "Free TV", "Pay TV": "Free TV",
-    "Magazine": "Print", "Newspaper": "Print",
-    "Search Desktop": "Digital Search", "Search Mobile": "Digital Search",
-    "Social Desktop": "Digital Social", "Social Mobile": "Digital Social",
-    "Video Desktop": "Digital Video", "Video Mobile": "Digital Video",
-}
-_ss_data: dict = {}
-if not global_adv_df.empty:
-    _ss_keys = ["Free TV", "Print", "Digital Search", "Digital Social", "Digital Video", "Everything Else"]
-    for _ss_yr, _ss_grp in global_adv_df.groupby("year"):
-        _yr_dict: dict = {k: 0.0 for k in _ss_keys}
-        for _, _ss_row in _ss_grp.iterrows():
-            _mt = str(_ss_row.get("metric_type", "")).strip()
-            # Strip trailing " Worldwide" suffix if present
-            _mt = _mt.replace(" Worldwide", "").strip()
-            _ch = _ss_mt_to_ch.get(_mt, "Everything Else")
-            _yr_dict[_ch] += float(_ss_row["value"])
-        if sum(_yr_dict.values()) > 0:
-            _ss_data[int(_ss_yr)] = {k: round(v) for k, v in _yr_dict.items()}
-# ── Fallback: if global_adv_df was empty, use known channel breakdown ($M) ──
-if not _ss_data:
-    logger.warning("Structural-shift data empty — using fallback channel splits")
-    _ss_data = {
-        2010: {"Free TV": 195000, "Print": 108000, "Digital Search": 43000, "Digital Social": 6000, "Digital Video": 5000, "Everything Else": 145000},
-        2012: {"Free TV": 201000, "Print": 96000, "Digital Search": 58000, "Digital Social": 12000, "Digital Video": 8000, "Everything Else": 182000},
-        2014: {"Free TV": 205000, "Print": 82000, "Digital Search": 72000, "Digital Social": 22000, "Digital Video": 14000, "Everything Else": 203000},
-        2016: {"Free TV": 200000, "Print": 68000, "Digital Search": 89000, "Digital Social": 37000, "Digital Video": 22000, "Everything Else": 216000},
-        2018: {"Free TV": 192000, "Print": 54000, "Digital Search": 108000, "Digital Social": 62000, "Digital Video": 36000, "Everything Else": 254000},
-        2019: {"Free TV": 185000, "Print": 46000, "Digital Search": 116000, "Digital Social": 74000, "Digital Video": 42000, "Everything Else": 246000},
-        2020: {"Free TV": 158000, "Print": 34000, "Digital Search": 118000, "Digital Social": 82000, "Digital Video": 48000, "Everything Else": 193000},
-        2021: {"Free TV": 172000, "Print": 30000, "Digital Search": 140000, "Digital Social": 112000, "Digital Video": 62000, "Everything Else": 229000},
-        2022: {"Free TV": 168000, "Print": 27000, "Digital Search": 146000, "Digital Social": 118000, "Digital Video": 72000, "Everything Else": 250000},
-        2023: {"Free TV": 162000, "Print": 24000, "Digital Search": 164000, "Digital Social": 136000, "Digital Video": 86000, "Everything Else": 277000},
-        2024: {"Free TV": 156000, "Print": 21000, "Digital Search": 184000, "Digital Social": 156000, "Digital Video": 102000, "Everything Else": 323000},
-    }
-_ss_data_json = json.dumps(_ss_data)
-
-# Serialize ad revenue data for animated bubble chart JS
-_ad_col_map = {
-    "Google_Ads": "Alphabet", "Meta_Ads": "Meta", "Amazon_Ads": "Amazon",
-    "Spotify_Ads": "Spotify", "*WBD_Ads": "WBD", "*Microsoft_Ads": "Microsoft",
-    "Paramount": "Paramount", "*Apple": "Apple", "*Disney": "Disney",
-    "*Comcast": "Comcast", "Netflix*": "Netflix", "Twitter/X": "Twitter/X",
-    "TikTok": "TikTok", "Snapchat": "Snapchat",
-}
-_ad_by_year: dict = {}
-if not ad_sheet_df.empty:
-    for _, _arow in ad_sheet_df.iterrows():
-        try:
-            _yr = int(_arow["Year"])
-        except (TypeError, ValueError):
-            continue
-        _ad_by_year[_yr] = {}
-        for _col, _name in _ad_col_map.items():
-            _v = _arow.get(_col, None)
-            if _v is not None and pd.notna(_v):
-                try:
-                    _vf = float(_v)
-                    if _vf > 0:
-                        _ad_by_year[_yr][_name] = round(_vf, 2)
-                except (TypeError, ValueError):
-                    pass
-# ── Fallback: if Company_advertising_revenue was empty, use known ad revenue ($B) ──
-if not _ad_by_year:
-    logger.warning("Company_advertising_revenue sheet unavailable — using fallback ad-by-year")
-    _ad_by_year = {
-        2018: {"Alphabet": 136.2, "Meta": 55.0, "Amazon": 10.1, "Apple": 2.0, "Microsoft": 7.0, "Netflix": 0.0, "Comcast": 0.0, "Disney": 0.0, "TikTok": 0.3},
-        2019: {"Alphabet": 162.0, "Meta": 69.7, "Amazon": 14.1, "Apple": 3.0, "Microsoft": 7.7, "Netflix": 0.0, "Comcast": 0.0, "Disney": 0.0, "TikTok": 1.2},
-        2020: {"Alphabet": 147.0, "Meta": 84.2, "Amazon": 19.8, "Apple": 3.5, "Microsoft": 8.0, "Netflix": 0.0, "Comcast": 0.0, "Disney": 0.0, "TikTok": 3.8},
-        2021: {"Alphabet": 209.5, "Meta": 115.7, "Amazon": 31.2, "Apple": 5.0, "Microsoft": 10.0, "Netflix": 0.0, "Comcast": 0.0, "Disney": 0.0, "TikTok": 9.4},
-        2022: {"Alphabet": 224.5, "Meta": 113.6, "Amazon": 37.7, "Apple": 6.0, "Microsoft": 12.0, "Netflix": 0.8, "Comcast": 0.0, "Disney": 0.0, "TikTok": 14.5},
-        2023: {"Alphabet": 223.0, "Meta": 131.9, "Amazon": 46.9, "Apple": 6.5, "Microsoft": 12.2, "Netflix": 1.5, "Comcast": 0.0, "Disney": 0.0, "TikTok": 18.0},
-        2024: {"Alphabet": 237.0, "Meta": 160.0, "Amazon": 56.2, "Apple": 7.0, "Microsoft": 13.0, "Netflix": 2.2, "Comcast": 0.0, "Disney": 0.0, "TikTok": 22.0},
-    }
-_ad_json_str = json.dumps(_ad_by_year)
-
-# Build per-year global ad total for JS denominator (from Global_Adv_Aggregates)
-_global_adv_by_year: dict = {}
-for _gyr, _gval in _global_adv_totals.items():
-    if _gval and _gval > 0:
-        _global_adv_by_year[int(_gyr)] = round(float(_gval), 1)
-_global_adv_json_str = json.dumps(_global_adv_by_year)
+# All heavy loop processing (structural-shift, ad-revenue, global-adv) is cached
+_adv_bundle = _build_ss_ad_json_bundle(excel_path, source_stamp)
+_ss_data_json = _adv_bundle["ss_data_json"]
+_ad_json_str = _adv_bundle["ad_json_str"]
+_global_adv_json_str = _adv_bundle["global_adv_json_str"]
 
 db_path = ROOT_DIR / "earningscall_intelligence.db"
 
@@ -2341,11 +2466,13 @@ def _normalize_market_feed(raw: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values("date")
 
 
-def _load_market_feed() -> pd.DataFrame:
-    if not excel_path and not live_excel_path:
+@st.cache_data(ttl=300, show_spinner=False)
+def _load_market_feed(_excel_path: str, _live_excel_path: str, _source_stamp: int, _live_source_stamp: int) -> pd.DataFrame:
+    """Load & merge all market-feed sheets (Stocks, Daily, Minute) — cached."""
+    if not _excel_path and not _live_excel_path:
         return pd.DataFrame()
-    _src = live_excel_path or excel_path
-    _stamp = live_source_stamp if live_excel_path else source_stamp
+    _src = _live_excel_path or _excel_path
+    _stamp = _live_source_stamp if _live_excel_path else _source_stamp
     # Always merge all three sheets: Stocks & Crypto gives long historical data,
     # Daily gives recent daily closes, Minute gives intraday prices.
     _sheet_priority = [("Stocks & Crypto", 1), ("Daily", 2), ("Minute", 3)]
@@ -2710,7 +2837,7 @@ global_ad_denom = global_ad_denom_raw
 if global_ad_denom and global_ad_denom > 5_000 and total_tracked_b < 5_000:
     global_ad_denom = global_ad_denom / 1_000.0
 untracked_b = max((global_ad_denom or 0) - total_tracked_b, 0.0)
-market_feed_df = _load_market_feed()
+market_feed_df = _load_market_feed(excel_path, live_excel_path, source_stamp, live_source_stamp)
 
 # Hero + KPIs + Narrative block
 # Build hero logo strip — uses white-variant logos (Amazon/Apple)
@@ -3170,42 +3297,10 @@ for _wr_co in _wr_companies:
         _wr_logos[_wr_co] = _wr_b64
 _wr_logos_json = json.dumps(_wr_logos)
 
-# ── Build dynamic yearData from sheets ──
-_wr_year_data: dict[int, list[dict]] = {}
-if not metrics_df.empty and not ad_sheet_df.empty:
-    # metrics_df: company, year, revenue (in $M)
-    # ad_sheet_df: Year + company columns (values in $B)
-    _wr_ad_lookup: dict[tuple[int, str], float] = {}
-    for _, _wr_row in ad_sheet_df.iterrows():
-        _wr_yr = int(_wr_row["Year"])
-        for _wr_col in ad_sheet_df.columns:
-            if str(_wr_col).strip().lower() == "year":
-                continue
-            _wr_mapped_co, _ = _map_ad_column_to_company(_wr_col)
-            if _wr_mapped_co:
-                _wr_val = pd.to_numeric(_wr_row.get(_wr_col), errors="coerce")
-                if pd.notna(_wr_val):
-                    _wr_ad_lookup[(_wr_yr, _wr_mapped_co)] = float(_wr_val)  # already $B
-
-    for _wr_yr in sorted(metrics_df["year"].unique()):
-        _wr_yr_int = int(_wr_yr)
-        if _wr_yr_int < 2015:
-            continue
-        _yr_rows = metrics_df[metrics_df["year"] == _wr_yr_int]
-        _yr_entries = []
-        for _, _mr in _yr_rows.iterrows():
-            _co = str(_mr["company"])
-            if _co not in _wr_companies:
-                continue
-            _total_b = float(_mr["revenue"]) / 1000.0 if pd.notna(_mr["revenue"]) else 0.0
-            _ad_b = _wr_ad_lookup.get((_wr_yr_int, _co), 0.0)
-            if _total_b > 0:
-                _yr_entries.append({"name": _co, "total": round(_total_b, 1), "ad": round(_ad_b, 1)})
-        if _yr_entries:
-            _wr_year_data[_wr_yr_int] = sorted(_yr_entries, key=lambda x: x["total"], reverse=True)
-
-_wr_year_data_json = json.dumps(_wr_year_data)
-_wr_latest_year = max(_wr_year_data.keys()) if _wr_year_data else effective_year
+# Revenue anatomy — cached loop processing
+_wr_year_data_json = _build_revenue_anatomy_json(excel_path, source_stamp)
+_wr_year_data_parsed = json.loads(_wr_year_data_json) if _wr_year_data_json != "{}" else {}
+_wr_latest_year = max(int(k) for k in _wr_year_data_parsed) if _wr_year_data_parsed else effective_year
 _section("REVENUE ANATOMY", "Not all revenue is advertising.",
          f"Total {_wr_latest_year} revenue per company. Orange = ad revenue. Blue = everything else.")
 st.markdown("<div data-ae-section='1' style='width:100%;'>", unsafe_allow_html=True)
@@ -3333,7 +3428,7 @@ try:
 
     # Single batch call reads the Transcripts sheet ONCE instead of 14 times
     _fi_all = extract_forward_looking_signals_batch(
-        excel_path, companies=_FI_COMPANIES, year=int(selected_year), max_signals_per_company=1
+        excel_path, companies=tuple(_FI_COMPANIES), year=int(selected_year), max_signals_per_company=1
     )
 
     _fi_cards: list[dict] = []
@@ -3958,7 +4053,10 @@ def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> li
     if not excel_path:
         return []
     try:
-        df = pd.read_excel(excel_path, sheet_name="Company_subscribers_values")
+        df = _read_excel_sheet_cached(excel_path, "Company_subscribers_values", source_stamp)
+        if df.empty:
+            return []
+        df = df.copy()
         df.columns = [str(c).strip().lower() for c in df.columns]
         if "service" not in df.columns or "subscribers" not in df.columns:
             return []
@@ -4015,6 +4113,7 @@ def _load_platform_subscriber_data(excel_path: str, source_stamp: int = 0) -> li
         return []
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _build_timeline_data(excel_path: str, source_stamp: int = 0) -> dict:
     """Build per-year subscriber counts for globe timeline animation.
 
@@ -4024,7 +4123,10 @@ def _build_timeline_data(excel_path: str, source_stamp: int = 0) -> dict:
     if not excel_path:
         return {}
     try:
-        df = pd.read_excel(excel_path, sheet_name="Company_subscribers_values")
+        df = _read_excel_sheet_cached(excel_path, "Company_subscribers_values", source_stamp)
+        if df.empty:
+            return {}
+        df = df.copy()
         df.columns = [str(c).strip().lower() for c in df.columns]
         if "service" not in df.columns or "subscribers" not in df.columns or "year" not in df.columns:
             return {}

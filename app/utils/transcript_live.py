@@ -799,9 +799,10 @@ def extract_forward_looking_signals(
     return result
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def extract_forward_looking_signals_batch(
     excel_path: str,
-    companies: list[str],
+    companies: tuple[str, ...] | list[str] = (),
     year: int = 0,
     max_signals_per_company: int | None = None,
 ) -> dict[str, list[dict]]:
