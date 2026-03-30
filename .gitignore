@@ -19,5 +19,19 @@ __pycache__/
 node_modules/
 app/attached_assets/live_data.xlsx
 
-# Large transcript CSV — excluded from Docker build, don't track in git
-earningscall_transcripts/transcript_topics.csv
+# Transcripts — app reads from SQLite DB, not raw files
+earningscall_transcripts/
+
+# Generated reports
+reports/*.pdf
+reports/*.json
+reports/dev_manual_assets/
+
+# Old local xlsx — app uses Google Sheets at runtime
+app/attached_assets/Earnings + stocks*.xlsx
+
+# Hero video — 4MB base64'd on load; header.py returns "" gracefully if missing
+app/attached_assets/HeroVideo.mp4
+
+# Hero fallback image — dead code, never rendered
+app/attached_assets/FAQ MFE.png
